@@ -16,9 +16,11 @@
     "db:studio": "cd apps/main && npx drizzle-kit studio",
     "operator:dev": "cd operator && npm run dev",
     "operator:build": "cd operator && npm run build",
-    "operator:start": "cd operator && npm start"
+    "operator:start": "cd operator && npm start",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
+    "@playwright/test": "^1.48.0",
     "turbo": "^2.0.12",
     "typescript": "^5.5.4"
   },
