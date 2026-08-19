@@ -1,0 +1,49 @@
+import { NextResponse } from 'next/server';
+import { neon } from '@neondatabase/serverless';
+
+export const dynamic = 'force-dynamic';
+
+export async function GET() {
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl) {
+    return NextResponse.json({ error: 'DATABASE_URL is not configured' }, { status: 500 });
+  }
+
+  try {
+    const sql = neon(dbUrl);
+
+    // 1. Tenants table
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS description text;`;
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS opening_hours text;`;
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS ai_personality text DEFAULT 'friendly and professional';`;
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS owner_email text;`;
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS system_prompt text;`;
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT NOW();`;
+
+    // 2. Conversations table
+    await sql`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS manual_takeover boolean DEFAULT false;`;
+    await sql`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS is_resolved boolean DEFAULT false;`;
+
+    // 3. Contacts table
+    await sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS blocklisted boolean DEFAULT false;`;
+    await sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS vip boolean DEFAULT false;`;
+    await sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS loyalty_points integer DEFAULT 0;`;
+
+    // 4. Staff members table
+    await sql`
+      CREATE TABLE IF NOT EXISTS staff_members (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id uuid REFERENCES tenants(id) ON DELETE CASCADE,
+        clerk_user_id text NOT NULL,
+        email text,
+        name text,
+        role text NOT NULL DEFAULT 'staff',
+        created_at timestamp DEFAULT NOW()
+      );
+    `;
+
+    return NextResponse.json({ ok: true, message: 'All Neon database columns and tables synchronized successfully' });
+  } catch (err: any) {
+    return NextResponse.json({ error: err.message || 'Migration failed' }, { status: 500 });
+  }
+}

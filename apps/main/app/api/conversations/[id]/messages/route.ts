@@ -62,7 +62,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
   let sentDirectly = false;
   if (convo.waAccountId) {
     try {
-      await operatorClient.sendWhatsAppMessage(convo.waAccountId, convo.contactPhone, content.trim());
+      await operatorClient.sendMessage(convo.waAccountId, convo.contactPhone, content.trim());
       sentDirectly = true;
     } catch {
       // Operator fallback
