@@ -6,6 +6,8 @@ import { eq, desc } from 'drizzle-orm';
 import { MessageSquare, Phone } from 'lucide-react';
 import { getOrCreateTenant } from '@/lib/tenant';
 
+import Link from 'next/link';
+
 export const dynamic = 'force-dynamic';
 
 export default async function InboxPage() {
@@ -37,7 +39,7 @@ export default async function InboxPage() {
   return (
     <div className="flex h-[calc(100vh-8rem)] overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900/50 shadow-sm">
       {/* Left Sidebar: Conversations List */}
-      <div className="w-1/3 border-r border-zinc-800 overflow-y-auto">
+      <div className="w-full md:w-1/3 border-r border-zinc-800 overflow-y-auto">
         <div className="p-4 border-b border-zinc-800 bg-zinc-900/80">
           <h2 className="text-base font-semibold text-zinc-100">Live Inbox</h2>
         </div>
@@ -49,17 +51,22 @@ export default async function InboxPage() {
         ) : (
           <ul className="divide-y divide-zinc-800">
             {convos.map((c) => (
-              <li key={c.id} className="p-4 hover:bg-zinc-800/50 cursor-pointer transition-colors">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium text-zinc-50 text-sm">{c.contactName || c.contactPhone}</span>
-                  <span className="text-xs text-zinc-500">
-                    {c.lastMessageAt?.toLocaleDateString()}
-                  </span>
-                </div>
-                <p className="text-xs text-zinc-400 truncate mt-1 flex items-center gap-1">
-                  <Phone className="w-3 h-3 text-zinc-500" />
-                  {c.contactPhone}
-                </p>
+              <li key={c.id}>
+                <Link
+                  href={`/dashboard/inbox/${c.id}`}
+                  className="block p-4 hover:bg-zinc-800/50 transition-colors"
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium text-zinc-50 text-sm">{c.contactName || c.contactPhone}</span>
+                    <span className="text-xs text-zinc-500">
+                      {c.lastMessageAt?.toLocaleDateString()}
+                    </span>
+                  </div>
+                  <p className="text-xs text-zinc-400 truncate mt-1 flex items-center gap-1">
+                    <Phone className="w-3 h-3 text-zinc-500" />
+                    {c.contactPhone}
+                  </p>
+                </Link>
               </li>
             ))}
           </ul>

@@ -83,32 +83,63 @@ export async function processInboundAIResponse(ctx: InboundContext): Promise<str
   }
 
   if (lower.includes('hour') || lower.includes('open') || lower.includes('location') || lower.includes('address')) {
-    return `📍 *${tenant.name}*\n🕒 Trading Hours:\n• Mon - Fri: 11:30 AM - 10:00 PM\n• Sat - Sun: 09:00 AM - 11:00 PM\n\nWe look forward to welcoming you!`;
+    const hours = tenant.openingHours || 'Mon - Sun: 11:30 AM - 10:00 PM';
+    return `📍 *${tenant.name}*\n🕒 Trading Hours:\n${hours}\n\nWe look forward to welcoming you!`;
   }
 
-  // 6. Intelligent Contextual AI Fallback (Gemini / Groq / Anthropic)
+  // 6. Intelligent Contextual AI Fallback (Groq / Gemini / OpenAI)
   try {
-    const apiKey = process.env.GOOGLE_GEMINI_API_KEY || process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
-    if (apiKey && process.env.GOOGLE_GEMINI_API_KEY) {
-      const prompt = `You are the friendly, professional WhatsApp Concierge for ${tenant.name}.
-Business context: A premier restaurant and hospitality venue.
+    const groqKey = process.env.GROQ_API_KEY;
+    const geminiKey = process.env.GOOGLE_GEMINI_API_KEY;
+
+    const basePrompt = tenant.systemPrompt || `You are the ${tenant.aiPersonality || 'warm, friendly, and hospitable'} WhatsApp Concierge for ${tenant.name}.
+Business details: ${tenant.description || 'A premier restaurant and hospitality venue.'}
+Trading hours: ${tenant.openingHours || 'Monday - Sunday: 11:30 AM - 10:00 PM'}
 Customer Name: ${senderName}
 Customer Message: "${text}"
 
 Guidelines:
-- Keep response under 3-4 sentences (optimized for mobile WhatsApp reading).
-- Be polite, helpful, and hospitality-focused.
+- Keep response concise (1-3 sentences) suited for mobile messaging.
+- Match the brand tone: ${tenant.aiPersonality || 'hospitable and professional'}.
 - If asking about bookings, invite them to share date, time, and party size.
 - If asking for a human manager, inform them our floor manager has been alerted.`;
 
+    // 6a. Try Groq (Llama 3 70B / 8B - ultra-fast)
+    if (groqKey) {
+      const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${groqKey}`,
+        },
+        body: JSON.stringify({
+          model: 'llama-3.1-8b-instant',
+          messages: [
+            { role: 'system', content: basePrompt },
+            { role: 'user', content: text },
+          ],
+          max_tokens: 180,
+          temperature: 0.7,
+        }),
+      });
+
+      if (groqRes.ok) {
+        const data = await groqRes.json();
+        const generated = data.choices?.[0]?.message?.content;
+        if (generated) return generated.trim();
+      }
+    }
+
+    // 6b. Try Gemini 1.5 Flash
+    if (geminiKey) {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GOOGLE_GEMINI_API_KEY}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 200, temperature: 0.7 },
+            contents: [{ parts: [{ text: `${basePrompt}\n\nCustomer: ${text}` }] }],
+            generationConfig: { maxOutputTokens: 180, temperature: 0.7 },
           }),
         }
       );
