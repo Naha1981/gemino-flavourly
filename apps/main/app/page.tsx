@@ -1,135 +1,166 @@
+'use client';
+
 import Link from 'next/link';
-import {
-  MessageSquare,
-  Zap,
-  ShieldCheck,
-  QrCode,
-  Users,
-  BarChart3,
-  Bot,
-  ArrowRight,
-  Sparkles,
-  Layers,
-} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs';
+import { ArrowRight, CalendarCheck, Timer, TrendingUp } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
-export default function HomePage() {
+export default function LandingPage() {
+  const router = useRouter();
+
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col justify-between selection:bg-zinc-800">
-      {/* Navigation Header */}
-      <header className="border-b border-zinc-800/80 backdrop-blur-md sticky top-0 z-50 bg-zinc-950/80">
-        <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-zinc-100 text-zinc-950 flex items-center justify-center font-bold text-lg shadow-sm">
+    <div className="min-h-screen bg-zinc-950 text-zinc-50 antialiased">
+      {/* ── Nav ─────────────────────────────────────────── */}
+      <header className="border-b border-zinc-800/80">
+        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+          {/* Double-click logo = Super Admin (hidden door) */}
+          <button
+            type="button"
+            onDoubleClick={() => router.push('/admin')}
+            className="flex select-none items-center gap-3 transition-transform active:scale-95 text-left"
+            title="Gemino AI (Double-click for Admin)"
+          >
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 text-lg font-bold text-zinc-900 shadow-sm">
               G
-            </div>
-            <span className="font-semibold text-lg tracking-tight text-zinc-50">Gemino AI</span>
-            <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-950/60 border border-emerald-800 text-emerald-400 font-medium">
-              v1.0 Live
             </span>
-          </div>
+            <span className="text-lg font-semibold tracking-tight">Gemino AI</span>
+          </button>
 
-          <div className="flex items-center gap-4">
-            <Link
-              href="/admin"
-              className="text-xs text-zinc-400 hover:text-zinc-200 transition-colors font-medium"
-            >
-              Super Admin
-            </Link>
-            <Link
-              href="/dashboard"
-              className="px-4 py-2 text-xs font-medium bg-zinc-100 text-zinc-950 rounded-md hover:bg-zinc-200 transition-all flex items-center gap-1.5 shadow-sm"
-            >
-              Launch Dashboard
-              <ArrowRight className="w-3.5 h-3.5" />
-            </Link>
-          </div>
+          <nav className="flex items-center gap-3">
+            <SignedOut>
+              <SignInButton>
+                <button className="rounded-md px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:text-white">
+                  Sign In
+                </button>
+              </SignInButton>
+              <SignUpButton>
+                <button className="rounded-md bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-900 transition-colors hover:bg-white shadow-sm">
+                  Get Started
+                </button>
+              </SignUpButton>
+            </SignedOut>
+            <SignedIn>
+              <Link
+                href="/dashboard"
+                className="rounded-md bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-900 transition-colors hover:bg-white shadow-sm"
+              >
+                Open Dashboard
+              </Link>
+              <UserButton afterSignOutUrl="/" />
+            </SignedIn>
+          </nav>
         </div>
       </header>
 
-      {/* Hero Section */}
-      <main className="flex-1">
-        <section className="max-w-5xl mx-auto px-6 pt-24 pb-20 text-center space-y-8">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-zinc-800 bg-zinc-900/60 text-zinc-300 text-xs font-medium">
-            <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Direct Linked-Devices WhatsApp WebSocket Architecture</span>
-          </div>
-
-          <h1 className="text-4xl sm:text-6xl font-semibold tracking-tight text-zinc-100 max-w-4xl mx-auto leading-[1.15]">
-            Autonomous WhatsApp Operations & AI Concierge for Modern Businesses
+      <main>
+        {/* ── Hero ──────────────────────────────────────── */}
+        <section className="mx-auto max-w-4xl px-6 pb-16 pt-24 text-center">
+          <p className="mb-6 inline-block rounded-full border border-zinc-700 bg-zinc-900/60 px-4 py-1.5 text-xs font-medium text-zinc-300 shadow-sm">
+            Built for restaurants that live on WhatsApp
+          </p>
+          <h1 className="text-5xl font-bold leading-tight tracking-tight sm:text-6xl text-zinc-50">
+            Every WhatsApp message answered. Every table filled.
           </h1>
-
-          <p className="text-zinc-400 text-lg sm:text-xl max-w-2xl mx-auto font-normal leading-relaxed">
-            Zero per-message Twilio fees. Persistent 24/7 Baileys Linked Device sockets. Multi-tenant table bookings, instant waitlist dispatch, and loyalty automation.
+          <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-zinc-400">
+            Your customers already message you on WhatsApp. Gemino replies in seconds —
+            books the table, joins the waitlist, takes the deposit — while you run the
+            floor. Because a missed message is a customer eating somewhere else.
           </p>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            <Link
-              href="/dashboard"
-              className="w-full sm:w-auto px-6 py-3.5 text-sm font-medium bg-zinc-100 text-zinc-950 rounded-lg hover:bg-zinc-200 transition-all flex items-center justify-center gap-2 shadow-md"
-            >
-              <QrCode className="w-4 h-4" />
-              Connect WhatsApp Account
-            </Link>
-            <Link
-              href="/admin"
-              className="w-full sm:w-auto px-6 py-3.5 text-sm font-medium bg-zinc-900 border border-zinc-800 text-zinc-200 rounded-lg hover:bg-zinc-800 transition-all flex items-center justify-center gap-2"
-            >
-              <ShieldCheck className="w-4 h-4 text-emerald-400" />
-              Platform Super Admin
-            </Link>
+          <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
+            <SignedOut>
+              <SignUpButton>
+                <button className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-md bg-emerald-500 px-6 py-3.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 shadow-md">
+                  Get Started — 5 Minute Setup <ArrowRight className="h-4 w-4" />
+                </button>
+              </SignUpButton>
+              <SignInButton>
+                <button className="w-full sm:w-auto rounded-md border border-zinc-700 px-6 py-3.5 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-900">
+                  Sign In
+                </button>
+              </SignInButton>
+            </SignedOut>
+            <SignedIn>
+              <Link
+                href="/dashboard"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-md bg-emerald-500 px-6 py-3.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 shadow-md"
+              >
+                Open Your Dashboard <ArrowRight className="h-4 w-4" />
+              </Link>
+            </SignedIn>
+          </div>
+          <p className="mt-4 text-xs text-zinc-500">
+            No app for your customers. They just WhatsApp you, like always.
+          </p>
+        </section>
+
+        {/* ── Outcomes, not features ────────────────────── */}
+        <section className="mx-auto max-w-6xl px-6 pb-20">
+          <div className="grid gap-6 md:grid-cols-3">
+            <OutcomeCard
+              icon={Timer}
+              title="Replies in 3 seconds, 24/7"
+              body="Your best host never sleeps. Every customer gets an instant, friendly reply — 2pm or 2am — so they never take their booking to a competitor."
+            />
+            <OutcomeCard
+              icon={CalendarCheck}
+              title="Tables book themselves"
+              body="Bookings, waitlists, deposits and reminders all happen inside the WhatsApp chat. No-shows drop. Quiet nights fill up."
+            />
+            <OutcomeCard
+              icon={TrendingUp}
+              title="Guests keep coming back"
+              body="Gemino remembers your regulars, rewards them automatically, and quietly wins back anyone who hasn't visited in a while."
+            />
           </div>
         </section>
 
-        {/* Feature Grid */}
-        <section className="max-w-6xl mx-auto px-6 py-16">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="p-6 rounded-xl border border-zinc-800/80 bg-zinc-900/40 space-y-3">
-              <div className="p-2.5 w-fit rounded-lg bg-zinc-800/80 text-zinc-200">
-                <Bot className="w-5 h-5 text-emerald-400" />
-              </div>
-              <h3 className="text-base font-semibold text-zinc-100">Direct Linked Devices</h3>
-              <p className="text-sm text-zinc-400 leading-relaxed">
-                Connect real WhatsApp numbers via QR scan. Persistent background socket daemon on Render with Postgres credential synchronization.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-xl border border-zinc-800/80 bg-zinc-900/40 space-y-3">
-              <div className="p-2.5 w-fit rounded-lg bg-zinc-800/80 text-zinc-200">
-                <ShieldCheck className="w-5 h-5 text-blue-400" />
-              </div>
-              <h3 className="text-base font-semibold text-zinc-100">Outbox Pattern & HMAC</h3>
-              <p className="text-sm text-zinc-400 leading-relaxed">
-                Guaranteed outbound delivery with exponential retry backoff. Webhooks signed with HMAC-SHA256 and POPIA opt-out compliance.
-              </p>
-            </div>
-
-            <div className="p-6 rounded-xl border border-zinc-800/80 bg-zinc-900/40 space-y-3">
-              <div className="p-2.5 w-fit rounded-lg bg-zinc-800/80 text-zinc-200">
-                <Layers className="w-5 h-5 text-purple-400" />
-              </div>
-              <h3 className="text-base font-semibold text-zinc-100">Multi-Tenant Isolation</h3>
-              <p className="text-sm text-zinc-400 leading-relaxed">
-                One shared operator routes incoming messages to infinite isolated tenants and independent app instances seamlessly.
-              </p>
+        {/* ── How it works ──────────────────────────────── */}
+        <section className="border-t border-zinc-800/80 py-20 bg-zinc-950/50">
+          <div className="mx-auto max-w-6xl px-6">
+            <h2 className="text-center text-2xl font-semibold text-zinc-100">Live in 5 minutes</h2>
+            <div className="mt-12 grid gap-8 md:grid-cols-3">
+              <Step n="1" title="Create your account" body="One email and a password. That's it." />
+              <Step n="2" title="Scan the QR code" body="Link your restaurant's WhatsApp exactly like WhatsApp Web." />
+              <Step n="3" title="Watch it work" body="Send a test message, get an instant AI reply, see it all in your dashboard." />
             </div>
           </div>
         </section>
       </main>
 
-      {/* Footer */}
-      <footer className="border-t border-zinc-800/80 py-8 px-6 text-center text-xs text-zinc-500">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>© {new Date().getFullYear()} Gemino Multi-Tenant WhatsApp Platform. Production Grade.</p>
-          <div className="flex items-center gap-6">
-            <Link href="/dashboard" className="hover:text-zinc-300 transition-colors">
-              Tenant Portal
-            </Link>
-            <Link href="/admin" className="hover:text-zinc-300 transition-colors">
-              Super Admin
-            </Link>
-          </div>
+      <footer className="border-t border-zinc-800/80 py-8">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 text-sm text-zinc-500">
+          <span>© {new Date().getFullYear()} Gemino AI. Your restaurant, always on.</span>
+          <Link href="/dashboard" className="transition-colors hover:text-zinc-300 text-xs">
+            Tenant Portal
+          </Link>
         </div>
       </footer>
+    </div>
+  );
+}
+
+function OutcomeCard({ icon: Icon, title, body }: { icon: LucideIcon; title: string; body: string }) {
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6 hover:border-zinc-700 transition-colors">
+      <div className="mb-4 inline-flex rounded-md bg-zinc-800 p-2.5">
+        <Icon className="h-5 w-5 text-emerald-400" />
+      </div>
+      <h3 className="mb-2 font-semibold text-zinc-50">{title}</h3>
+      <p className="text-sm leading-relaxed text-zinc-400">{body}</p>
+    </div>
+  );
+}
+
+function Step({ n, title, body }: { n: string; title: string; body: string }) {
+  return (
+    <div className="text-center space-y-2">
+      <div className="mx-auto mb-4 flex h-10 w-10 items-center justify-center rounded-full border border-zinc-700 text-sm font-semibold text-emerald-400 bg-zinc-900 shadow-inner">
+        {n}
+      </div>
+      <h3 className="font-semibold text-zinc-50 text-base">{title}</h3>
+      <p className="text-sm text-zinc-400 max-w-xs mx-auto leading-relaxed">{body}</p>
     </div>
   );
 }
