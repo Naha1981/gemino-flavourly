@@ -141,7 +141,7 @@ npm run dev
 
 ### 2. Deploy the Main App to Vercel
 1. Import your Git repository into Vercel.
-2. The root directory will build using the pre-configured `vercel.json`.
+2. The root directory will build using the pre-configured `vercel.json` (100% compatible with Vercel Free Hobby plan).
 3. Set environment variables in Vercel project settings:
    - `DATABASE_URL` = Neon Postgres URL
    - `OPERATOR_URL` = `https://your-operator.onrender.com`
@@ -149,8 +149,23 @@ npm run dev
    - `WEBHOOK_SECRET` = (Same secret from Operator)
    - `CLERK_SECRET_KEY` & `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
    - `ADMIN_EMAIL` = Your email address
-   - `GOOGLE_GEMINI_API_KEY` = Your Gemini API key
-4. Deploy. Vercel Crons will automatically trigger `/api/cron/outbox` every minute.
+   - `GROQ_API_KEY` = Your Groq API key
+4. Deploy.
+
+### 3. Set Up Free External Cron Jobs (cron-job.org)
+Since Vercel Hobby limits cron frequencies, set up free external cron triggers on [cron-job.org](https://cron-job.org):
+1. **Outbox Message Worker (Every 1 minute)**:
+   - URL: `https://your-app.vercel.app/api/cron/outbox`
+   - Schedule: Every 1 minute
+2. **Daily Analytics Brief (Daily at 07:00 AM)**:
+   - URL: `https://your-app.vercel.app/api/cron/daily-brief`
+   - Schedule: Every day at 07:00
+3. **Waitlist Expiration Cleaner (Every 15 minutes)**:
+   - URL: `https://your-app.vercel.app/api/cron/waitlist`
+   - Schedule: Every 15 minutes
+4. **Keep Render Operator Awake (Every 5 minutes)**:
+   - URL: `https://your-operator.onrender.com/health`
+   - Schedule: Every 5 minutes
 
 ---
 

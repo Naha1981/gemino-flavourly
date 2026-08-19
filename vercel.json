@@ -2,19 +2,5 @@
   "buildCommand": "cd apps/main && npm run build",
   "outputDirectory": "apps/main/.next",
   "installCommand": "npm install",
-  "framework": "nextjs",
-  "crons": [
-    {
-      "path": "/api/cron/outbox",
-      "schedule": "* * * * *"
-    },
-    {
-      "path": "/api/cron/daily-brief",
-      "schedule": "0 7 * * *"
-    },
-    {
-      "path": "/api/cron/waitlist",
-      "schedule": "*/15 * * * *"
-    }
-  ]
+  "framework": "nextjs"
 }
