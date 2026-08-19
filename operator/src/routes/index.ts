@@ -12,7 +12,7 @@ export function setupRoutes(app: Express) {
     if (requiredKey && key !== requiredKey) {
       return res.status(401).json({ error: 'Unauthorized: Invalid x-api-key header' });
     }
-    next();
+    return next();
   };
 
   // Protected Operator REST endpoints
