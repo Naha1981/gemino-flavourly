@@ -1,54 +1,30 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextResponse } from 'next/server';
+import { getOrCreateTenant } from '@/lib/tenant';
 import { db } from '@/lib/db';
-import { waAccounts, tenants } from '@/lib/db/schema';
+import { waAccounts } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { operatorClient } from '@/lib/operator-client';
 
 export const runtime = 'nodejs';
+export const maxDuration = 30;
 
-export async function POST(req: NextRequest) {
-  try {
-    const { tenantId } = await req.json();
+export async function POST() {
+  const tenant = await getOrCreateTenant();
+  if (!tenant) return NextResponse.json({ error: 'Sign in first.' }, { status: 401 });
 
-    if (!tenantId) {
-      return NextResponse.json({ error: 'tenantId is required' }, { status: 400 });
-    }
+  const [account] = await db.select().from(waAccounts).where(eq(waAccounts.tenantId, tenant.id)).limit(1);
+  if (!account) return NextResponse.json({ error: 'No WhatsApp account found.' }, { status: 404 });
 
-    // Find or create wa_account for this tenant
-    let waAccount = await db.query.waAccounts.findFirst({
-      where: eq(waAccounts.tenantId, tenantId),
-    });
+  const resp = await fetch(`${process.env.OPERATOR_URL}/start`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': process.env.OPERATOR_API_KEY!,
+    },
+    body: JSON.stringify({ waAccountId: account.id }),
+    cache: 'no-store',
+  });
 
-    if (!waAccount) {
-      const [newAccount] = await db
-        .insert(waAccounts)
-        .values({
-          tenantId,
-          isConnected: false,
-          status: 'connecting',
-        })
-        .returning();
-      waAccount = newAccount;
-    }
-
-    // Command Operator to start socket
-    const opResult = await operatorClient.startSocket(waAccount.id);
-
-    if (!opResult.success) {
-      return NextResponse.json(
-        { error: opResult.error || 'Failed to start WhatsApp socket on operator engine' },
-        { status: 502 }
-      );
-    }
-
-    // Return the current state (QR code string or connected status)
-    return NextResponse.json({
-      success: true,
-      waAccountId: waAccount.id,
-      isConnected: opResult.isConnected,
-      qrCode: opResult.qrCode,
-    });
-  } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'Server error' }, { status: 500 });
-  }
+  const data = await resp.json().catch(() => ({}));
+  if (!resp.ok) return NextResponse.json({ error: data?.error || 'WhatsApp engine unreachable.' }, { status: 502 });
+  return NextResponse.json({ ok: true });
 }
