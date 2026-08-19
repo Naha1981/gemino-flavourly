@@ -1,0 +1,28 @@
+{
+  "name": "gemino-platform",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Multi-Tenant WhatsApp AI SaaS Platform (Direct Baileys Architecture)",
+  "workspaces": [
+    "apps/*",
+    "operator"
+  ],
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "db:generate": "cd apps/main && npx drizzle-kit generate",
+    "db:migrate": "cd apps/main && npx drizzle-kit migrate",
+    "db:studio": "cd apps/main && npx drizzle-kit studio",
+    "operator:dev": "cd operator && npm run dev",
+    "operator:build": "cd operator && npm run build",
+    "operator:start": "cd operator && npm start"
+  },
+  "devDependencies": {
+    "turbo": "^2.0.12",
+    "typescript": "^5.5.4"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}

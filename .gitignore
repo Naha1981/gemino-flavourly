@@ -1,0 +1,48 @@
+# Dependencies
+node_modules
+.pnp
+.pnp.js
+
+# Testing
+/coverage
+
+# Next.js build output
+.next/
+out/
+
+# Operator build output
+dist/
+/operator/dist
+
+# Production
+build
+
+# Misc
+.DS_Store
+*.pem
+
+# Debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Local environment files - NEVER COMMIT SECRETS
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+*.env
+*.env.local
+apps/main/.env
+apps/main/.env.local
+operator/.env
+operator/.env.local
+
+# Vercel & Turbo
+.vercel
+.turbo
+
+# TypeScript cache
+*.tsbuildinfo
+next-env.d.ts

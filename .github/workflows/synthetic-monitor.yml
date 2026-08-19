@@ -1,0 +1,31 @@
+name: Operator & Main App Synthetic Health Monitor
+
+on:
+  schedule:
+    # Run every hour to ensure Render operator doesn't sleep and stays connected
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Operator Health
+        run: |
+          OPERATOR_URL="${{ vars.OPERATOR_URL || 'https://gemino-operator.onrender.com' }}"
+          STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$OPERATOR_URL/health")
+          echo "Operator health check status: $STATUS_CODE"
+          if [ "$STATUS_CODE" -ne 200 ]; then
+            echo "Operator is down or returned non-200 status!"
+            exit 1
+          fi
+
+      - name: Ping Main App Landing
+        run: |
+          MAIN_APP_URL="${{ vars.MAIN_APP_URL || 'https://gemino-main.vercel.app' }}"
+          STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$MAIN_APP_URL")
+          echo "Main app health check status: $STATUS_CODE"
+          if [ "$STATUS_CODE" -ne 200 ]; then
+            echo "Main app returned non-200 status!"
+            exit 1
+          fi

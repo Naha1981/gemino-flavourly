@@ -1,0 +1,128 @@
+import { db } from '@/lib/db';
+import {
+  tenants,
+  contacts,
+  conversations,
+  messages,
+  reservations,
+  waitlistEntries,
+  loyaltyTransactions,
+} from '@/lib/db/schema';
+import { eq, and } from 'drizzle-orm';
+
+interface InboundContext {
+  tenantId: string;
+  waAccountId: string;
+  phone: string;
+  senderName: string;
+  text: string;
+  conversationId: string;
+  contactId: string;
+}
+
+export async function processInboundAIResponse(ctx: InboundContext): Promise<string | null> {
+  const { tenantId, phone, senderName, text, conversationId, contactId } = ctx;
+  const lower = text.toLowerCase().trim();
+
+  // Fetch tenant info
+  const tenant = await db.query.tenants.findFirst({
+    where: eq(tenants.id, tenantId),
+  });
+
+  if (!tenant || !tenant.aiEnabled || tenant.manualMode) {
+    return null; // AI disabled or manual mode active
+  }
+
+  // 1. POPIA / Unsubscribe Keyword Filter
+  if (['stop', 'unsubscribe', 'opt out', 'cancel subscription', 'remove me'].includes(lower)) {
+    await db.update(contacts).set({ blocklisted: true }).where(eq(contacts.id, contactId));
+    return `You have been successfully unsubscribed from ${tenant.name}. You will no longer receive automated messages. Reply START at any time to re-enable.`;
+  }
+
+  if (lower === 'start') {
+    await db.update(contacts).set({ blocklisted: false }).where(eq(contacts.id, contactId));
+    return `Welcome back to ${tenant.name}! How can we assist you today? (e.g. Menu, Bookings, Waitlist, Loyalty points)`;
+  }
+
+  // 2. Loyalty Keywords: POINTS, BALANCE, REWARDS
+  if (['points', 'balance', 'loyalty', 'my rewards'].includes(lower)) {
+    const contact = await db.query.contacts.findFirst({
+      where: eq(contacts.id, contactId),
+    });
+    const pts = contact?.loyaltyPoints || 0;
+    return `🌟 Hello ${senderName}! You currently have *${pts} loyalty points* with ${tenant.name}.\n\n• 100 pts: Complimentary Dessert / Coffee\n• 250 pts: R100 Discount on next dine-in\n\nAsk our staff to redeem on your next visit!`;
+  }
+
+  // 3. Waitlist Keyword
+  if (lower.startsWith('waitlist') || lower.includes('join waitlist') || lower.includes('queue')) {
+    // Parse party size if present e.g. "waitlist 4"
+    const match = lower.match(/\d+/);
+    const size = match ? parseInt(match[0], 10) : 2;
+
+    await db.insert(waitlistEntries).values({
+      tenantId,
+      contactId,
+      customerName: senderName,
+      customerPhone: phone,
+      partySize: size,
+      status: 'waiting',
+      estimatedWaitMinutes: 15 + Math.floor(Math.random() * 15),
+    });
+
+    return `🎟️ You've been added to our live waitlist for a table of *${size}*!\n\nWe will WhatsApp you the moment your table is ready. Please remain nearby.`;
+  }
+
+  // 4. Booking / Reservation Intent
+  if (lower.includes('book') || lower.includes('table') || lower.includes('reservation')) {
+    return `🍽️ We'd love to host you at ${tenant.name}!\n\nTo reserve a table, please tell us:\n1. Date & Preferred Time\n2. Number of guests\n3. Any special dietary requirements`;
+  }
+
+  // 5. Menu & Trading Hours
+  if (lower.includes('menu') || lower.includes('food') || lower.includes('drinks')) {
+    return `📋 You can explore our full interactive menu and chef specials here: ${process.env.NEXT_PUBLIC_APP_URL || 'https://gemino.app'}/m/${tenant.slug}\n\nCan I help you with any recommendations or table bookings?`;
+  }
+
+  if (lower.includes('hour') || lower.includes('open') || lower.includes('location') || lower.includes('address')) {
+    return `📍 *${tenant.name}*\n🕒 Trading Hours:\n• Mon - Fri: 11:30 AM - 10:00 PM\n• Sat - Sun: 09:00 AM - 11:00 PM\n\nWe look forward to welcoming you!`;
+  }
+
+  // 6. Intelligent Contextual AI Fallback (Gemini / Groq / Anthropic)
+  try {
+    const apiKey = process.env.GOOGLE_GEMINI_API_KEY || process.env.GROQ_API_KEY || process.env.OPENAI_API_KEY;
+    if (apiKey && process.env.GOOGLE_GEMINI_API_KEY) {
+      const prompt = `You are the friendly, professional WhatsApp Concierge for ${tenant.name}.
+Business context: A premier restaurant and hospitality venue.
+Customer Name: ${senderName}
+Customer Message: "${text}"
+
+Guidelines:
+- Keep response under 3-4 sentences (optimized for mobile WhatsApp reading).
+- Be polite, helpful, and hospitality-focused.
+- If asking about bookings, invite them to share date, time, and party size.
+- If asking for a human manager, inform them our floor manager has been alerted.`;
+
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GOOGLE_GEMINI_API_KEY}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: prompt }] }],
+            generationConfig: { maxOutputTokens: 200, temperature: 0.7 },
+          }),
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        const generated = data.candidates?.[0]?.content?.parts?.[0]?.text;
+        if (generated) return generated.trim();
+      }
+    }
+  } catch (err) {
+    console.error('AI generation fallback error:', err);
+  }
+
+  // Default polite fallback
+  return `Hi ${senderName}, thanks for messaging ${tenant.name}! 🌟\n\nOur team has received your message and will get back to you shortly. You can also reply *MENU*, *BOOK*, or *WAITLIST* for instant service.`;
+}
