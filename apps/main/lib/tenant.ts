@@ -7,23 +7,34 @@ export async function getOrCreateTenant() {
   const { userId } = await auth();
   if (!userId) return null;
 
-  const user = await clerkClient.users.getUser(userId);
-  const meta = (user.publicMetadata || {}) as { tenantId?: string };
+  const client = typeof clerkClient === 'function' ? await (clerkClient as any)() : clerkClient;
+  const user = await client.users.getUser(userId).catch(() => null);
+  const meta = ((user?.publicMetadata as any) || {}) as { tenantId?: string };
 
   if (meta.tenantId) {
-    const [t] = await db.select().from(tenants).where(eq(tenants.id, meta.tenantId)).limit(1);
+    const [t] = await db.select().from(tenants).where(eq(tenants.id, meta.tenantId)).limit(1).catch(() => []);
     if (t) return t;
   }
 
-  const email = user.emailAddresses[0]?.emailAddress || 'unknown';
-  const name = email.split('@')[0];
+  const email = user?.emailAddresses?.[0]?.emailAddress || 'unknown';
+  const name = email.split('@')[0] || `Restaurant-${userId.slice(-4)}`;
   const slug = `t-${userId.slice(-8)}`;
 
-  const [tenant] = await db.insert(tenants).values({ name, slug }).returning();
-  await db.insert(waAccounts).values({ tenantId: tenant.id });
-  await clerkClient.users.updateUserMetadata(userId, {
-    publicMetadata: { tenantId: tenant.id },
-  });
+  // Check if tenant with this slug already exists to prevent unique constraint violation
+  const [existingTenant] = await db.select().from(tenants).where(eq(tenants.slug, slug)).limit(1).catch(() => []);
+  if (existingTenant) {
+    return existingTenant;
+  }
+
+  const [tenant] = await db.insert(tenants).values({ name, slug, ownerEmail: email }).returning();
+  if (tenant) {
+    await db.insert(waAccounts).values({ tenantId: tenant.id }).catch(() => null);
+    if (client?.users?.updateUserMetadata) {
+      await client.users.updateUserMetadata(userId, {
+        publicMetadata: { tenantId: tenant.id },
+      }).catch(() => null);
+    }
+  }
 
   return tenant;
 }
