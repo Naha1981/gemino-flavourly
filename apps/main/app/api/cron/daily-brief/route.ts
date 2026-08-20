@@ -2,11 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { tenants, messages, reservations, waitlistEntries, jobs, waAccounts } from '@/lib/db/schema';
 import { eq, sql, and } from 'drizzle-orm';
+import { assertCronAuthorized } from '@/lib/cron/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
+  const authError = assertCronAuthorized(req);
+  if (authError) return authError;
+
   // Morning brief for restaurant owners (e.g. 7 AM daily)
   const allTenants = await db.query.tenants.findMany({
     where: eq(tenants.aiEnabled, true),

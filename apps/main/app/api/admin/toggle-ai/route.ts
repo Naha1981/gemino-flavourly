@@ -2,18 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { systemSettings, tenants } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
-import { auth } from '@clerk/nextjs/server';
+import { isSuperAdmin } from '@/lib/auth/is-super-admin';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, sessionClaims } = await auth();
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@yourdomain.com';
-
-    // Verify admin access
-    const userEmail = (sessionClaims as any)?.email || (sessionClaims as any)?.primary_email;
-    if (!userId || (userEmail && userEmail !== adminEmail && process.env.NODE_ENV === 'production')) {
+    // isSuperAdmin() fails closed on any missing/unresolvable identity —
+    // unlike the previous check here, which trusted sessionClaims.email
+    // (usually undefined) and silently let any signed-in user through
+    // whenever that field was empty.
+    if (!(await isSuperAdmin())) {
       return NextResponse.json({ error: 'Unauthorized: Super Admin access required' }, { status: 403 });
     }
 

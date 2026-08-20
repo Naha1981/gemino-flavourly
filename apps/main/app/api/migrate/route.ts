@@ -1,9 +1,19 @@
 import { NextResponse } from 'next/server';
 import { neon } from '@neondatabase/serverless';
+import { isSuperAdmin } from '@/lib/auth/is-super-admin';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  // This endpoint runs schema DDL against production. It was previously
+  // public and unauthenticated — anyone who found the URL could hit it.
+  // Gated the same way as the Super Admin dashboard: staff_members role
+  // OR ADMIN_EMAIL/SUPER_ADMIN_EMAILS allowlist, checked via a live Clerk
+  // API call rather than session claims.
+  if (!(await isSuperAdmin())) {
+    return NextResponse.json({ error: 'Unauthorized: Super Admin access required' }, { status: 403 });
+  }
+
   const dbUrl = process.env.DATABASE_URL;
   if (!dbUrl) {
     return NextResponse.json({ error: 'DATABASE_URL is not configured' }, { status: 500 });

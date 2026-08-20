@@ -3,18 +3,14 @@ import { db } from '@/lib/db';
 import { jobs } from '@/lib/db/schema';
 import { and, eq, lte, lt } from 'drizzle-orm';
 import { operatorClient } from '@/lib/operator-client';
+import { assertCronAuthorized } from '@/lib/cron/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization');
-  const cronSecret = process.env.CRON_SECRET;
-
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
-    // In production Vercel Cron sends Bearer token if CRON_SECRET is configured
-    // Allow local development check
-  }
+  const authError = assertCronAuthorized(req);
+  if (authError) return authError;
 
   const now = new Date();
 

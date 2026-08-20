@@ -1,44 +1,21 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
-import { tenants, waAccounts, messages, systemSettings, staffMembers } from '@/lib/db/schema';
-import { count, eq, desc, sql, and } from 'drizzle-orm';
+import { tenants, waAccounts, messages, systemSettings } from '@/lib/db/schema';
+import { count, eq, desc } from 'drizzle-orm';
 import { Users, MessageSquare, Activity, DollarSign, Shield, Power, Radio, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
-
-// Protect route: In production, configure ADMIN_EMAIL in your environment or insert staff_members with role='super_admin'
-const ADMIN_EMAIL = process.env.ADMIN_EMAIL || 'you@yourdomain.com';
+import { isSuperAdmin } from '@/lib/auth/is-super-admin';
 
 export const dynamic = 'force-dynamic';
 
 export default async function SuperAdminDashboard() {
-  let userId = null;
-  let userEmail = null;
-  let isSuperAdmin = false;
+  const { userId } = await auth();
+  const authorized = await isSuperAdmin();
 
-  try {
-    const authSession = await auth();
-    userId = authSession.userId;
-    userEmail =
-      (authSession.sessionClaims as any)?.email ||
-      (authSession.sessionClaims as any)?.primary_email;
-
-    if (userId) {
-      const staff = await db.query.staffMembers.findFirst({
-        where: and(eq(staffMembers.clerkUserId, userId), eq(staffMembers.role, 'super_admin')),
-      }).catch(() => null);
-      if (staff) isSuperAdmin = true;
-    }
-  } catch {
-    // Allows local preview during initial setup if Clerk keys are not yet provisioned
-  }
-
-  if (userEmail === ADMIN_EMAIL) {
-    isSuperAdmin = true;
-  }
-
-  // If in production and neither matches, redirect to sign-in
-  if (process.env.NODE_ENV === 'production' && (!userId || !isSuperAdmin)) {
+  // Fails closed unconditionally (not just in production) — there's no
+  // reason a preview/staging deploy should expose cross-tenant data either.
+  if (!userId || !authorized) {
     redirect('/sign-in');
   }
 

@@ -17,12 +17,21 @@ export const runtime = 'nodejs';
 export const maxDuration = 30;
 
 function verifyHmacSignature(rawBody: string, signature: string | null): boolean {
-  if (!signature) return false;
   const secret = process.env.WEBHOOK_SECRET;
-  if (!secret) return true; // dev fallback if not configured
+  if (!secret) {
+    // Fail closed in production — an unset secret should never mean
+    // "accept anything." The dev fallback only applies outside prod, and
+    // only when no secret was configured at all (not when one exists and
+    // just fails to match).
+    return process.env.NODE_ENV !== 'production';
+  }
+  if (!signature) return false;
   try {
     const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
-    return crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expected));
+    const expectedBuf = Buffer.from(expected, 'hex');
+    const providedBuf = Buffer.from(signature, 'hex');
+    if (expectedBuf.length !== providedBuf.length) return false;
+    return crypto.timingSafeEqual(expectedBuf, providedBuf);
   } catch {
     return false;
   }
