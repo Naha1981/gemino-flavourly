@@ -13,11 +13,10 @@ import { NextRequest, NextResponse } from 'next/server';
  *     an optional secret wasn't configured would be worse than the current
  *     exposure — these routes are idempotent reads/queue-drains, not
  *     destructive actions.
- *   - CRON_SECRET set    -> the `Authorization: Bearer <secret>` header
- *     MUST match, or the request is rejected. Once you add CRON_SECRET
- *     as a Vercel env var, also add a matching custom header in your
- *     cron-job.org job settings (Advanced -> Custom Headers ->
- *     Authorization: Bearer <secret>) so real cron calls keep working.
+ *   - CRON_SECRET set    -> either the `Authorization: Bearer <secret>`
+ *     header OR a `?key=<secret>` query param must match, or the request
+ *     is rejected. Once you add CRON_SECRET as a Vercel env var, configure
+ *     your scheduler (cron-job.org or similar) with one of the two.
  */
 export function assertCronAuthorized(req: NextRequest): NextResponse | null {
   const secret = process.env.CRON_SECRET;
@@ -30,7 +29,12 @@ export function assertCronAuthorized(req: NextRequest): NextResponse | null {
   }
 
   const authHeader = req.headers.get('authorization');
-  if (authHeader !== `Bearer ${secret}`) {
+  const queryKey = req.nextUrl.searchParams.get('key');
+
+  const headerMatches = authHeader === `Bearer ${secret}`;
+  const queryMatches = queryKey === secret;
+
+  if (!headerMatches && !queryMatches) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
