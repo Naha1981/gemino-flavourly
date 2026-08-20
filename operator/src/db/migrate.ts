@@ -35,6 +35,20 @@ async function run() {
       );
     `);
 
+    console.log('5. Syncing wa_auth_keys table (Baileys Signal key store)...');
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS wa_auth_keys (
+        wa_account_id uuid NOT NULL REFERENCES wa_accounts(id) ON DELETE CASCADE,
+        key_type text NOT NULL,
+        key_id text NOT NULL,
+        value jsonb
+      );
+    `);
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS wa_auth_keys_pk
+        ON wa_auth_keys (wa_account_id, key_type, key_id);
+    `);
+
     console.log('✅ ALL PRODUCTION SCHEMA COLUMNS & TABLES SYNCHRONIZED SUCCESSFULLY IN NEON POSTGRESQL!');
   } finally {
     client.release();

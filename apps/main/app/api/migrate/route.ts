@@ -42,6 +42,21 @@ export async function GET() {
       );
     `;
 
+    // 5. WhatsApp (Baileys) Signal key store — required for sessions to
+    // survive an operator restart without a fresh QR scan.
+    await sql`
+      CREATE TABLE IF NOT EXISTS wa_auth_keys (
+        wa_account_id uuid NOT NULL REFERENCES wa_accounts(id) ON DELETE CASCADE,
+        key_type text NOT NULL,
+        key_id text NOT NULL,
+        value jsonb
+      );
+    `;
+    await sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS wa_auth_keys_pk
+        ON wa_auth_keys (wa_account_id, key_type, key_id);
+    `;
+
     return NextResponse.json({ ok: true, message: 'All Neon database columns and tables synchronized successfully' });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Migration failed' }, { status: 500 });
