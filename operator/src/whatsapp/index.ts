@@ -1,10 +1,6 @@
-import makeWASocket, {
-  DisconnectReason,
-  AuthenticationState,
-  proto,
-} from '@whiskeysockets/baileys';
+import makeWASocket, { DisconnectReason } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
-import { getWaAccount, updateWaAccount, getCreds, saveCreds } from '../db/client.js';
+import { getWaAccount, updateWaAccount, getConnectedAccountIds, getPostgresAuthState } from '../db/client.js';
 import { forwardToMain } from '../webhook/forward.js';
 import pino from 'pino';
 
@@ -13,29 +9,15 @@ const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 // Global socket registry: waAccountId -> live Baileys WASocket
 const sockets = new Map<string, any>();
 
-async function getDBAuthState(waAccountId: string): Promise<{
-  state: AuthenticationState;
-  saveCreds: () => Promise<void>;
-}> {
-  const saved = await getCreds(waAccountId);
-  const creds = saved ? JSON.parse(saved) : undefined;
+// Per-account reconnect attempt counter, for capped exponential backoff so a
+// persistently broken account doesn't hammer WhatsApp's servers forever.
+const reconnectAttempts = new Map<string, number>();
+const MAX_RECONNECT_DELAY_MS = 5 * 60_000;
 
-  const state: AuthenticationState = {
-    creds: creds || undefined,
-    keys: {
-      get: async () => ({}),
-      set: async () => {},
-    },
-  };
-
-  const saveCredsHandler = async (newCreds?: any) => {
-    const dataToSave = newCreds || state.creds;
-    if (dataToSave) {
-      await saveCreds(waAccountId, JSON.stringify(dataToSave));
-    }
-  };
-
-  return { state, saveCreds: saveCredsHandler };
+function nextReconnectDelay(waAccountId: string): number {
+  const attempts = (reconnectAttempts.get(waAccountId) ?? 0) + 1;
+  reconnectAttempts.set(waAccountId, attempts);
+  return Math.min(5_000 * 2 ** (attempts - 1), MAX_RECONNECT_DELAY_MS);
 }
 
 export async function startWhatsAppSocket(waAccountId: string) {
@@ -50,7 +32,7 @@ export async function startWhatsAppSocket(waAccountId: string) {
     return { success: true, isConnected: true, phoneNumber: account.phone_number };
   }
 
-  const { state, saveCreds } = await getDBAuthState(waAccountId);
+  const { state, saveCreds } = await getPostgresAuthState(waAccountId);
 
   logger.info(`Initializing Baileys WhatsApp socket for account: ${waAccountId}`);
 
@@ -79,6 +61,7 @@ export async function startWhatsAppSocket(waAccountId: string) {
     }
 
     if (connection === 'open') {
+      reconnectAttempts.delete(waAccountId);
       const phoneNumber = sock.user?.id?.split(':')[0] || sock.user?.id || null;
       logger.info(`WhatsApp connected successfully for account: ${waAccountId} (Phone: ${phoneNumber})`);
 
@@ -95,22 +78,23 @@ export async function startWhatsAppSocket(waAccountId: string) {
       const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
-      logger.warn(
-        `Connection closed for account ${waAccountId}. Status: ${statusCode}. Reconnecting: ${shouldReconnect}`
-      );
-
       if (shouldReconnect) {
         await updateWaAccount(waAccountId, {
           isConnected: false,
           status: 'connecting',
         });
+        const delay = nextReconnectDelay(waAccountId);
+        logger.warn(
+          `Connection closed for account ${waAccountId}. Status: ${statusCode}. Reconnecting in ${delay}ms.`
+        );
         setTimeout(() => {
           startWhatsAppSocket(waAccountId).catch((err) =>
             logger.error(`Auto-reconnect failed for ${waAccountId}: ${err.message}`)
           );
-        }, 5000);
+        }, delay);
       } else {
         logger.error(`Account ${waAccountId} logged out. Socket removed.`);
+        reconnectAttempts.delete(waAccountId);
         await updateWaAccount(waAccountId, {
           isConnected: false,
           qrCode: null,
@@ -175,4 +159,24 @@ export function getSocketStatus(waAccountId: string) {
     inMemory: !!sock,
     user: sock?.user || null,
   };
+}
+
+/**
+ * Called once on process boot. Any account marked `is_connected = true`
+ * before this instance last stopped (Render redeploys, idle spin-downs)
+ * gets its socket re-established automatically from the persisted
+ * session — no QR re-scan needed, now that the Signal key store actually
+ * survives restarts.
+ */
+export async function resumeConnectedAccounts(): Promise<void> {
+  const ids = await getConnectedAccountIds();
+  logger.info(`Resuming ${ids.length} previously connected WhatsApp account(s) on boot`);
+
+  for (const waAccountId of ids) {
+    try {
+      await startWhatsAppSocket(waAccountId);
+    } catch (err: any) {
+      logger.error(`Failed to resume account ${waAccountId} on boot: ${err.message}`);
+    }
+  }
 }

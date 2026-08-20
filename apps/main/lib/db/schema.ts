@@ -50,6 +50,32 @@ export const waAccounts = pgTable('wa_accounts', {
 });
 
 // -----------------------------------------------------------------------------
+// 2b. WhatsApp (Baileys) Signal Protocol Keys
+//
+// `wa_accounts.session_creds` alone is NOT enough for a session to survive a
+// restart — Baileys also needs the Signal key store (pre-keys, sender keys,
+// app-state sync keys) persisted, or every reconnect silently degrades into
+// a broken session / forced re-scan. One row per (account, key type, key id),
+// matching the standard Baileys custom-auth-state pattern. Read/written
+// directly via `pg` in the operator for latency; modeled here so Drizzle
+// migrations create and version it alongside everything else.
+// -----------------------------------------------------------------------------
+export const waAuthKeys = pgTable(
+  'wa_auth_keys',
+  {
+    waAccountId: uuid('wa_account_id')
+      .notNull()
+      .references(() => waAccounts.id, { onDelete: 'cascade' }),
+    keyType: text('key_type').notNull(),
+    keyId: text('key_id').notNull(),
+    value: jsonb('value'),
+  },
+  (table) => ({
+    pk: uniqueIndex('wa_auth_keys_pk').on(table.waAccountId, table.keyType, table.keyId),
+  })
+);
+
+// -----------------------------------------------------------------------------
 // 3. Multi-App Account Bindings (1 Shared Operator -> Multiple Apps)
 // -----------------------------------------------------------------------------
 export const waAccountBindings = pgTable('wa_account_bindings', {
