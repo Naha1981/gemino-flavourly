@@ -20,15 +20,13 @@ test.describe('Gemino Platform End-to-End Test Suite', () => {
 
   // Test 2: The /sign-in and /sign-up forms render without 500 errors
   test('Test 2: The /sign-in and /sign-up forms render without 500 errors', async ({ page }) => {
-    // Check sign-in page
     const signInResponse = await page.goto('/sign-in');
     expect(signInResponse?.status()).toBeLessThan(400);
-    await expect(page.locator('.cl-signIn-root, .cl-rootBox, form, input')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('.cl-signIn-root').first()).toBeVisible({ timeout: 15000 });
 
-    // Check sign-up page
     const signUpResponse = await page.goto('/sign-up');
     expect(signUpResponse?.status()).toBeLessThan(400);
-    await expect(page.locator('.cl-signUp-root, .cl-rootBox, form, input')).toBeVisible({ timeout: 15000 });
+    await expect(page.locator('.cl-signUp-root').first()).toBeVisible({ timeout: 15000 });
   });
 
   // Test 3: The middleware correctly intercepts /dashboard and redirects unauthenticated users to /sign-in

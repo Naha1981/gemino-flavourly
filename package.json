@@ -17,14 +17,21 @@
     "operator:dev": "cd operator && npm run dev",
     "operator:build": "cd operator && npm run build",
     "operator:start": "cd operator && npm start",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "synthetic:smoke": "node synthetic-testing/runner/matraix-runner.mjs user_signs_up_and_onboards",
+    "synthetic:landing": "node synthetic-testing/runner/matraix-runner.mjs landing_page_engagement",
+    "synthetic:all": "node synthetic-testing/runner/matraix-runner.mjs landing_page_engagement && node synthetic-testing/runner/matraix-runner.mjs user_signs_up_and_onboards"
   },
   "devDependencies": {
+    "@google/generative-ai": "^0.21.0",
+    "@next/swc-win32-x64-msvc": "^16.3.1",
     "@playwright/test": "^1.48.0",
+    "@turbo/windows-64": "^2.10.11",
     "drizzle-kit": "^0.24.0",
-    "turbo": "^2.0.12",
+    "turbo": "^2.10.11",
     "typescript": "^5.5.4"
   },
+  "packageManager": "npm@11.18.0",
   "engines": {
     "node": ">=20.0.0"
   }
