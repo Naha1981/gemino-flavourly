@@ -51,14 +51,23 @@ export default async function DashboardOverview() {
   const client = typeof clerkClient === 'function' ? await (clerkClient as any)() : clerkClient;
   const user = await client.users.getUser(userId).catch(() => ({ firstName: 'Owner' }));
 
-  // One-time onboarding redirect: send a brand-new tenant (created in the
-  // last 2 minutes, i.e. this login) straight to the QR scanner instead of
-  // an empty metrics page. Deliberately NOT "redirect whenever WhatsApp is
-  // disconnected" — that would trap any returning owner who disconnects
-  // for any reason in a permanent loop, unable to ever see their own
-  // dashboard or settings again.
-  const createdRecently = Date.now() - new Date(tenant.createdAt).getTime() < 2 * 60_000;
-  if (createdRecently && !waAccount?.isConnected) {
+  // One-time onboarding redirect: a tenant that has never successfully
+  // connected WhatsApp is sent straight to the QR scanner instead of an
+  // empty metrics page. Uses waAccount.lastConnectedAt (set once, the
+  // first time a connection succeeds, and never cleared) rather than
+  // isConnected (the live/current state) or a "created in the last N
+  // minutes" time window:
+  //   - lastConnectedAt correctly catches true first-timers no matter
+  //     how long they take to get through signup/onboarding — a 2-minute
+  //     window missed anyone who took longer, which is exactly what was
+  //     reported (real account, no onboarding screen, well past 2 min).
+  //   - It does NOT trap a returning owner who later disconnects for any
+  //     reason (Render restart, manual logout, etc.) — that owner has a
+  //     non-null lastConnectedAt from their first successful connection,
+  //     so they keep seeing their normal dashboard, not a forced redirect
+  //     loop to the QR page every time they open the app.
+  const neverConnected = !waAccount?.lastConnectedAt;
+  if (neverConnected) {
     redirect('/dashboard/whatsapp');
   }
 
