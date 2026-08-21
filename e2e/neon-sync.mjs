@@ -1,6 +1,23 @@
-const DB_URL = "postgresql://neondb_owner:npg_mzHWL3rPRX7T@ep-lingering-meadow-ash9cvq6.c-4.eu-central-1.aws.neon.tech/neondb?sslmode=require";
+// One-off schema-sync script — same statements as apps/main/app/api/migrate
+// and operator/src/db/migrate.ts, runnable from the command line without
+// a signed-in browser session.
+//
+// SECURITY: this file previously had a live Neon database password
+// hardcoded in plaintext, committed to a public GitHub repo. That
+// credential is compromised regardless of this fix — removing it from
+// the file does NOT remove it from git history. Rotate the Neon
+// database password in the Neon console (Settings -> Reset password)
+// and update DATABASE_URL everywhere it's configured (Vercel, Render)
+// before treating this as resolved.
+//
+// Usage: DATABASE_URL="postgresql://...` node e2e/neon-sync.mjs
 
-// Extract host and password
+const DB_URL = process.env.DATABASE_URL;
+if (!DB_URL) {
+  console.error('DATABASE_URL is not set. Usage: DATABASE_URL="postgresql://..." node e2e/neon-sync.mjs');
+  process.exit(1);
+}
+
 const parsed = new URL(DB_URL);
 const host = parsed.hostname.replace('-pooler', '');
 const password = parsed.password;
@@ -55,6 +72,20 @@ async function main() {
         role text NOT NULL DEFAULT 'staff',
         created_at timestamp DEFAULT NOW()
       );
+    `);
+
+    console.log('5. Creating wa_auth_keys table if not exists (Baileys Signal key store)...');
+    await execSql(`
+      CREATE TABLE IF NOT EXISTS wa_auth_keys (
+        wa_account_id uuid NOT NULL REFERENCES wa_accounts(id) ON DELETE CASCADE,
+        key_type text NOT NULL,
+        key_id text NOT NULL,
+        value jsonb
+      );
+    `);
+    await execSql(`
+      CREATE UNIQUE INDEX IF NOT EXISTS wa_auth_keys_pk
+        ON wa_auth_keys (wa_account_id, key_type, key_id);
     `);
 
     console.log('✅ ALL PRODUCTION SCHEMA COLUMNS & TABLES ARE 100% SYNCHRONIZED IN NEON POSTGRESQL!');
