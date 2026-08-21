@@ -6,6 +6,7 @@ import { count, eq, desc } from 'drizzle-orm';
 import { Users, MessageSquare, Activity, DollarSign, Shield, Power, Radio, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { isSuperAdmin } from '@/lib/auth/is-super-admin';
+import { toggleGlobalAiAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -89,7 +90,7 @@ export default async function SuperAdminDashboard() {
             </div>
           </div>
 
-          <form action="/api/admin/toggle-ai" method="POST">
+          <form action={toggleGlobalAiAction}>
             <input type="hidden" name="enabled" value={isMasterAiOn ? 'false' : 'true'} />
             <button
               type="submit"

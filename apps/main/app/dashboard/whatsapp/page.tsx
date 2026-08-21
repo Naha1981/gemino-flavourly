@@ -76,13 +76,27 @@ export default function WhatsAppConnectPage() {
           {status?.qrCode ? (
             <div className="mt-6 flex flex-col items-center gap-4 bg-zinc-950/60 p-6 rounded-lg border border-zinc-800/80">
               <div className="rounded-lg bg-white p-4 shadow-md">
-                {(() => {
-                  const qr = status.qrCode.trim();
-                  if (qr.startsWith('data:image')) {
-                    return <img src={qr} alt="QR Code" width={220} height={220} />;
-                  }
-                  return <QRCodeCanvas value={qr} size={220} bgColor="#ffffff" fgColor="#000000" level="M" />;
-                })()}
+                {/* QRCodeSVG rendered as a blank white square in production —
+                    a known qrcode.react quirk where the SVG's modules fail
+                    to paint depending on parent CSS/sizing context.
+                    QRCodeCanvas draws pixels directly via the canvas API
+                    and doesn't have that failure mode. The Baileys operator
+                    stores the raw QR string as-is (not a data URI), so this
+                    is the correct value to encode — but guard for a data
+                    URI anyway in case a future operator change starts
+                    pre-rendering it. */}
+                {status.qrCode.startsWith('data:image') ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={status.qrCode} alt="WhatsApp QR code" width={220} height={220} />
+                ) : (
+                  <QRCodeCanvas
+                    value={status.qrCode.trim()}
+                    size={220}
+                    bgColor="#ffffff"
+                    fgColor="#000000"
+                    level="M"
+                  />
+                )}
               </div>
               <ol className="list-decimal space-y-1.5 pl-4 text-sm text-zinc-400 max-w-sm">
                 <li>Open WhatsApp on your phone</li>

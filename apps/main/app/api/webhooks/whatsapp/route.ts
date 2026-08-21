@@ -81,11 +81,23 @@ export async function POST(req: NextRequest) {
     tenantId = waAccount.tenantId;
   }
 
-  // 2. Check Global Master AI Switch
+  // 2. Check Global Master AI Switch + per-tenant AI toggles.
+  // These three flags existed in the schema (and the global switch even
+  // has a working admin UI toggle) but none of them were actually
+  // enforced here — this function logged a warning and generated/sent
+  // the AI reply regardless. The inbound message is still always
+  // recorded below for history; only AI generation is skipped.
   const settings = await db.query.systemSettings.findFirst();
-  if (settings && !settings.masterAiSwitch) {
-    // Log message but bypass AI response
-    console.warn('[Global AI Master Switch] AI is globally turned off.');
+  const globalAiOff = !!settings && !settings.masterAiSwitch;
+
+  const tenant = await db.query.tenants.findFirst({ where: eq(tenants.id, tenantId) });
+  const tenantAiOff = !tenant || !tenant.aiEnabled || tenant.manualMode;
+
+  const aiSuppressed = globalAiOff || tenantAiOff;
+  if (globalAiOff) {
+    console.warn('[Global AI Master Switch] AI is globally turned off — skipping AI reply.');
+  } else if (tenantAiOff) {
+    console.warn(`[Tenant AI Disabled] tenant=${tenantId} aiEnabled=${tenant?.aiEnabled} manualMode=${tenant?.manualMode} — skipping AI reply.`);
   }
 
   // 3. Extract Sender & Message Text
@@ -160,9 +172,13 @@ export async function POST(req: NextRequest) {
     isAIGenerated: false,
   });
 
-  // 7. If Manual Takeover is ON, do not generate AI reply
+  // 7. If Manual Takeover is ON for this thread, or AI is suppressed at
+  // the tenant/global level (checked in step 2), do not generate a reply.
   if (conversation.manualTakeover) {
     return NextResponse.json({ ok: true, note: 'Manual takeover mode is active for this thread' });
+  }
+  if (aiSuppressed) {
+    return NextResponse.json({ ok: true, note: 'AI reply suppressed (global kill switch or tenant AI disabled)' });
   }
 
   // 8. Generate & Enqueue AI Reply

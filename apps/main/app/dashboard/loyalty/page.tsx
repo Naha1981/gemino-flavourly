@@ -1,15 +1,24 @@
+import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
-import { contacts, loyaltyRewards, loyaltyTransactions } from '@/lib/db/schema';
-import { desc, gt } from 'drizzle-orm';
+import { contacts, loyaltyRewards } from '@/lib/db/schema';
+import { desc, eq } from 'drizzle-orm';
 import Link from 'next/link';
 import { ArrowLeft, Sparkles, Gift, Award, TrendingUp } from 'lucide-react';
+import { getOrCreateTenant } from '@/lib/tenant';
 
 export const dynamic = 'force-dynamic';
 
 export default async function LoyaltyPage() {
+  // Same cross-tenant leak as the waitlist page: no auth() call, no
+  // tenantId filter — every restaurant's top loyalty guests (names,
+  // phone numbers, point balances) were visible to any signed-in user.
+  const tenant = await getOrCreateTenant();
+  if (!tenant) redirect('/sign-in');
+
   const topLoyaltyGuests = await db
     .select()
     .from(contacts)
+    .where(eq(contacts.tenantId, tenant.id))
     .orderBy(desc(contacts.loyaltyPoints))
     .limit(10)
     .catch(() => []);
@@ -17,6 +26,7 @@ export default async function LoyaltyPage() {
   const rewards = await db
     .select()
     .from(loyaltyRewards)
+    .where(eq(loyaltyRewards.tenantId, tenant.id))
     .catch(() => []);
 
   return (

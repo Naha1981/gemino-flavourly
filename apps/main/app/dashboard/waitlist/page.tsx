@@ -1,15 +1,27 @@
+import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
-import { waitlistEntries, contacts } from '@/lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
+import { waitlistEntries } from '@/lib/db/schema';
+import { eq, desc, and } from 'drizzle-orm';
 import Link from 'next/link';
 import { ArrowLeft, Users, Clock, CheckCircle, XCircle, Bell } from 'lucide-react';
+import { getOrCreateTenant } from '@/lib/tenant';
 
 export const dynamic = 'force-dynamic';
 
 export default async function WaitlistPage() {
+  // This page previously queried waitlistEntries with no auth() call and
+  // no tenantId filter at all — any signed-in user, from any restaurant,
+  // could see every other restaurant's waitlist: guest names, phone
+  // numbers, and party sizes. Now scoped to the signed-in owner's own
+  // tenant, matching the pattern already used correctly on /dashboard
+  // and /dashboard/inbox.
+  const tenant = await getOrCreateTenant();
+  if (!tenant) redirect('/sign-in');
+
   const entries = await db
     .select()
     .from(waitlistEntries)
+    .where(eq(waitlistEntries.tenantId, tenant.id))
     .orderBy(desc(waitlistEntries.createdAt))
     .limit(30)
     .catch(() => []);
