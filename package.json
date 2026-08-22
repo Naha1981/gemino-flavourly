@@ -24,9 +24,7 @@
   },
   "devDependencies": {
     "@google/generative-ai": "^0.21.0",
-    "@next/swc-win32-x64-msvc": "^16.3.1",
     "@playwright/test": "^1.48.0",
-    "@turbo/windows-64": "^2.10.11",
     "drizzle-kit": "^0.24.0",
     "turbo": "^2.10.11",
     "typescript": "^5.5.4"
