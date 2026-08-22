@@ -49,6 +49,14 @@ async function run() {
         ON wa_auth_keys (wa_account_id, key_type, key_id);
     `);
 
+    console.log('6. Syncing message idempotency + job reaper columns...');
+    await client.query(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS wa_message_id text;`);
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS messages_wa_message_id_idx
+        ON messages (tenant_id, wa_message_id);
+    `);
+    await client.query(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT NOW();`);
+
     console.log('✅ ALL PRODUCTION SCHEMA COLUMNS & TABLES SYNCHRONIZED SUCCESSFULLY IN NEON POSTGRESQL!');
   } finally {
     client.release();

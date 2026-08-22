@@ -67,6 +67,16 @@ export async function GET() {
         ON wa_auth_keys (wa_account_id, key_type, key_id);
     `;
 
+    // 6. Message idempotency (dedupe on WhatsApp's own message id) and
+    // outbox stuck-job reaping (needs to know when a job last changed
+    // status, not just when it was created).
+    await sql`ALTER TABLE messages ADD COLUMN IF NOT EXISTS wa_message_id text;`;
+    await sql`
+      CREATE INDEX IF NOT EXISTS messages_wa_message_id_idx
+        ON messages (tenant_id, wa_message_id);
+    `;
+    await sql`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT NOW();`;
+
     return NextResponse.json({ ok: true, message: 'All Neon database columns and tables synchronized successfully' });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Migration failed' }, { status: 500 });

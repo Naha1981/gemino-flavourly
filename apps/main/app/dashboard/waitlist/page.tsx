@@ -5,6 +5,7 @@ import { eq, desc, and } from 'drizzle-orm';
 import Link from 'next/link';
 import { ArrowLeft, Users, Clock, CheckCircle, XCircle, Bell } from 'lucide-react';
 import { getOrCreateTenant } from '@/lib/tenant';
+import { notifyWaitlistEntryAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -94,9 +95,23 @@ export default async function WaitlistPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right space-x-2">
-                        <button className="px-3 py-1 bg-emerald-950 border border-emerald-800 text-emerald-400 rounded hover:bg-emerald-900/60 transition-colors text-[11px] font-medium">
-                          Table Ready (Notify WA)
-                        </button>
+                        {entry.status === 'waiting' ? (
+                          <form action={notifyWaitlistEntryAction}>
+                            <input type="hidden" name="entryId" value={entry.id} />
+                            <button
+                              type="submit"
+                              className="px-3 py-1 bg-emerald-950 border border-emerald-800 text-emerald-400 rounded hover:bg-emerald-900/60 transition-colors text-[11px] font-medium"
+                            >
+                              Table Ready (Notify WA)
+                            </button>
+                          </form>
+                        ) : entry.status === 'offered' ? (
+                          <span className="text-[11px] text-zinc-500">
+                            Notified {entry.notifiedAt ? new Date(entry.notifiedAt).toLocaleTimeString() : ''}
+                          </span>
+                        ) : (
+                          <span className="text-[11px] text-zinc-600">—</span>
+                        )}
                       </td>
                     </tr>
                   ))

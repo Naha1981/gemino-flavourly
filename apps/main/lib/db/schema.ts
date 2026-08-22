@@ -147,11 +147,18 @@ export const messages = pgTable(
     isAIGenerated: boolean('is_ai_generated').default(false).notNull(),
     sentiment: text('sentiment', { enum: ['positive', 'neutral', 'negative'] }),
     messageType: text('message_type').default('text'),
+    // WhatsApp's own message id (msg.key.id), stored for inbound messages
+    // only. Baileys re-emits messages.upsert on reconnect, and without
+    // this the webhook would generate and send a duplicate AI reply for
+    // the same customer message every time the operator restarts or
+    // flaps. See the idempotency check in the webhook route.
+    waMessageId: text('wa_message_id'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
     tenantDateIdx: index('messages_tenant_created_idx').on(table.tenantId, table.createdAt),
     conversationIdx: index('messages_conversation_idx').on(table.conversationId),
+    waMessageIdIdx: index('messages_wa_message_id_idx').on(table.tenantId, table.waMessageId),
   })
 );
 
@@ -275,6 +282,12 @@ export const jobs = pgTable(
     nextRunAt: timestamp('next_run_at').defaultNow().notNull(),
     lastError: text('last_error'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
+    // Set on every status transition. Without this, a job that flips to
+    // 'processing' and then never completes (serverless function timeout
+    // or crash mid-dispatch) sits stuck forever — nothing could tell "just
+    // started processing" apart from "processing for 3 days". The outbox
+    // cron uses this to reset stuck jobs back to pending.
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (table) => ({
     statusNextRunIdx: index('jobs_status_next_run_idx').on(table.status, table.nextRunAt),

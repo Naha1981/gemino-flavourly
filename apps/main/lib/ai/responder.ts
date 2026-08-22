@@ -33,13 +33,21 @@ export async function processInboundAIResponse(ctx: InboundContext): Promise<str
     return null; // AI disabled or manual mode active
   }
 
-  // 1. POPIA / Unsubscribe Keyword Filter
-  if (['stop', 'unsubscribe', 'opt out', 'cancel subscription', 'remove me'].includes(lower)) {
+  // 1. POPIA / Unsubscribe Keyword Filter.
+  // Was exact-match only (`.includes(lower)` against the whole trimmed
+  // message) — "STOP.", "please stop", "Stop messaging me" all fell
+  // through to the AI instead of unsubscribing. For a compliance control
+  // this needs to catch the keyword anywhere in the message, as a whole
+  // word (so "nonstop" or "shopping" don't false-positive).
+  const OPT_OUT_PATTERN = /\b(stop|unsubscribe|opt[\s-]?out|cancel subscription|remove me)\b/i;
+  const OPT_IN_PATTERN = /\bstart\b/i;
+
+  if (OPT_OUT_PATTERN.test(text)) {
     await db.update(contacts).set({ blocklisted: true }).where(eq(contacts.id, contactId));
     return `You have been successfully unsubscribed from ${tenant.name}. You will no longer receive automated messages. Reply START at any time to re-enable.`;
   }
 
-  if (lower === 'start') {
+  if (OPT_IN_PATTERN.test(text)) {
     await db.update(contacts).set({ blocklisted: false }).where(eq(contacts.id, contactId));
     return `Welcome back to ${tenant.name}! How can we assist you today? (e.g. Menu, Bookings, Waitlist, Loyalty points)`;
   }

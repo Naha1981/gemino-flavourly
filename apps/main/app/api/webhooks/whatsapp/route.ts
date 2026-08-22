@@ -63,23 +63,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
 
-  const { waAccountId, message, tenantId: payloadTenantId } = payload;
+  const { waAccountId, message } = payload;
 
   if (!waAccountId || !message) {
     return NextResponse.json({ error: 'Missing waAccountId or message' }, { status: 400 });
   }
 
-  // 1. Resolve Account & Tenant
-  let tenantId = payloadTenantId;
-  if (!tenantId) {
-    const waAccount = await db.query.waAccounts.findFirst({
-      where: eq(waAccounts.id, waAccountId),
-    });
-    if (!waAccount) {
-      return NextResponse.json({ error: 'WhatsApp account not found' }, { status: 404 });
-    }
-    tenantId = waAccount.tenantId;
+  // 1. Resolve Account & Tenant.
+  // Always derive tenantId from wa_accounts (the source of truth in this
+  // app's own database) rather than trusting payload.tenantId. The
+  // operator forwards a tenantId when it has an explicit binding row for
+  // the account, but that binding table is a separate mechanism that can
+  // drift out of sync with wa_accounts — trusting it blindly meant a
+  // stale/incorrect binding could silently attribute a customer's
+  // message (and any AI reply) to the wrong tenant.
+  const waAccount = await db.query.waAccounts.findFirst({
+    where: eq(waAccounts.id, waAccountId),
+  });
+  if (!waAccount) {
+    return NextResponse.json({ error: 'WhatsApp account not found' }, { status: 404 });
   }
+  const tenantId = waAccount.tenantId;
 
   // 2. Check Global Master AI Switch + per-tenant AI toggles.
   // These three flags existed in the schema (and the global switch even
@@ -102,6 +106,16 @@ export async function POST(req: NextRequest) {
 
   // 3. Extract Sender & Message Text
   const remoteJid = message.key?.remoteJid || '';
+
+  // Group chats (@g.us) and broadcast lists (status@broadcast) were being
+  // treated as if they were a customer's personal phone number: split on
+  // '@' with no suffix check, which turned a WhatsApp group id into a
+  // "phone number", created a bogus contact record for it, and could send
+  // the AI's reply into the group chat itself. Only reply to real 1:1
+  // conversations.
+  if (!remoteJid.endsWith('@s.whatsapp.net')) {
+    return NextResponse.json({ ok: true, note: 'Ignored: not a 1:1 customer conversation (group/broadcast/status)' });
+  }
   const fromPhone = remoteJid.split('@')[0];
   const pushName = message.pushName || 'Valued Customer';
   const textContent =
@@ -112,6 +126,23 @@ export async function POST(req: NextRequest) {
 
   if (!fromPhone || !textContent) {
     return NextResponse.json({ ok: true, note: 'Empty or unsupported message type' });
+  }
+
+  // Idempotency: Baileys re-emits messages.upsert on reconnect, and the
+  // webhook has no retry protection of its own. Without this check, a
+  // customer could receive the same AI reply two or three times whenever
+  // the operator flaps or restarts. WhatsApp's own message id (msg.key.id)
+  // uniquely identifies this message; if we've already recorded it for
+  // this tenant, skip processing entirely rather than generating a second
+  // reply.
+  const waMessageId: string | undefined = message.key?.id;
+  if (waMessageId) {
+    const existing = await db.query.messages.findFirst({
+      where: and(eq(messages.tenantId, tenantId), eq(messages.waMessageId, waMessageId)),
+    });
+    if (existing) {
+      return NextResponse.json({ ok: true, note: 'Duplicate message (already processed)' });
+    }
   }
 
   // 4. Upsert Contact
@@ -170,6 +201,7 @@ export async function POST(req: NextRequest) {
     direction: 'inbound',
     content: textContent,
     isAIGenerated: false,
+    waMessageId,
   });
 
   // 7. If Manual Takeover is ON for this thread, or AI is suppressed at

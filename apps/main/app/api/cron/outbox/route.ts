@@ -8,11 +8,29 @@ import { assertCronAuthorized } from '@/lib/cron/auth';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+// If a job has been sitting in 'processing' for longer than this, assume
+// the function that was handling it timed out or crashed mid-dispatch
+// (nothing ever flips it back), and reclaim it.
+const STUCK_PROCESSING_MINUTES = 5;
+
 export async function GET(req: NextRequest) {
   const authError = assertCronAuthorized(req);
   if (authError) return authError;
 
   const now = new Date();
+
+  // Reap stuck jobs first: previously, once a job flipped to
+  // 'processing', nothing ever reset it if the request died mid-flight
+  // (serverless timeout, crash). It would sit there forever — no retry,
+  // no alert, the message just silently never gets delivered. Reclaim
+  // anything that's been "processing" for longer than a function could
+  // plausibly still legitimately be running.
+  const stuckCutoff = new Date(now.getTime() - STUCK_PROCESSING_MINUTES * 60_000);
+  const reaped = await db
+    .update(jobs)
+    .set({ status: 'pending', nextRunAt: now, updatedAt: now })
+    .where(and(eq(jobs.status, 'processing'), lt(jobs.updatedAt, stuckCutoff)))
+    .returning({ id: jobs.id });
 
   // Fetch pending jobs ready to run
   const pendingJobs = await db.query.jobs.findMany({
@@ -24,7 +42,7 @@ export async function GET(req: NextRequest) {
   });
 
   if (pendingJobs.length === 0) {
-    return NextResponse.json({ ok: true, processed: 0 });
+    return NextResponse.json({ ok: true, processed: 0, reaped: reaped.length });
   }
 
   let successCount = 0;
@@ -33,7 +51,7 @@ export async function GET(req: NextRequest) {
   for (const job of pendingJobs) {
     try {
       // Mark as processing
-      await db.update(jobs).set({ status: 'processing' }).where(eq(jobs.id, job.id));
+      await db.update(jobs).set({ status: 'processing', updatedAt: new Date() }).where(eq(jobs.id, job.id));
 
       if (job.type === 'send_whatsapp') {
         const payload = job.payload as { waAccountId: string; to: string; text: string };
@@ -42,14 +60,14 @@ export async function GET(req: NextRequest) {
         if (result.success) {
           await db
             .update(jobs)
-            .set({ status: 'done', attempts: job.attempts + 1 })
+            .set({ status: 'done', attempts: job.attempts + 1, updatedAt: new Date() })
             .where(eq(jobs.id, job.id));
           successCount++;
         } else {
           throw new Error(result.error || 'Failed to dispatch via operator');
         }
       } else {
-        await db.update(jobs).set({ status: 'done' }).where(eq(jobs.id, job.id));
+        await db.update(jobs).set({ status: 'done', updatedAt: new Date() }).where(eq(jobs.id, job.id));
         successCount++;
       }
     } catch (err: any) {
@@ -68,6 +86,7 @@ export async function GET(req: NextRequest) {
           attempts: nextAttempt,
           nextRunAt,
           lastError: err.message || 'Unknown error',
+          updatedAt: new Date(),
         })
         .where(eq(jobs.id, job.id));
     }
@@ -78,5 +97,7 @@ export async function GET(req: NextRequest) {
     processed: pendingJobs.length,
     succeeded: successCount,
     failed: failCount,
+    reaped: reaped.length,
   });
 }
+
