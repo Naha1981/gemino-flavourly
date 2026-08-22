@@ -17,7 +17,19 @@ const config: Config = {
       },
     },
     extend: {
+      fontFamily: {
+        display: ['var(--font-display)', 'Georgia', 'serif'],
+        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+      },
       colors: {
+        ink: 'hsl(var(--ink))',
+        'ink-2': 'hsl(var(--ink-2))',
+        cream: 'hsl(var(--cream))',
+        'cream-dim': 'hsl(var(--cream-dim))',
+        saffron: 'hsl(var(--saffron))',
+        leaf: 'hsl(var(--leaf))',
+        wine: 'hsl(var(--wine))',
+        line: 'hsl(var(--line))',
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',

@@ -102,11 +102,22 @@ export default function ChatDetailClient({
           </div>
         </div>
 
-        <div>
+        <button
+          type="button"
+          onClick={async () => {
+            const next = !isManual;
+            setIsManual(next);
+            await fetch(`/api/conversations/${conversationId}/takeover`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ manualTakeover: next }),
+            });
+          }}
+        >
           {isManual ? (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-blue-950/80 text-blue-300 border border-blue-800/60 shadow-sm">
               <User className="w-3 h-3" />
-              Manual Takeover
+              Manual · click to return to AI
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-950/80 text-emerald-300 border border-emerald-800/60 shadow-sm">
@@ -114,7 +125,7 @@ export default function ChatDetailClient({
               AI Concierge Active
             </span>
           )}
-        </div>
+        </button>
       </div>
 
       {/* Message Feed */}

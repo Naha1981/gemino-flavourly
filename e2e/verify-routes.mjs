@@ -1,4 +1,4 @@
-const BASE_URL = process.env.BASE_URL || 'https://gemino-flavourly-whatsapp.vercel.app';
+const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:3000';
 
 console.log(`\n======================================================`);
 console.log(`🔍 RUNNING E2E SYSTEM INTEGRATION & ROUTE VERIFICATION`);

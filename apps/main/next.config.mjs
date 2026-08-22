@@ -1,6 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  experimental: {
+    serverComponentsExternalPackages: ['@electric-sql/pglite', 'drizzle-orm/pglite'],
+  },
   images: {
     remotePatterns: [
       {

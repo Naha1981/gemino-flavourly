@@ -50,7 +50,9 @@ export async function updateWaAccount(
     values.push(updates.status);
   }
   if (updates.lastConnectedAt !== undefined) {
-    fields.push(`last_connected_at = $${idx++}`);
+    // Set ONCE on first success. Reconnects must not overwrite the
+    // onboarding timestamp that the main app uses to decide first-run QR.
+    fields.push(`last_connected_at = COALESCE(last_connected_at, $${idx++})`);
     values.push(updates.lastConnectedAt);
   }
 
@@ -182,6 +184,41 @@ export async function getPostgresAuthState(waAccountId: string) {
       await saveCreds(waAccountId, JSON.stringify(creds, BufferJSON.replacer));
     },
   };
+}
+
+export async function persistPlatformEvent(waAccountId: string, payload: unknown): Promise<string> {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS platform_events (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+      wa_account_id uuid NOT NULL,
+      payload jsonb NOT NULL,
+      status text DEFAULT 'pending' NOT NULL,
+      attempts integer DEFAULT 0 NOT NULL,
+      last_error text,
+      created_at timestamp DEFAULT NOW() NOT NULL,
+      updated_at timestamp DEFAULT NOW() NOT NULL
+    )
+  `);
+  const res = await pool.query<{ id: string }>(
+    `INSERT INTO platform_events (wa_account_id, payload, status)
+     VALUES ($1, $2, 'pending') RETURNING id`,
+    [waAccountId, payload]
+  );
+  return res.rows[0].id;
+}
+
+export async function markPlatformEvent(
+  id: string,
+  status: 'forwarded' | 'failed' | 'pending',
+  attempts: number,
+  lastError: string | null
+) {
+  await pool.query(
+    `UPDATE platform_events
+     SET status = $2, attempts = $3, last_error = $4, updated_at = NOW()
+     WHERE id = $1`,
+    [id, status, attempts, lastError]
+  );
 }
 
 export { pool };

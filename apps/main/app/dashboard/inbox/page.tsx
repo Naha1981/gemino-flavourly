@@ -1,6 +1,5 @@
-import { auth, clerkClient } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
-import { db } from '@/lib/db';
+import { db, initDb } from '@/lib/db';
 import { conversations, contacts, messages } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { MessageSquare, Phone } from 'lucide-react';
@@ -11,9 +10,7 @@ import Link from 'next/link';
 export const dynamic = 'force-dynamic';
 
 export default async function InboxPage() {
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
-
+  await initDb();
   let tenant = await getOrCreateTenant();
   const tenantId = tenant?.id;
 

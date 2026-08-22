@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getOrCreateTenant } from '@/lib/tenant';
-import { db } from '@/lib/db';
+import { db, initDb } from '@/lib/db';
 import { tenants } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  await initDb();
   const tenant = await getOrCreateTenant();
   if (!tenant) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { name, description, openingHours, aiPersonality, systemPrompt, aiEnabled, manualMode } = body;
+    const { name, description, openingHours, aiPersonality, systemPrompt, menuText, aiEnabled, manualMode } = body;
 
     const [updated] = await db
       .update(tenants)
@@ -34,6 +35,7 @@ export async function POST(req: Request) {
         openingHours: openingHours !== undefined ? openingHours : tenant.openingHours,
         aiPersonality: aiPersonality !== undefined ? aiPersonality : tenant.aiPersonality,
         systemPrompt: systemPrompt !== undefined ? systemPrompt : tenant.systemPrompt,
+        menuText: menuText !== undefined ? menuText : tenant.menuText,
         aiEnabled: aiEnabled !== undefined ? aiEnabled : tenant.aiEnabled,
         manualMode: manualMode !== undefined ? manualMode : tenant.manualMode,
         updatedAt: new Date(),

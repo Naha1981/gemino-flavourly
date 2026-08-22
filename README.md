@@ -1,176 +1,40 @@
-# Gemino — Multi-Tenant WhatsApp AI Platform (Direct Baileys Architecture)
+# Flavourly — WhatsApp operations for restaurants
 
-Production-ready, multi-tenant WhatsApp AI SaaS built using the **Universal Direct WhatsApp Architecture (No Twilio / No Cloud API fees)**.
+Every restaurant gets a WhatsApp number that answers in seconds, fills tables, runs the waitlist, and turns guests into regulars.
 
----
+**Brain:** Next.js on Vercel · Clerk · Neon · Groq → Gemini  
+**Engine:** Direct Baileys operator on Render (`@whiskeysockets/baileys@6.7.24`)  
+**No Twilio. No Evolution. No per-message tax.**
 
-## 🏛️ System Architecture
+See `docs/PRD.md`, `docs/EXECUTION_PLAN.md`, and `WHATSAPP_ARCHITECTURE.md`.
 
-```
-                                  ┌────────────────────────────────────────┐
-                                  │      WhatsApp Web Network (Meta)       │
-                                  └───────────────────▲────────────────────┘
-                                                      │ Persistent WebSockets
-                                                      ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                 THE ENGINE: WhatsApp Operator (Render/Docker)                          │
-│  - Express.js + @whiskeysockets/baileys                                                                │
-│  - Multi-tenant Socket Manager (Map<waAccountId, WASocket>)                                            │
-│  - Neon Postgres Session Credential Persistence (survives restarts)                                    │
-│  - Inbound Message Forwarder with HMAC-SHA256 Signatures                                              │
-│  - REST API: POST /start (QR generation), POST /send (instant deliver), GET /health                    │
-└───────────────────────────────────────────────┬────────────────────────────────────────────────────────┘
-                                                │ HMAC-SHA256 Webhooks (Inbound)
-                                                │ REST API /send (Outbound Worker)
-                                                ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                 THE BRAIN: Next.js 14 App (Vercel Serverless)                          │
-│  - App Router, React 18, Tailwind CSS, Lucide Icons, Shadcn-style Zinc Theme                           │
-│  - Clerk Auth (Multi-tenant metadata & Admin role verification)                                        │
-│  - Drizzle ORM + Neon Serverless PostgreSQL                                                            │
-│  - Outbox Pattern Engine (jobs table + /api/cron/outbox for guaranteed message delivery)               │
-│  - AI Automation (Keyword matching, POPIA STOP opt-out, Gemini/Groq AI integration)                    │
-│  - Dashboards:                                                                                         │
-│    1. Super Admin Dashboard (/admin): Global metrics, MRR, all tenants, emergency master switch        │
-│    2. Operations / Tenant Dashboard (/dashboard): QR code connect, conversations, waitlist, loyalty    │
-│    3. Conversations UI (/dashboard/conversations): Live message thread viewer & manual reply mode     │
-│    4. Waitlist & Reservations (/dashboard/reservations)                                                │
-└────────────────────────────────────────────────────────────────────────────────────────────────────────┘
-```
+## Local / Arena preview
 
----
-
-## 📁 Monorepo Structure
-
-```
-gemeli-whatsapp-app/
-├── apps/
-│   └── main/                        # Next.js 14 Brain (Vercel)
-│       ├── app/
-│       │   ├── admin/page.tsx       # Super Admin Dashboard (MRR, Tenants, Kill-switch)
-│       │   ├── dashboard/           # Tenant Operations & QR pairing
-│       │   │   ├── conversations/   # Live WhatsApp thread viewer
-│       │   │   ├── waitlist/        # Waitlist queue dispatcher
-│       │   │   ├── loyalty/         # Points ledger & rewards
-│       │   │   └── settings/        # AI system prompt & trading hours
-│       │   └── api/
-│       │       ├── webhooks/whatsapp/ # HMAC-SHA256 verified inbound webhook
-│       │       ├── cron/outbox/       # Guaranteed outbox pattern worker
-│       │       └── whatsapp/connect/  # QR code generation trigger
-│       ├── lib/
-│       │   ├── db/schema.ts         # Drizzle PostgreSQL schema
-│       │   ├── db/index.ts          # Neon serverless client
-│       │   ├── operator-client.ts   # HTTP client to Render operator
-│       │   └── ai/responder.ts      # Keyword detection & LLM fallback
-│       └── package.json
-├── operator/                        # Persistent Baileys Engine (Render/Docker)
-│   ├── src/
-│   │   ├── whatsapp/index.ts        # Baileys socket lifecycle & reconnection
-│   │   ├── webhook/forward.ts       # HMAC signed webhook forwarder
-│   │   ├── db/client.ts             # Postgres session persistence
-│   │   └── index.ts                 # Express REST API (/start, /send, /health)
-│   ├── Dockerfile                   # Multi-stage container
-│   └── package.json
-├── .github/workflows/
-│   └── synthetic-monitor.yml        # Synthetic uptime checks
-├── WHATSAPP_ARCHITECTURE.md         # Core engineering specification
-├── vercel.json                      # Vercel deployment & cron config
-├── turbo.json                       # Turborepo pipeline
-└── package.json                     # Monorepo root
-```
-
----
-
-## 🚀 Quickstart & Local Development
-
-### 1. Install Dependencies
 ```bash
 npm install
+npm run prove:outbox
+cd apps/main && npm run dev
 ```
 
-### 2. Configure Environment Variables
-Copy `.env.example` to `.env.local` in `apps/main` and `.env` in `operator`:
+With no Clerk or Neon keys the app boots **The Marula Room** (PGlite + demo owner). Open `/dashboard` and send a guest line.
+
+## Production
+
+1. Deploy `operator/` to Render (Docker, single instance). Health: `GET /health` every 5 minutes.
+2. Deploy the repo to Vercel (no native crons).
+3. Set the env vars in `.env.example`.
+4. Hit `GET /api/migrate` as super-admin once.
+5. Schedule cron-job.org:
+   - `GET /api/cron/outbox` every 1 min (`Authorization: Bearer $CRON_SECRET`)
+   - `GET /api/cron/waitlist` every 15 min
+   - `GET /api/cron/daily-brief` at 07:00
+   - `GET https://<operator>/health` every 5 min
+
+## Tests
+
 ```bash
-# In apps/main/.env.local:
-DATABASE_URL="postgresql://user:pass@ep-host.region.aws.neon.tech/neondb?sslmode=require"
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
-CLERK_SECRET_KEY="sk_test_..."
-OPERATOR_URL="http://localhost:3001"
-OPERATOR_API_KEY="your-operator-api-key"
-WEBHOOK_SECRET="your-webhook-secret"
-ADMIN_EMAIL="you@yourdomain.com"
-GOOGLE_GEMINI_API_KEY="AIzaSy..."
-
-# In operator/.env:
-PORT=3001
-DATABASE_URL="postgresql://user:pass@ep-host.region.aws.neon.tech/neondb?sslmode=require"
-MAIN_APP_WEBHOOK_URL="http://localhost:3000/api/webhooks/whatsapp"
-WEBHOOK_SECRET="your-webhook-secret"
-OPERATOR_API_KEY="your-operator-api-key"
+npm run prove:outbox
+BASE_URL=http://127.0.0.1:3000 npm run verify:routes
+BASE_URL=http://127.0.0.1:3000 npx playwright test e2e/app.spec.ts
+BASE_URL=http://127.0.0.1:3000 npm run synthetic:report
 ```
-
-### 3. Migrate Database Schema
-```bash
-npm run db:generate
-npm run db:migrate
-```
-
-### 4. Run Both Services Simultaneously
-```bash
-npm run dev
-```
-- Main App: [http://localhost:3000](http://localhost:3000)
-- Super Admin: [http://localhost:3000/admin](http://localhost:3000/admin)
-- Tenant Dashboard: [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
-- Operator Engine: [http://localhost:3001/health](http://localhost:3001/health)
-
----
-
-## 🚢 Production Deployment
-
-### 1. Deploy the Operator to Render
-1. Create a new **Web Service** on Render pointing to the `operator` directory.
-2. Select **Docker** environment (or Node.js 20).
-3. Set environment variables:
-   - `DATABASE_URL` = Your Neon Postgres URL
-   - `MAIN_APP_WEBHOOK_URL` = `https://your-app.vercel.app/api/webhooks/whatsapp`
-   - `WEBHOOK_SECRET` = Random 32+ character hex string
-   - `OPERATOR_API_KEY` = Random 32+ character hex string
-   - `PORT` = `3001`
-4. Deploy and verify `https://your-operator.onrender.com/health` returns `OK`.
-
-### 2. Deploy the Main App to Vercel
-1. Import your Git repository into Vercel.
-2. The root directory will build using the pre-configured `vercel.json` (100% compatible with Vercel Free Hobby plan).
-3. Set environment variables in Vercel project settings:
-   - `DATABASE_URL` = Neon Postgres URL
-   - `OPERATOR_URL` = `https://your-operator.onrender.com`
-   - `OPERATOR_API_KEY` = (Same key from Operator)
-   - `WEBHOOK_SECRET` = (Same secret from Operator)
-   - `CLERK_SECRET_KEY` & `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
-   - `ADMIN_EMAIL` = Your email address
-   - `GROQ_API_KEY` = Your Groq API key
-4. Deploy.
-
-### 3. Set Up Free External Cron Jobs (cron-job.org)
-Since Vercel Hobby limits cron frequencies, set up free external cron triggers on [cron-job.org](https://cron-job.org):
-1. **Outbox Message Worker (Every 1 minute)**:
-   - URL: `https://your-app.vercel.app/api/cron/outbox`
-   - Schedule: Every 1 minute
-2. **Daily Analytics Brief (Daily at 07:00 AM)**:
-   - URL: `https://your-app.vercel.app/api/cron/daily-brief`
-   - Schedule: Every day at 07:00
-3. **Waitlist Expiration Cleaner (Every 15 minutes)**:
-   - URL: `https://your-app.vercel.app/api/cron/waitlist`
-   - Schedule: Every 15 minutes
-4. **Keep Render Operator Awake (Every 5 minutes)**:
-   - URL: `https://your-operator.onrender.com/health`
-   - Schedule: Every 5 minutes
-
----
-
-## 🔒 Security & Compliance
-- **HMAC-SHA256 Signatures**: All inbound messages from the Operator are cryptographically verified using constant-time equality checks.
-- **POPIA / GDPR**: Inbound messages with keywords `STOP`, `UNSUBSCRIBE`, or `OPT OUT` automatically flag contacts as `blocklisted = true` and cease automated responses.
-- **Master AI Kill Switch**: Instant global pause toggle in database (`system_settings`) accessible via the Super Admin Dashboard.
-- **Outbox Pattern**: Outbound messages are written to `jobs` and dispatched with exponential backoff retries.

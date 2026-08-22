@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import crypto from 'crypto';
-import { db } from '@/lib/db';
+import { db, initDb } from '@/lib/db';
 import {
   tenants,
   waAccounts,
@@ -12,6 +12,7 @@ import {
 } from '@/lib/db/schema';
 import { and, eq, gte, count } from 'drizzle-orm';
 import { processInboundAIResponse } from '@/lib/ai/responder';
+import { isOptInCommand } from '@/lib/ai/popia';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -19,11 +20,9 @@ export const maxDuration = 30;
 function verifyHmacSignature(rawBody: string, signature: string | null): boolean {
   const secret = process.env.WEBHOOK_SECRET;
   if (!secret) {
-    // Fail closed in production — an unset secret should never mean
-    // "accept anything." The dev fallback only applies outside prod, and
-    // only when no secret was configured at all (not when one exists and
-    // just fails to match).
-    return process.env.NODE_ENV !== 'production';
+    // Fail closed everywhere. An unset secret must never mean "accept anything."
+    console.error('[webhook] WEBHOOK_SECRET is not set — refusing inbound WhatsApp payload.');
+    return false;
   }
   if (!signature) return false;
   try {
@@ -167,7 +166,7 @@ export async function POST(req: NextRequest) {
   }
 
   // If user is blocklisted (opted-out via POPIA STOP), do not reply unless they text START
-  if (contact.blocklisted && textContent.trim().toLowerCase() !== 'start') {
+  if (contact.blocklisted && !isOptInCommand(textContent)) {
     return NextResponse.json({ ok: true, note: 'User is blocklisted / unsubscribed' });
   }
 

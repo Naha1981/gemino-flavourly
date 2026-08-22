@@ -11,6 +11,8 @@ export const maxDuration = 60;
 export async function GET(req: NextRequest) {
   const authError = assertCronAuthorized(req);
   if (authError) return authError;
+  const { initDb } = await import('@/lib/db');
+  await initDb();
 
   // Expire offered waitlist entries that were not accepted within 15 minutes
   const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);

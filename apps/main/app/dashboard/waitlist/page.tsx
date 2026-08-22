@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { db } from '@/lib/db';
+import { db, initDb } from '@/lib/db';
 import { waitlistEntries } from '@/lib/db/schema';
 import { eq, desc, and } from 'drizzle-orm';
 import Link from 'next/link';
@@ -16,6 +16,7 @@ export default async function WaitlistPage() {
   // numbers, and party sizes. Now scoped to the signed-in owner's own
   // tenant, matching the pattern already used correctly on /dashboard
   // and /dashboard/inbox.
+  await initDb();
   const tenant = await getOrCreateTenant();
   if (!tenant) redirect('/sign-in');
 

@@ -1,24 +1,30 @@
-import { SignUp } from '@clerk/nextjs';
+import Link from 'next/link';
+import { isClerkConfigured, isDemoMode } from '@/lib/config';
 
 export default function Page() {
+  if (isDemoMode() || !isClerkConfigured()) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-ink p-6">
+        <div className="w-full max-w-md rounded-2xl border border-line bg-ink-2 p-8 text-center">
+          <h1 className="font-display text-3xl text-cream">Create your house</h1>
+          <p className="mt-2 text-sm text-cream-dim">
+            In production this is Clerk. Here, the demo tenant is already plated.
+          </p>
+          <Link
+            href="/dashboard"
+            className="mt-6 inline-flex w-full justify-center rounded-md bg-saffron px-4 py-3 text-sm font-semibold text-ink"
+          >
+            Continue
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  const { SignUp } = require('@clerk/nextjs') as typeof import('@clerk/nextjs');
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4">
-      <SignUp 
-        forceRedirectUrl="/onboarding"
-        appearance={{
-          elements: {
-            rootBox: "mx-auto",
-            card: "bg-zinc-900 border border-zinc-800 text-zinc-50 shadow-xl",
-            headerTitle: "text-zinc-50",
-            headerSubtitle: "text-zinc-400",
-            socialButtonsBlockButton: "bg-zinc-800 border-zinc-700 text-zinc-50 hover:bg-zinc-700",
-            formFieldLabel: "text-zinc-400",
-            formFieldInput: "bg-zinc-950 border-zinc-700 text-zinc-50 focus:border-emerald-500",
-            formButtonPrimary: "bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-semibold",
-            footerActionLink: "text-emerald-400 hover:text-emerald-300"
-          }
-        }}
-      />
+    <div className="flex min-h-screen items-center justify-center bg-ink p-4">
+      <SignUp forceRedirectUrl="/dashboard" />
     </div>
   );
 }

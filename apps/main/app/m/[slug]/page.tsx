@@ -43,15 +43,19 @@ interface Props {
 //    page.
 // 2. React's `cache` dedupes within a SINGLE request, so generateMetadata and
 //    the page body share one lookup instead of issuing two.
-const getTenantUncached = (slug: string) =>
-  db.query.tenants.findFirst({
+const getTenantUncached = async (slug: string) => {
+  const { initDb } = await import('@/lib/db');
+  await initDb();
+  return db.query.tenants.findFirst({
     where: eq(tenants.slug, slug),
     columns: {
       name: true,
       description: true,
       openingHours: true,
+      menuText: true,
     },
   });
+};
 
 const getTenant = cache((slug: string) =>
   unstable_cache(() => getTenantUncached(slug), ['menu-page', slug], {
@@ -93,9 +97,9 @@ export default async function MenuPage({ params }: Props) {
           <h2 className="mb-3 text-xs font-semibold uppercase tracking-widest text-emerald-400">
             Menu
           </h2>
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5 text-sm leading-relaxed text-zinc-400">
-            Message us on WhatsApp and we’ll gladly talk you through today’s dishes and chef
-            specials.
+          <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5 text-sm leading-relaxed text-zinc-300 whitespace-pre-wrap">
+            {tenant.menuText ||
+              'Message us on WhatsApp and we will talk you through today’s dishes and chef specials.'}
           </div>
         </section>
 

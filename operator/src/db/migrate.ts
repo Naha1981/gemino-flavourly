@@ -56,6 +56,24 @@ async function run() {
         ON messages (tenant_id, wa_message_id);
     `);
     await client.query(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT NOW();`);
+    await client.query(`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS menu_text text;`);
+    await client.query(`
+      CREATE UNIQUE INDEX IF NOT EXISTS messages_wa_message_id_uniq
+        ON messages (tenant_id, wa_message_id)
+        WHERE wa_message_id IS NOT NULL;
+    `);
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS platform_events (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        wa_account_id uuid NOT NULL,
+        payload jsonb NOT NULL,
+        status text DEFAULT 'pending' NOT NULL,
+        attempts integer DEFAULT 0 NOT NULL,
+        last_error text,
+        created_at timestamp DEFAULT NOW() NOT NULL,
+        updated_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `);
 
     console.log('✅ ALL PRODUCTION SCHEMA COLUMNS & TABLES SYNCHRONIZED SUCCESSFULLY IN NEON POSTGRESQL!');
   } finally {

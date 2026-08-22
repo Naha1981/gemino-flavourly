@@ -15,6 +15,7 @@ export default function SettingsPage() {
     openingHours: '',
     aiPersonality: 'friendly and professional',
     systemPrompt: '',
+    menuText: '',
     aiEnabled: true,
     manualMode: false,
   });
@@ -32,6 +33,7 @@ export default function SettingsPage() {
               openingHours: data.tenant.openingHours || 'Monday - Sunday: 11:30 AM - 10:00 PM',
               aiPersonality: data.tenant.aiPersonality || 'warm, professional, and hospitable',
               systemPrompt: data.tenant.systemPrompt || '',
+              menuText: data.tenant.menuText || '',
               aiEnabled: data.tenant.aiEnabled ?? true,
               manualMode: data.tenant.manualMode ?? false,
             });
@@ -189,6 +191,44 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6 space-y-4 shadow-sm">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-zinc-800">
+            <Bot className="h-4 w-4 text-emerald-400" />
+            <h2 className="text-sm font-semibold text-zinc-100 uppercase tracking-wider">Kill switches</h2>
+          </div>
+          <label className="flex items-center justify-between gap-4 text-sm">
+            <span>
+              <span className="block text-zinc-100">AI concierge enabled</span>
+              <span className="block text-xs text-zinc-500">Off = log inbound, never auto-reply</span>
+            </span>
+            <input
+              type="checkbox"
+              checked={formData.aiEnabled}
+              onChange={(e) => setFormData({ ...formData, aiEnabled: e.target.checked })}
+            />
+          </label>
+          <label className="flex items-center justify-between gap-4 text-sm">
+            <span>
+              <span className="block text-zinc-100">Manual mode (whole house)</span>
+              <span className="block text-xs text-zinc-500">Staff answers every thread</span>
+            </span>
+            <input
+              type="checkbox"
+              checked={formData.manualMode}
+              onChange={(e) => setFormData({ ...formData, manualMode: e.target.checked })}
+            />
+          </label>
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-zinc-300">Public menu copy</label>
+            <textarea
+              rows={6}
+              value={formData.menuText}
+              onChange={(e) => setFormData({ ...formData, menuText: e.target.value })}
+              className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3.5 py-2 text-sm text-zinc-100"
+            />
+          </div>
+        </div>
+
         {/* Section 3: Safety & Controls */}
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
           <div className="flex items-center gap-3">
@@ -196,8 +236,8 @@ export default function SettingsPage() {
               <Shield className="h-4 w-4" />
             </div>
             <div>
-              <p className="text-xs font-semibold text-zinc-200">POPIA & GDPR Opt-Out Compliance</p>
-              <p className="text-xs text-zinc-500">Keywords like STOP or UNSUBSCRIBE automatically opt out customers.</p>
+              <p className="text-xs font-semibold text-zinc-200">POPIA exact commands</p>
+              <p className="text-xs text-zinc-500">Only the whole message STOP / START — no substring hijacks.</p>
             </div>
           </div>
 

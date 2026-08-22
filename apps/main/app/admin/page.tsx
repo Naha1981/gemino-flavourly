@@ -1,8 +1,8 @@
-import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
-import { db } from '@/lib/db';
+import { db, initDb } from '@/lib/db';
 import { tenants, waAccounts, messages, systemSettings } from '@/lib/db/schema';
-import { count, eq, desc } from 'drizzle-orm';
+import { count, eq, desc, sql } from 'drizzle-orm';
+import { getSessionUser } from '@/lib/auth/session';
 import { Users, MessageSquare, Activity, DollarSign, Shield, Power, Radio, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { isSuperAdmin } from '@/lib/auth/is-super-admin';
@@ -11,12 +11,11 @@ import { toggleGlobalAiAction } from './actions';
 export const dynamic = 'force-dynamic';
 
 export default async function SuperAdminDashboard() {
-  const { userId } = await auth();
+  await initDb();
+  const session = await getSessionUser();
   const authorized = await isSuperAdmin();
 
-  // Fails closed unconditionally (not just in production) — there's no
-  // reason a preview/staging deploy should expose cross-tenant data either.
-  if (!userId || !authorized) {
+  if (!session || !authorized) {
     redirect('/sign-in');
   }
 

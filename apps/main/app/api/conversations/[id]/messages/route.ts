@@ -3,7 +3,7 @@ import { getOrCreateTenant } from '@/lib/tenant';
 import { db } from '@/lib/db';
 import { conversations, contacts, messages, jobs } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { operatorClient } from '@/lib/operator-client';
+
 
 export const dynamic = 'force-dynamic';
 
@@ -58,18 +58,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     })
     .where(eq(conversations.id, convo.id));
 
-  // 4. Try direct dispatch via Operator, or fallback to Outbox jobs
-  let sentDirectly = false;
+  // Always outbox. Never send inline — that is how double-sends happen.
   if (convo.waAccountId) {
-    try {
-      await operatorClient.sendMessage(convo.waAccountId, convo.contactPhone, content.trim());
-      sentDirectly = true;
-    } catch {
-      // Operator fallback
-    }
-  }
-
-  if (!sentDirectly && convo.waAccountId) {
     await db.insert(jobs).values({
       tenantId: tenant.id,
       type: 'send_whatsapp',
@@ -80,6 +70,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         messageId: newMessage.id,
       },
       status: 'pending',
+      nextRunAt: new Date(),
     });
   }
 

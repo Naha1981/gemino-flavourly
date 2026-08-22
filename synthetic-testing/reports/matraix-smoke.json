@@ -1,0 +1,389 @@
+{
+  "generated_at": "2026-08-22T18:42:06.147Z",
+  "target": "http://127.0.0.1:3000",
+  "personas": 10,
+  "passed": 10,
+  "score": "10/10",
+  "results": [
+    {
+      "persona_id": "owner_amara",
+      "name": "Amara",
+      "success": true,
+      "failures": 0,
+      "notes": [
+        {
+          "path": "/",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/sign-in",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/inbox",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/bookings",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/m/the-marula-room",
+          "status": 200,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "persona_id": "owner_pieter",
+      "name": "Pieter",
+      "success": true,
+      "failures": 0,
+      "notes": [
+        {
+          "path": "/",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/sign-in",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/inbox",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/bookings",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/m/the-marula-room",
+          "status": 200,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "persona_id": "host_lerato",
+      "name": "Lerato",
+      "success": true,
+      "failures": 0,
+      "notes": [
+        {
+          "path": "/",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/sign-in",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/inbox",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/bookings",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/m/the-marula-room",
+          "status": 200,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "persona_id": "diner_thandi",
+      "name": "Thandi",
+      "success": true,
+      "failures": 0,
+      "notes": [
+        {
+          "path": "/",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/sign-in",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/inbox",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/bookings",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/m/the-marula-room",
+          "status": 200,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "persona_id": "diner_johan",
+      "name": "Johan",
+      "success": true,
+      "failures": 0,
+      "notes": [
+        {
+          "path": "/",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/sign-in",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/inbox",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/bookings",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/m/the-marula-room",
+          "status": 200,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "persona_id": "impatient_teen",
+      "name": "Kai",
+      "success": true,
+      "failures": 0,
+      "notes": [
+        {
+          "path": "/",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/sign-in",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/inbox",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/bookings",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/m/the-marula-room",
+          "status": 200,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "persona_id": "elderly_guest",
+      "name": "Gloria",
+      "success": true,
+      "failures": 0,
+      "notes": [
+        {
+          "path": "/",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/sign-in",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/inbox",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/bookings",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/m/the-marula-room",
+          "status": 200,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "persona_id": "group_booker",
+      "name": "Sipho",
+      "success": true,
+      "failures": 0,
+      "notes": [
+        {
+          "path": "/",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/sign-in",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/inbox",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/bookings",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/m/the-marula-room",
+          "status": 200,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "persona_id": "regular_vip",
+      "name": "Naledi",
+      "success": true,
+      "failures": 0,
+      "notes": [
+        {
+          "path": "/",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/sign-in",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/inbox",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/bookings",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/m/the-marula-room",
+          "status": 200,
+          "ok": true
+        }
+      ]
+    },
+    {
+      "persona_id": "new_owner",
+      "name": "Farah",
+      "success": true,
+      "failures": 0,
+      "notes": [
+        {
+          "path": "/",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/sign-in",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/inbox",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/dashboard/bookings",
+          "status": 200,
+          "ok": true
+        },
+        {
+          "path": "/m/the-marula-room",
+          "status": 200,
+          "ok": true
+        }
+      ]
+    }
+  ]
+}

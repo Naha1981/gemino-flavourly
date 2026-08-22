@@ -70,7 +70,12 @@ export const operatorClient = {
   /**
    * Send outbound WhatsApp message directly via operator socket
    */
-  async sendMessage(waAccountId: string, to: string, text: string): Promise<SendMessageResponse> {
+  async sendMessage(
+    waAccountId: string,
+    to: string,
+    text: string,
+    tenantId?: string
+  ): Promise<SendMessageResponse> {
     try {
       const res = await fetch(`${OPERATOR_URL}/send`, {
         method: 'POST',
@@ -78,7 +83,7 @@ export const operatorClient = {
           'Content-Type': 'application/json',
           'x-api-key': OPERATOR_API_KEY,
         },
-        body: JSON.stringify({ waAccountId, to, text }),
+        body: JSON.stringify({ waAccountId, to, text, tenantId }),
         cache: 'no-store',
       });
 

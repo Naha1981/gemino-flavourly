@@ -4,73 +4,66 @@
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
-    --radius: 0.5rem;
-  }
-
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 5.9% 10%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
+    --ink: 20 10% 5%;
+    --ink-2: 24 14% 8%;
+    --cream: 36 33% 93%;
+    --cream-dim: 32 18% 72%;
+    --saffron: 36 68% 48%;
+    --leaf: 152 34% 36%;
+    --wine: 0 42% 38%;
+    --line: 24 10% 18%;
+    --background: 20 10% 5%;
+    --foreground: 36 33% 93%;
+    --card: 24 14% 8%;
+    --card-foreground: 36 33% 93%;
+    --muted: 24 10% 14%;
+    --muted-foreground: 32 12% 62%;
+    --accent: 36 68% 48%;
+    --accent-foreground: 20 10% 8%;
+    --border: 24 10% 18%;
+    --input: 24 10% 18%;
+    --ring: 36 68% 48%;
+    --primary: 36 68% 48%;
+    --primary-foreground: 20 10% 8%;
+    --radius: 0.75rem;
   }
 }
 
 * {
-  border-color: hsl(var(--border));
+  border-color: hsl(var(--line));
+}
+
+html,
+body {
+  background: hsl(var(--ink));
+  color: hsl(var(--cream));
 }
 
 body {
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
-  font-feature-settings: "rlig" 1, "calt" 1;
+  font-feature-settings: "ss01" 1, "cv11" 1;
 }
 
-/* Custom Scrollbars */
+.font-display {
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, serif;
+}
+
+.font-sans {
+  font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+}
+
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.3);
-  border-radius: 4px;
+  background: hsl(var(--line));
+  border-radius: 999px;
 }
-::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.5);
+
+.grain {
+  background-image: radial-gradient(hsl(36 33% 93% / 0.04) 0.6px, transparent 0.6px);
+  background-size: 3px 3px;
 }

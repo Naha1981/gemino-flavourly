@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server';
 import { getOrCreateTenant } from '@/lib/tenant';
-import { db } from '@/lib/db';
+import { db, initDb } from '@/lib/db';
 import { waAccounts } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
+  await initDb();
   const tenant = await getOrCreateTenant();
   if (!tenant) return NextResponse.json({ error: 'Sign in first.' }, { status: 401 });
 

@@ -20,7 +20,13 @@
     "test:e2e": "playwright test",
     "synthetic:smoke": "node synthetic-testing/runner/matraix-runner.mjs user_signs_up_and_onboards",
     "synthetic:landing": "node synthetic-testing/runner/matraix-runner.mjs landing_page_engagement",
-    "synthetic:all": "node synthetic-testing/runner/matraix-runner.mjs landing_page_engagement && node synthetic-testing/runner/matraix-runner.mjs user_signs_up_and_onboards"
+    "synthetic:all": "node synthetic-testing/runner/matraix-runner.mjs landing_page_engagement && node synthetic-testing/runner/matraix-runner.mjs user_signs_up_and_onboards",
+    "synthetic:report": "node synthetic-testing/runner/matraix-runner.mjs",
+    "prove:outbox": "node scripts/prove-atomic-claim.mjs",
+    "verify:routes": "node e2e/verify-routes.mjs"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "^0.3.4"
   },
   "devDependencies": {
     "@google/generative-ai": "^0.21.0",

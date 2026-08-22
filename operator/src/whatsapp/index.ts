@@ -222,8 +222,8 @@ export async function sendMessage(waAccountId: string, to: string, text: string)
   }
 
   // Normalize recipient JID e.g. 27821234567 -> 27821234567@s.whatsapp.net
-  const cleaned = to.replace(/\D/g, '');
-  const jid = cleaned.includes('@s.whatsapp.net') ? cleaned : `${cleaned}@s.whatsapp.net`;
+  const raw = String(to);
+  const jid = raw.includes('@s.whatsapp.net') ? raw : `${raw.replace(/\D/g, '')}@s.whatsapp.net`;
 
   logger.info(`Dispatching outbound message via account ${waAccountId} to ${jid}`);
   return await sock.sendMessage(jid, { text });

@@ -1,0 +1,10 @@
+{
+  "scenario_id": "landing_and_desk",
+  "name": "Owner opens Flavourly and reaches the house desk",
+  "target_url": "/",
+  "success_criteria": [
+    "landing_headline_visible",
+    "cta_reaches_dashboard_or_sign_in",
+    "no_500"
+  ]
+}

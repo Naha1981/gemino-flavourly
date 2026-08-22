@@ -11,6 +11,8 @@ export const maxDuration = 60;
 export async function GET(req: NextRequest) {
   const authError = assertCronAuthorized(req);
   if (authError) return authError;
+  const { initDb } = await import('@/lib/db');
+  await initDb();
 
   // Morning brief for restaurant owners (runs at 07:00 — see vercel cron
   // schedule / cron-job.org config).

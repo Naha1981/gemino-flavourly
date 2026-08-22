@@ -1,6 +1,5 @@
-import { auth } from '@clerk/nextjs/server';
 import { redirect, notFound } from 'next/navigation';
-import { db } from '@/lib/db';
+import { db, initDb } from '@/lib/db';
 import { conversations, contacts, messages } from '@/lib/db/schema';
 import { eq, desc, asc, and } from 'drizzle-orm';
 import { getOrCreateTenant } from '@/lib/tenant';
@@ -11,9 +10,7 @@ import ChatDetailClient from './chat-detail-client';
 export const dynamic = 'force-dynamic';
 
 export default async function ConversationDetailPage({ params }: { params: { id: string } }) {
-  const { userId } = await auth();
-  if (!userId) redirect('/sign-in');
-
+  await initDb();
   const tenant = await getOrCreateTenant();
   if (!tenant) redirect('/sign-in');
 

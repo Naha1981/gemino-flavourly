@@ -26,6 +26,7 @@ export const tenants = pgTable('tenants', {
   aiEnabled: boolean('ai_enabled').default(true).notNull(),
   manualMode: boolean('manual_mode').default(false).notNull(),
   systemPrompt: text('system_prompt'),
+  menuText: text('menu_text'),
   monthlyFee: decimal('monthly_fee', { precision: 10, scale: 2 }).default('49.00'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -159,6 +160,30 @@ export const messages = pgTable(
     tenantDateIdx: index('messages_tenant_created_idx').on(table.tenantId, table.createdAt),
     conversationIdx: index('messages_conversation_idx').on(table.conversationId),
     waMessageIdIdx: index('messages_wa_message_id_idx').on(table.tenantId, table.waMessageId),
+    // Partial unique index is created in SQL bootstrap / migrate:
+    // CREATE UNIQUE INDEX messages_wa_message_id_uniq
+    //   ON messages (tenant_id, wa_message_id) WHERE wa_message_id IS NOT NULL;
+  })
+);
+
+// Operator persist-then-forward log. Written BEFORE the webhook POST so a
+// Render blip cannot drop an inbound customer message on the floor.
+export const platformEvents = pgTable(
+  'platform_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    waAccountId: uuid('wa_account_id').notNull(),
+    payload: jsonb('payload').notNull(),
+    status: text('status', { enum: ['pending', 'forwarded', 'failed'] })
+      .default('pending')
+      .notNull(),
+    attempts: integer('attempts').default(0).notNull(),
+    lastError: text('last_error'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    waCreatedIdx: index('platform_events_wa_created_idx').on(table.waAccountId, table.createdAt),
   })
 );
 

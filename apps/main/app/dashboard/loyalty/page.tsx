@@ -1,17 +1,15 @@
 import { redirect } from 'next/navigation';
-import { db } from '@/lib/db';
-import { contacts, loyaltyRewards } from '@/lib/db/schema';
+import { db, initDb } from '@/lib/db';
+import { contacts, loyaltyRewards, loyaltyTransactions } from '@/lib/db/schema';
 import { desc, eq } from 'drizzle-orm';
-import Link from 'next/link';
-import { ArrowLeft, Sparkles, Gift, Award, TrendingUp } from 'lucide-react';
+import { Gift, Award } from 'lucide-react';
 import { getOrCreateTenant } from '@/lib/tenant';
+import { awardLoyaltyAction } from './actions';
 
 export const dynamic = 'force-dynamic';
 
 export default async function LoyaltyPage() {
-  // Same cross-tenant leak as the waitlist page: no auth() call, no
-  // tenantId filter — every restaurant's top loyalty guests (names,
-  // phone numbers, point balances) were visible to any signed-in user.
+  await initDb();
   const tenant = await getOrCreateTenant();
   if (!tenant) redirect('/sign-in');
 
@@ -29,101 +27,99 @@ export default async function LoyaltyPage() {
     .where(eq(loyaltyRewards.tenantId, tenant.id))
     .catch(() => []);
 
+  const ledger = await db
+    .select()
+    .from(loyaltyTransactions)
+    .where(eq(loyaltyTransactions.tenantId, tenant.id))
+    .orderBy(desc(loyaltyTransactions.createdAt))
+    .limit(8)
+    .catch(() => []);
+
+  const catalog =
+    rewards.length > 0
+      ? rewards
+      : [
+          { id: 'd1', name: 'Complimentary dessert or coffee', pointsCost: 100 },
+          { id: 'd2', name: 'R100 dine-in voucher', pointsCost: 250 },
+          { id: 'd3', name: 'Chef’s table + sparkling', pointsCost: 500 },
+        ];
+
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6 md:p-10 selection:bg-zinc-800">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex items-center justify-between pb-4 border-b border-zinc-800">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/dashboard"
-              className="p-2 rounded-md bg-zinc-900 border border-zinc-800 hover:bg-zinc-800 text-zinc-400 hover:text-zinc-100 transition-colors"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </Link>
-            <div>
-              <h1 className="text-xl font-semibold text-zinc-50 tracking-tight">WhatsApp Loyalty Program & Rewards</h1>
-              <p className="text-xs text-zinc-400">Automate customer points balance lookups and reward redemptions.</p>
-            </div>
+    <div className="mx-auto max-w-5xl space-y-6">
+      <div>
+        <p className="text-[11px] uppercase tracking-[0.2em] text-saffron">Regulars</p>
+        <h1 className="font-display text-4xl text-cream">Loyalty</h1>
+        <p className="mt-1 text-sm text-cream-dim">Guests text POINTS. You award from the floor. The ledger is the source of truth.</p>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-2">
+        <div className="rounded-2xl border border-line bg-ink-2 p-6">
+          <h2 className="mb-4 flex items-center gap-2 text-sm font-medium text-cream">
+            <Gift className="h-4 w-4 text-saffron" />
+            Catalog
+          </h2>
+          <div className="space-y-3">
+            {catalog.map((r) => (
+              <div key={r.id} className="flex items-center justify-between rounded-xl border border-line bg-ink px-4 py-3">
+                <p className="text-sm text-cream">{r.name}</p>
+                <span className="font-mono text-xs text-saffron">{r.pointsCost} pts</span>
+              </div>
+            ))}
           </div>
         </div>
 
-        {/* 2 Column Layout: Rewards & Top Members */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Rewards List */}
-          <div className="bg-zinc-900/70 border border-zinc-800 rounded-lg p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-              <h2 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
-                <Gift className="w-4 h-4 text-emerald-400" />
-                Active Redeemable Rewards
-              </h2>
-            </div>
-
-            <div className="space-y-3">
-              <div className="p-4 rounded-md bg-zinc-950 border border-zinc-800 flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-semibold text-zinc-100">Complimentary Chef Dessert or Specialty Coffee</h4>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">Automated on WhatsApp balance &gt; 100</p>
-                </div>
-                <span className="px-2.5 py-1 rounded bg-emerald-950/80 border border-emerald-800 text-emerald-400 text-xs font-mono font-bold">
-                  100 Pts
-                </span>
-              </div>
-
-              <div className="p-4 rounded-md bg-zinc-950 border border-zinc-800 flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-semibold text-zinc-100">R100 Dine-In Bill Voucher</h4>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">Automated discount voucher code</p>
-                </div>
-                <span className="px-2.5 py-1 rounded bg-emerald-950/80 border border-emerald-800 text-emerald-400 text-xs font-mono font-bold">
-                  250 Pts
-                </span>
-              </div>
-
-              <div className="p-4 rounded-md bg-zinc-950 border border-zinc-800 flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-semibold text-zinc-100">VIP Chef Table Reservation with Sparkling Wine</h4>
-                  <p className="text-[11px] text-zinc-400 mt-0.5">Exclusive VIP tier reward</p>
-                </div>
-                <span className="px-2.5 py-1 rounded bg-emerald-950/80 border border-emerald-800 text-emerald-400 text-xs font-mono font-bold">
-                  500 Pts
-                </span>
-              </div>
-            </div>
-          </div>
-
-          {/* Top VIP Members */}
-          <div className="bg-zinc-900/70 border border-zinc-800 rounded-lg p-6 space-y-4">
-            <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
-              <h2 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
-                <Award className="w-4 h-4 text-amber-400" />
-                Top VIP Loyalty Members
-              </h2>
-            </div>
-
-            <div className="divide-y divide-zinc-800/60">
-              {topLoyaltyGuests.length === 0 ? (
-                <div className="py-12 text-center text-xs text-zinc-500">
-                  No loyalty members recorded yet. When guests text *JOIN* or *POINTS*, they appear here.
-                </div>
-              ) : (
-                topLoyaltyGuests.map((guest) => (
-                  <div key={guest.id} className="py-3 flex items-center justify-between">
-                    <div>
-                      <p className="text-xs font-semibold text-zinc-100">{guest.name || 'VIP Member'}</p>
-                      <p className="text-[11px] text-zinc-500 font-mono">+{guest.phone}</p>
-                    </div>
-                    <div className="text-right">
-                      <span className="text-xs font-bold text-amber-400 font-mono">
-                        {guest.loyaltyPoints} Points
-                      </span>
-                    </div>
+        <div className="rounded-2xl border border-line bg-ink-2 p-6">
+          <h2 className="mb-4 flex items-center gap-2 text-sm font-medium text-cream">
+            <Award className="h-4 w-4 text-saffron" />
+            Top guests
+          </h2>
+          {topLoyaltyGuests.length === 0 ? (
+            <p className="py-8 text-center text-sm text-cream-dim">No members yet.</p>
+          ) : (
+            <ul className="divide-y divide-line">
+              {topLoyaltyGuests.map((guest) => (
+                <li key={guest.id} className="flex items-center justify-between py-3">
+                  <div>
+                    <p className="text-sm text-cream">{guest.name || 'Guest'}</p>
+                    <p className="font-mono text-[11px] text-cream-dim">+{guest.phone}</p>
+                    <form action={awardLoyaltyAction} className="mt-2 flex gap-2">
+                      <input type="hidden" name="contactId" value={guest.id} />
+                      <input
+                        name="amount"
+                        defaultValue="20"
+                        className="w-16 rounded border border-line bg-ink px-2 py-1 text-xs"
+                      />
+                      <input type="hidden" name="description" value="Floor visit award" />
+                      <button className="rounded bg-saffron px-2 py-1 text-[11px] font-semibold text-ink">Award</button>
+                    </form>
                   </div>
-                ))
-              )}
-            </div>
-          </div>
+                  <span className="font-mono text-sm text-saffron">{guest.loyaltyPoints}</span>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
+      </div>
+
+      <div className="rounded-2xl border border-line bg-ink-2 p-6">
+        <h2 className="mb-3 text-sm font-medium text-cream">Ledger</h2>
+        {ledger.length === 0 ? (
+          <p className="text-sm text-cream-dim">No movements yet.</p>
+        ) : (
+          <ul className="space-y-2 text-sm">
+            {ledger.map((row) => (
+              <li key={row.id} className="flex justify-between text-cream-dim">
+                <span>
+                  {row.type} · {row.description}
+                </span>
+                <span className="font-mono text-cream">
+                  {row.amount > 0 ? '+' : ''}
+                  {row.amount}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   );
