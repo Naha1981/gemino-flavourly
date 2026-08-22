@@ -3,8 +3,16 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# Was `npm install` against no committed lockfile at all — every single
+# build resolved fresh dependency versions within whatever semver ranges
+# package.json allowed. Baileys (@whiskeysockets/baileys) is a fast-moving
+# unofficial WhatsApp client with no stability guarantees between minor
+# versions; a routine redeploy could silently pull in a breaking version
+# with zero code change on your side. `npm ci` requires and strictly
+# honors the committed package-lock.json, so a build only ever installs
+# exactly what was tested.
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 
 COPY tsconfig.json ./
 COPY src ./src
@@ -18,7 +26,9 @@ ENV NODE_ENV=production
 ENV PORT=3001
 
 COPY package*.json ./
-RUN npm install --only=production
+# --only=production is deprecated in favor of --omit=dev (same effect,
+# current npm syntax).
+RUN npm ci --omit=dev
 
 COPY --from=builder /app/dist ./dist
 

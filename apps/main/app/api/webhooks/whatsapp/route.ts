@@ -10,7 +10,7 @@ import {
   jobs,
   systemSettings,
 } from '@/lib/db/schema';
-import { and, eq } from 'drizzle-orm';
+import { and, eq, gte, count } from 'drizzle-orm';
 import { processInboundAIResponse } from '@/lib/ai/responder';
 
 export const runtime = 'nodejs';
@@ -211,6 +211,32 @@ export async function POST(req: NextRequest) {
   }
   if (aiSuppressed) {
     return NextResponse.json({ ok: true, note: 'AI reply suppressed (global kill switch or tenant AI disabled)' });
+  }
+
+  // 7b. Per-conversation rate limit. Nothing previously stopped a single
+  // contact (a bot, a misbehaving integration, or someone spamming a
+  // tenant's number) from generating unlimited AI replies — each one a
+  // real API call to Groq/Gemini and a real WhatsApp send. At 100
+  // tenants, one such burst on even one thread is a real cost and abuse
+  // vector. Reuses the messages table already being written to rather
+  // than adding new infrastructure (Redis, etc.) — inbound messages
+  // are always recorded above regardless of this check, so a burst is
+  // still fully visible in the Inbox; only automated AI replies stop.
+  const RATE_LIMIT_WINDOW_MS = 60_000;
+  const RATE_LIMIT_MAX_INBOUND = 10;
+  const [{ value: recentInboundCount }] = await db
+    .select({ value: count() })
+    .from(messages)
+    .where(
+      and(
+        eq(messages.conversationId, conversation.id),
+        eq(messages.direction, 'inbound'),
+        gte(messages.createdAt, new Date(Date.now() - RATE_LIMIT_WINDOW_MS))
+      )
+    );
+  if (recentInboundCount > RATE_LIMIT_MAX_INBOUND) {
+    console.warn(`[RateLimit] Conversation ${conversation.id} exceeded ${RATE_LIMIT_MAX_INBOUND} inbound messages/min — suppressing AI reply.`);
+    return NextResponse.json({ ok: true, note: 'Rate limited: too many messages in a short window' });
   }
 
   // 8. Generate & Enqueue AI Reply
