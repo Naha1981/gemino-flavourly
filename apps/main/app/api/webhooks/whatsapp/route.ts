@@ -12,6 +12,7 @@ import {
 } from '@/lib/db/schema';
 import { and, eq, gte, count } from 'drizzle-orm';
 import { processInboundAIResponse } from '@/lib/ai/responder';
+import { isOptInMessage } from '@/lib/opt-in-out';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -166,8 +167,13 @@ export async function POST(req: NextRequest) {
     await db.update(contacts).set({ name: pushName }).where(eq(contacts.id, contact.id));
   }
 
-  // If user is blocklisted (opted-out via POPIA STOP), do not reply unless they text START
-  if (contact.blocklisted && textContent.trim().toLowerCase() !== 'start') {
+  // If user is blocklisted (opted-out via POPIA STOP), do not reply
+  // unless they text START. Now routed through the same shared helper
+  // as responder.ts, rather than its own separate inline check — this
+  // one happened to already be an exact match, but having the rule
+  // defined in two places was exactly how the responder.ts side drifted
+  // into a buggier word-boundary version.
+  if (contact.blocklisted && !isOptInMessage(textContent)) {
     return NextResponse.json({ ok: true, note: 'User is blocklisted / unsubscribed' });
   }
 
@@ -194,15 +200,34 @@ export async function POST(req: NextRequest) {
       .where(eq(conversations.id, conversation.id));
   }
 
-  // 6. Record Inbound Message
-  await db.insert(messages).values({
-    tenantId,
-    conversationId: conversation.id,
-    direction: 'inbound',
-    content: textContent,
-    isAIGenerated: false,
-    waMessageId,
-  });
+  // 6. Record Inbound Message.
+  // The idempotency check above (step 3) has its own race window: two
+  // near-simultaneous deliveries of the same WhatsApp message could
+  // both pass that SELECT before either has inserted. With the new
+  // partial unique index on (tenant_id, wa_message_id), the second
+  // INSERT here would otherwise throw an unhandled duplicate-key error
+  // — a 500 back to the operator, which would then retry (see the new
+  // retry logic in operator/src/webhook/forward.ts) a message that
+  // actually already succeeded. onConflictDoNothing() makes this a
+  // clean no-op instead: if it didn't insert, someone else already
+  // recorded this exact message, so stop here rather than generating a
+  // second AI reply.
+  const [insertedMessage] = await db
+    .insert(messages)
+    .values({
+      tenantId,
+      conversationId: conversation.id,
+      direction: 'inbound',
+      content: textContent,
+      isAIGenerated: false,
+      waMessageId,
+    })
+    .onConflictDoNothing()
+    .returning({ id: messages.id });
+
+  if (!insertedMessage && waMessageId) {
+    return NextResponse.json({ ok: true, note: 'Duplicate message (race on concurrent delivery)' });
+  }
 
   // 7. If Manual Takeover is ON for this thread, or AI is suppressed at
   // the tenant/global level (checked in step 2), do not generate a reply.

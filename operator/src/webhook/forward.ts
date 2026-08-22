@@ -40,25 +40,49 @@ export async function forwardToMain(waAccountId: string, msg: any) {
   const body = JSON.stringify(payload);
   const signature = crypto.createHmac('sha256', WEBHOOK_SECRET).update(body).digest('hex');
 
-  try {
-    const response = await fetch(targetUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-webhook-signature': signature,
-        'User-Agent': 'Gemino-WhatsApp-Operator/1.0',
-      },
-      body,
-    });
+  // Retry on 5xx responses and network failures (fetch throwing) — a
+  // single Vercel cold start or a transient blip previously meant this
+  // message was gone for good: one failed attempt, logged, dropped,
+  // with no second try. A 4xx (bad signature, malformed payload) is not
+  // retried since a retry can't fix a request that's wrong by
+  // construction — only failures that are plausibly transient are.
+  const MAX_ATTEMPTS = 3;
+  const BACKOFF_MS = [1000, 3000, 7000]; // ~1s, 3s, 7s between attempts
 
-    if (!response.ok) {
-      logger.warn(
-        `Webhook forward to ${targetUrl} returned HTTP status ${response.status}`
-      );
-    } else {
-      logger.info(`Successfully forwarded inbound message for account ${waAccountId} to ${targetUrl}`);
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+    try {
+      const response = await fetch(targetUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-webhook-signature': signature,
+          'User-Agent': 'Gemino-WhatsApp-Operator/1.0',
+        },
+        body,
+        signal: AbortSignal.timeout(15_000),
+      });
+
+      if (response.ok) {
+        logger.info(`Forwarded inbound message for account ${waAccountId} to ${targetUrl} (attempt ${attempt}/${MAX_ATTEMPTS})`);
+        return;
+      }
+
+      if (response.status < 500) {
+        // Client-side error — the main app rejected this request outright
+        // (bad signature, malformed body). Retrying won't help.
+        logger.error(`Webhook forward to ${targetUrl} rejected with HTTP ${response.status} (not retrying, not a transient failure): ${(await response.text()).slice(0, 300)}`);
+        return;
+      }
+
+      logger.warn(`Webhook forward to ${targetUrl} returned HTTP ${response.status} on attempt ${attempt}/${MAX_ATTEMPTS}`);
+    } catch (err: any) {
+      logger.warn(`Webhook forward to ${targetUrl} failed on attempt ${attempt}/${MAX_ATTEMPTS}: ${err.message}`);
     }
-  } catch (err: any) {
-    logger.error(`Error forwarding webhook to ${targetUrl}: ${err.message}`);
+
+    if (attempt < MAX_ATTEMPTS) {
+      await new Promise((resolve) => setTimeout(resolve, BACKOFF_MS[attempt - 1]));
+    }
   }
+
+  logger.error(`Gave up forwarding inbound message for account ${waAccountId} to ${targetUrl} after ${MAX_ATTEMPTS} attempts — this message is lost.`);
 }

@@ -68,9 +68,13 @@ export const operatorClient = {
   },
 
   /**
-   * Send outbound WhatsApp message directly via operator socket
+   * Send outbound WhatsApp message directly via operator socket.
+   * tenantId is required and verified operator-side against the
+   * account's actual owner, so a bug or forged request elsewhere in the
+   * app can't send a message through a WhatsApp number belonging to a
+   * different tenant.
    */
-  async sendMessage(waAccountId: string, to: string, text: string): Promise<SendMessageResponse> {
+  async sendMessage(tenantId: string, waAccountId: string, to: string, text: string): Promise<SendMessageResponse> {
     try {
       const res = await fetch(`${OPERATOR_URL}/send`, {
         method: 'POST',
@@ -78,7 +82,7 @@ export const operatorClient = {
           'Content-Type': 'application/json',
           'x-api-key': OPERATOR_API_KEY,
         },
-        body: JSON.stringify({ waAccountId, to, text }),
+        body: JSON.stringify({ tenantId, waAccountId, to, text }),
         cache: 'no-store',
       });
 

@@ -58,13 +58,29 @@ export async function GET(req: NextRequest) {
   let failCount = 0;
 
   for (const job of pendingJobs) {
-    try {
-      // Mark as processing
-      await db.update(jobs).set({ status: 'processing', updatedAt: new Date() }).where(eq(jobs.id, job.id));
+    // Atomically claim the job: only proceed if it's still 'pending' at
+    // the moment of this UPDATE. Previously this was fetch-then-write
+    // as two separate steps (findMany above, then an unconditional
+    // UPDATE ... WHERE id = job.id) — if two cron invocations
+    // overlapped (a manual retrigger during a scheduled run, a slow
+    // previous run still finishing when the next one starts), both
+    // could see the same job as 'pending' in their own findMany call
+    // and both would then send it, giving the customer the same
+    // message twice. Gating the UPDATE on status = 'pending' makes the
+    // claim atomic at the database level: only one concurrent caller's
+    // UPDATE actually matches a row and gets it back from RETURNING;
+    // the other gets nothing and skips it.
+    const [claimed] = await db
+      .update(jobs)
+      .set({ status: 'processing', updatedAt: new Date() })
+      .where(and(eq(jobs.id, job.id), eq(jobs.status, 'pending')))
+      .returning();
+    if (!claimed) continue;
 
+    try {
       if (job.type === 'send_whatsapp') {
         const payload = job.payload as { waAccountId: string; to: string; text: string };
-        const result = await operatorClient.sendMessage(payload.waAccountId, payload.to, payload.text);
+        const result = await operatorClient.sendMessage(job.tenantId, payload.waAccountId, payload.to, payload.text);
 
         if (result.success) {
           await db

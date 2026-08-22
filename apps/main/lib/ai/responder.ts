@@ -9,6 +9,7 @@ import {
   loyaltyTransactions,
 } from '@/lib/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { isOptInMessage, isOptOutMessage } from '@/lib/opt-in-out';
 
 interface InboundContext {
   tenantId: string;
@@ -34,20 +35,19 @@ export async function processInboundAIResponse(ctx: InboundContext): Promise<str
   }
 
   // 1. POPIA / Unsubscribe Keyword Filter.
-  // Was exact-match only (`.includes(lower)` against the whole trimmed
-  // message) — "STOP.", "please stop", "Stop messaging me" all fell
-  // through to the AI instead of unsubscribing. For a compliance control
-  // this needs to catch the keyword anywhere in the message, as a whole
-  // word (so "nonstop" or "shopping" don't false-positive).
-  const OPT_OUT_PATTERN = /\b(stop|unsubscribe|opt[\s-]?out|cancel subscription|remove me)\b/i;
-  const OPT_IN_PATTERN = /\bstart\b/i;
-
-  if (OPT_OUT_PATTERN.test(text)) {
+  // Was word-boundary regex matching the keyword ANYWHERE in the
+  // message — "I can't stop thinking about your ribs" or "when do you
+  // start serving?" would incorrectly trigger opt-out/opt-in. Now uses
+  // the same shared, whole-message-exact-match helper as the webhook
+  // route's blocklist bypass check (previously two separate
+  // implementations of this rule existed, only one of which was
+  // correct).
+  if (isOptOutMessage(text)) {
     await db.update(contacts).set({ blocklisted: true }).where(eq(contacts.id, contactId));
     return `You have been successfully unsubscribed from ${tenant.name}. You will no longer receive automated messages. Reply START at any time to re-enable.`;
   }
 
-  if (OPT_IN_PATTERN.test(text)) {
+  if (isOptInMessage(text)) {
     await db.update(contacts).set({ blocklisted: false }).where(eq(contacts.id, contactId));
     return `Welcome back to ${tenant.name}! How can we assist you today? (e.g. Menu, Bookings, Waitlist, Loyalty points)`;
   }

@@ -10,7 +10,7 @@ import {
   uniqueIndex,
   index,
 } from 'drizzle-orm/pg-core';
-import { relations } from 'drizzle-orm';
+import { relations, sql } from 'drizzle-orm';
 
 // -----------------------------------------------------------------------------
 // 1. Tenants (Businesses / Restaurants)
@@ -158,7 +158,9 @@ export const messages = pgTable(
   (table) => ({
     tenantDateIdx: index('messages_tenant_created_idx').on(table.tenantId, table.createdAt),
     conversationIdx: index('messages_conversation_idx').on(table.conversationId),
-    waMessageIdIdx: index('messages_wa_message_id_idx').on(table.tenantId, table.waMessageId),
+    waMessageIdIdx: uniqueIndex('messages_wa_message_id_unique')
+      .on(table.tenantId, table.waMessageId)
+      .where(sql`${table.waMessageId} IS NOT NULL`),
   })
 );
 

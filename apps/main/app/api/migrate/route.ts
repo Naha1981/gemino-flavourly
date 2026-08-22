@@ -71,9 +71,19 @@ export async function GET() {
     // outbox stuck-job reaping (needs to know when a job last changed
     // status, not just when it was created).
     await sql`ALTER TABLE messages ADD COLUMN IF NOT EXISTS wa_message_id text;`;
+    // Upgraded from a plain (non-unique) index to a real DB-level unique
+    // constraint: the application-level "SELECT before INSERT" idempotency
+    // check in the webhook route has its own race window if two requests
+    // for the same WhatsApp message ever overlap. This makes duplicate
+    // prevention an actual guarantee at the database level, not just a
+    // best-effort check. Partial (WHERE wa_message_id IS NOT NULL) because
+    // outbound/AI-generated messages never have one and must not collide
+    // with each other under a NULL-vs-NULL uniqueness rule.
+    await sql`DROP INDEX IF EXISTS messages_wa_message_id_idx;`;
     await sql`
-      CREATE INDEX IF NOT EXISTS messages_wa_message_id_idx
-        ON messages (tenant_id, wa_message_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS messages_wa_message_id_unique
+        ON messages (tenant_id, wa_message_id)
+        WHERE wa_message_id IS NOT NULL;
     `;
     await sql`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT NOW();`;
 

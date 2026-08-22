@@ -88,6 +88,16 @@ async function main() {
         ON wa_auth_keys (wa_account_id, key_type, key_id);
     `);
 
+    console.log('6. Syncing message idempotency (unique constraint) + job reaper columns...');
+    await execSql(`ALTER TABLE messages ADD COLUMN IF NOT EXISTS wa_message_id text;`);
+    await execSql(`DROP INDEX IF EXISTS messages_wa_message_id_idx;`);
+    await execSql(`
+      CREATE UNIQUE INDEX IF NOT EXISTS messages_wa_message_id_unique
+        ON messages (tenant_id, wa_message_id)
+        WHERE wa_message_id IS NOT NULL;
+    `);
+    await execSql(`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT NOW();`);
+
     console.log('✅ ALL PRODUCTION SCHEMA COLUMNS & TABLES ARE 100% SYNCHRONIZED IN NEON POSTGRESQL!');
   } catch (err) {
     console.error('❌ Error executing SQL on Neon:', err.message);

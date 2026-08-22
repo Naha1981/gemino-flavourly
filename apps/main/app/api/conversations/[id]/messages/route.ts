@@ -58,15 +58,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     })
     .where(eq(conversations.id, convo.id));
 
-  // 4. Try direct dispatch via Operator, or fallback to Outbox jobs
+  // 4. Try direct dispatch via Operator, or fallback to Outbox jobs.
+  // Was `try { await sendMessage(...); sentDirectly = true } catch { ... }`
+  // — operatorClient.sendMessage() never throws (every failure path
+  // inside it is already caught and returned as { success: false,
+  // error }), so this try/catch never actually caught anything and
+  // sentDirectly was unconditionally true regardless of whether the
+  // send actually worked. A manual staff reply sent while the operator
+  // was down would show as sent in the UI and never reach the
+  // customer, with no fallback ever triggered. Now checks the actual
+  // result.
   let sentDirectly = false;
   if (convo.waAccountId) {
-    try {
-      await operatorClient.sendMessage(convo.waAccountId, convo.contactPhone, content.trim());
-      sentDirectly = true;
-    } catch {
-      // Operator fallback
-    }
+    const result = await operatorClient.sendMessage(tenant.id, convo.waAccountId, convo.contactPhone, content.trim());
+    sentDirectly = result.success;
   }
 
   if (!sentDirectly && convo.waAccountId) {
