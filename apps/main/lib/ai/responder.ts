@@ -112,7 +112,16 @@ Guidelines:
 - If asking about bookings, invite them to share date, time, and party size.
 - If asking for a human manager, inform them our floor manager has been alerted.`;
 
-    // 6a. Try Groq (Llama 3 70B / 8B - ultra-fast)
+    // 6a. Try Groq.
+    // Was llama-3.1-8b-instant, which Groq shut down on Aug 16, 2026 —
+    // every call here was returning an error (this !groqRes.ok branch),
+    // so the AI fallback silently degraded to the generic "our team
+    // will get back to you" message for every tenant, with nothing
+    // logged to reveal why. Migrated to Groq's own recommended
+    // replacement (openai/gpt-oss-20b). Also now logs on failure instead
+    // of failing silently, so the next provider deprecation shows up in
+    // logs immediately instead of being discovered by a customer
+    // complaint.
     if (groqKey) {
       const groqRes = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
@@ -121,7 +130,7 @@ Guidelines:
           Authorization: `Bearer ${groqKey}`,
         },
         body: JSON.stringify({
-          model: 'llama-3.1-8b-instant',
+          model: 'openai/gpt-oss-20b',
           messages: [
             { role: 'system', content: basePrompt },
             { role: 'user', content: text },
@@ -135,13 +144,22 @@ Guidelines:
         const data = await groqRes.json();
         const generated = data.choices?.[0]?.message?.content;
         if (generated) return generated.trim();
+        console.error('[AI] Groq responded OK but returned no message content', JSON.stringify(data).slice(0, 500));
+      } else {
+        console.error(`[AI] Groq request failed (${groqRes.status}): ${(await groqRes.text()).slice(0, 500)}`);
       }
     }
 
-    // 6b. Try Gemini 1.5 Flash
+    // 6b. Try Gemini.
+    // Was gemini-1.5-flash, which Google has fully shut down (all
+    // requests return 404). Migrated to gemini-3.5-flash — current-gen,
+    // no shutdown date announced as of this writing. Google deprecates
+    // Gemini models on a roughly 6-9 month cycle; check
+    // ai.google.dev/gemini-api/docs/deprecations periodically rather
+    // than waiting for this to silently break again.
     if (geminiKey) {
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${geminiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -156,10 +174,17 @@ Guidelines:
         const data = await response.json();
         const generated = data.candidates?.[0]?.content?.parts?.[0]?.text;
         if (generated) return generated.trim();
+        console.error('[AI] Gemini responded OK but returned no message content', JSON.stringify(data).slice(0, 500));
+      } else {
+        console.error(`[AI] Gemini request failed (${response.status}): ${(await response.text()).slice(0, 500)}`);
       }
     }
+
+    if (!groqKey && !geminiKey) {
+      console.error('[AI] Neither GROQ_API_KEY nor GOOGLE_GEMINI_API_KEY is configured — AI fallback cannot run.');
+    }
   } catch (err) {
-    console.error('AI generation fallback error:', err);
+    console.error('[AI] generation fallback threw an exception:', err);
   }
 
   // Default polite fallback

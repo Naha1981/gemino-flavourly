@@ -3,7 +3,12 @@ const { Pool } = pkg;
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  max: 10,
+  // Bumped from 10: at 100 concurrent WhatsApp sockets, a Render restart
+  // means all ~100 reconnect near-simultaneously, each reading/writing
+  // session state (creds + Signal keys) through this same pool. 10 was
+  // fine for a handful of test connections; leaves no headroom at real
+  // multi-tenant scale. Still well under Neon's connection ceiling.
+  max: 20,
   ssl: process.env.DATABASE_URL?.includes('neon.tech') || process.env.DATABASE_URL?.includes('sslmode=require')
     ? { rejectUnauthorized: false }
     : undefined,

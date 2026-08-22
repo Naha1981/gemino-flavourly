@@ -9,6 +9,22 @@ const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 // Global socket registry: waAccountId -> live Baileys WASocket
 const sockets = new Map<string, any>();
 
+// Tracks which accounts have a fully open (handshake-complete) socket
+// right now, separate from just "a socket object exists" — a socket can
+// exist in `sockets` while still mid-handshake after a fresh connect.
+const openAccounts = new Set<string>();
+
+// De-dupes concurrent startWhatsAppSocket calls for the same account. At
+// low volume this race was rare; at 100 concurrent tenants with regular
+// reconnects, a reconnect timer firing at the same moment as an on-demand
+// start (from /start or sendMessage's own on-demand start) is a routine
+// occurrence, not an edge case. Without this, both callers would each
+// create a brand-new Baileys socket for the same account, the second
+// silently overwriting the first in `sockets` with no cleanup of the
+// first one's listeners — the classic setup for DisconnectReason.conflict
+// / an unexpected device unlink.
+const connectingLocks = new Map<string, Promise<StartSocketResult>>();
+
 // Per-account reconnect attempt counter, for capped exponential backoff so a
 // persistently broken account doesn't hammer WhatsApp's servers forever.
 const reconnectAttempts = new Map<string, number>();
@@ -20,7 +36,25 @@ function nextReconnectDelay(waAccountId: string): number {
   return Math.min(5_000 * 2 ** (attempts - 1), MAX_RECONNECT_DELAY_MS);
 }
 
-export async function startWhatsAppSocket(waAccountId: string) {
+interface StartSocketResult {
+  success: true;
+  isConnected: boolean;
+  qrCode: string | null;
+  phoneNumber: string | null;
+}
+
+export async function startWhatsAppSocket(waAccountId: string): Promise<StartSocketResult> {
+  const existing = connectingLocks.get(waAccountId);
+  if (existing) return existing;
+
+  const attempt = doStartWhatsAppSocket(waAccountId).finally(() => {
+    connectingLocks.delete(waAccountId);
+  });
+  connectingLocks.set(waAccountId, attempt);
+  return attempt;
+}
+
+async function doStartWhatsAppSocket(waAccountId: string): Promise<StartSocketResult> {
   const account = await getWaAccount(waAccountId);
   if (!account) {
     throw new Error(`WhatsApp account ${waAccountId} not found in database`);
@@ -29,7 +63,7 @@ export async function startWhatsAppSocket(waAccountId: string) {
   // If already connected and socket is alive, return immediately
   const existingSock = sockets.get(waAccountId);
   if (existingSock && account.is_connected) {
-    return { success: true, isConnected: true, phoneNumber: account.phone_number };
+    return { success: true, isConnected: true, qrCode: null, phoneNumber: account.phone_number };
   }
 
   const { state, saveCreds } = await getPostgresAuthState(waAccountId);
@@ -46,6 +80,7 @@ export async function startWhatsAppSocket(waAccountId: string) {
   });
 
   sockets.set(waAccountId, sock);
+  openAccounts.delete(waAccountId);
 
   // 1. Connection Lifecycle Updates
   sock.ev.on('connection.update', async (update) => {
@@ -62,6 +97,7 @@ export async function startWhatsAppSocket(waAccountId: string) {
 
     if (connection === 'open') {
       reconnectAttempts.delete(waAccountId);
+      openAccounts.add(waAccountId);
       const phoneNumber = sock.user?.id?.split(':')[0] || sock.user?.id || null;
       logger.info(`WhatsApp connected successfully for account: ${waAccountId} (Phone: ${phoneNumber})`);
 
@@ -75,6 +111,7 @@ export async function startWhatsAppSocket(waAccountId: string) {
     }
 
     if (connection === 'close') {
+      openAccounts.delete(waAccountId);
       const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
       const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
@@ -123,12 +160,39 @@ export async function startWhatsAppSocket(waAccountId: string) {
     await saveCreds();
   });
 
+  // Give the socket a brief window to either open or produce a QR code
+  // before responding, so callers (the /start route, the dashboard) get
+  // an accurate snapshot instead of the pre-connection state captured
+  // before any of this ran. Previously this returned `account` as read
+  // at the very top of the function — before the socket existed — so a
+  // first-ever connect always reported isConnected: false, qrCode: null
+  // regardless of what actually happened a moment later. Bounded to 3s
+  // so a slow handshake doesn't hang the HTTP request; the dashboard's
+  // separate polling picks up the rest.
+  for (let i = 0; i < 6; i++) {
+    if (openAccounts.has(waAccountId)) break;
+    const fresh = await getWaAccount(waAccountId);
+    if (fresh?.qr_code) break;
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  const fresh = await getWaAccount(waAccountId);
   return {
     success: true,
-    isConnected: account.is_connected,
-    qrCode: account.qr_code,
-    phoneNumber: account.phone_number,
+    isConnected: !!fresh?.is_connected,
+    qrCode: fresh?.qr_code ?? null,
+    phoneNumber: fresh?.phone_number ?? null,
   };
+}
+
+async function waitForSocketOpen(waAccountId: string, timeoutMs = 15_000): Promise<void> {
+  if (openAccounts.has(waAccountId)) return;
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (openAccounts.has(waAccountId)) return;
+    await new Promise((resolve) => setTimeout(resolve, 300));
+  }
+  throw new Error(`Timed out waiting for WhatsApp socket ${waAccountId} to finish connecting`);
 }
 
 export async function sendMessage(waAccountId: string, to: string, text: string) {
@@ -145,6 +209,18 @@ export async function sendMessage(waAccountId: string, to: string, text: string)
     throw new Error(`WhatsApp socket for account ${waAccountId} could not be initialized`);
   }
 
+  // Previously called sock.sendMessage() immediately after an on-demand
+  // start, with no check that the handshake had actually completed —
+  // the socket object exists as soon as makeWASocket() returns, well
+  // before 'connection' === 'open' fires. Sending on a socket that's
+  // still mid-handshake either silently fails or throws an opaque
+  // Baileys error. Now waits for the connection to actually be open
+  // (bounded, so a genuinely broken account fails fast with a clear
+  // error instead of hanging).
+  if (!openAccounts.has(waAccountId)) {
+    await waitForSocketOpen(waAccountId);
+  }
+
   // Normalize recipient JID e.g. 27821234567 -> 27821234567@s.whatsapp.net
   const cleaned = to.replace(/\D/g, '');
   const jid = cleaned.includes('@s.whatsapp.net') ? cleaned : `${cleaned}@s.whatsapp.net`;
@@ -157,6 +233,7 @@ export function getSocketStatus(waAccountId: string) {
   const sock = sockets.get(waAccountId);
   return {
     inMemory: !!sock,
+    open: openAccounts.has(waAccountId),
     user: sock?.user || null,
   };
 }
@@ -180,3 +257,4 @@ export async function resumeConnectedAccounts(): Promise<void> {
     }
   }
 }
+

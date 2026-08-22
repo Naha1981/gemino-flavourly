@@ -7,6 +7,15 @@ import { assertCronAuthorized } from '@/lib/cron/auth';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+// None of the cron routes declared this, capping them at Vercel's default
+// function timeout — 10 seconds on the Hobby plan. This route processes
+// up to 50 jobs sequentially, each round-tripping to the Render operator
+// plus 2-3 DB writes; at even 300-500ms per job that's 15-25+ seconds,
+// already past the default limit at moderate load. A killed-mid-batch
+// run is exactly what leaves jobs stuck in 'processing' (see the reaper
+// above) — this and the reaper are two sides of the same problem: one
+// prevents it, the other cleans up when it happens anyway.
+export const maxDuration = 60;
 
 // If a job has been sitting in 'processing' for longer than this, assume
 // the function that was handling it timed out or crashed mid-dispatch
