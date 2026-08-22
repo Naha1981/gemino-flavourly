@@ -5,6 +5,10 @@ const isPublicRoute = createRouteMatcher([
   '/sign-in(.*)',
   '/sign-up(.*)',
   '/onboarding',
+  // Public venue menu, linked from the AI's MENU reply. Opened by diners
+  // straight from WhatsApp, who have no account and must not hit a sign-in
+  // wall.
+  '/m/(.*)',
   '/api/webhooks(.*)',
   '/api/cron(.*)',
   '/api/whatsapp(.*)',
