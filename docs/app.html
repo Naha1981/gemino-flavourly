@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>The Marula Room — Flavourly</title>
+  <link rel="stylesheet" href="flavourly.css" />
+</head>
+<body class="app">
+  <aside class="side">
+    <a class="brand" href="index.html"><span class="mark">F</span> Flavourly</a>
+    <p class="fine" style="padding-left:12px">House desk</p>
+    <a href="#overview" data-nav>Overview</a>
+    <a href="#inbox" data-nav>Inbox</a>
+    <a href="#bookings" data-nav>Bookings</a>
+    <a href="#waitlist" data-nav>Waitlist</a>
+    <a href="#loyalty" data-nav>Loyalty</a>
+    <a href="#whatsapp" data-nav>WhatsApp</a>
+    <a href="#settings" data-nav>Settings</a>
+    <a href="#admin" data-nav>Admin</a>
+    <div style="margin-top:auto;padding:12px;color:#c4b8a4;font-size:13px">
+      Amara Ndlovu<br /><span class="fine">Demo house</span>
+    </div>
+  </aside>
+
+  <main class="main">
+    <section id="overview">
+      <p class="pill">The Marula Room</p>
+      <h1>Good service, Amara.</h1>
+      <p class="dim">The house in the last 24 hours.</p>
+      <div class="stats">
+        <div class="stat">Conversations<b id="stat-convos">2</b></div>
+        <div class="stat">Messages · 24h<b id="stat-msgs">4</b></div>
+        <div class="stat">Waitlist<b id="stat-wait">1</b></div>
+        <div class="stat">Bookings · 24h<b id="stat-books">1</b></div>
+      </div>
+      <div class="panel">
+        <h3>Try the concierge</h3>
+        <p class="dim">Type like a guest. Try: Book a table for 2 tomorrow 7pm · waitlist 4 · points · STOP</p>
+        <form id="guest-form" class="row" style="margin-top:16px">
+          <input id="guest-text" value="Book a table for 2 tomorrow 7pm" />
+          <button class="btn gold" type="submit">Send as guest</button>
+        </form>
+        <p class="toast" id="toast"></p>
+      </div>
+    </section>
+
+    <section id="inbox" hidden>
+      <h1>Inbox</h1>
+      <div id="thread"></div>
+    </section>
+
+    <section id="bookings" hidden>
+      <h1>Bookings</h1>
+      <table><thead><tr><th>Guest</th><th>When</th><th>Party</th><th>Status</th></tr></thead><tbody id="book-rows"></tbody></table>
+    </section>
+
+    <section id="waitlist" hidden>
+      <h1>Waitlist</h1>
+      <table><thead><tr><th>Guest</th><th>Party</th><th>Status</th></tr></thead><tbody id="wait-rows"></tbody></table>
+    </section>
+
+    <section id="loyalty" hidden>
+      <h1>Loyalty</h1>
+      <p>Thandi M. — <b id="thandi-pts">180</b> pts</p>
+      <button class="btn gold" id="award">Award 20 points</button>
+    </section>
+
+    <section id="whatsapp" hidden>
+      <h1>WhatsApp</h1>
+      <div class="panel">
+        <h3 style="color:#8fd19e">WhatsApp Connected</h3>
+        <p class="dim">Active on +27 82 123 4000. In production you scan a QR once, like WhatsApp Web.</p>
+      </div>
+    </section>
+
+    <section id="settings" hidden>
+      <h1>Settings</h1>
+      <label>Restaurant name</label>
+      <input value="The Marula Room" />
+      <label style="margin-top:12px">AI personality</label>
+      <input value="warm, witty, and unhurried" />
+      <p class="fine" style="margin-top:12px">In the full app this saves to the database and changes live replies.</p>
+    </section>
+
+    <section id="admin" hidden>
+      <h1>Super Admin</h1>
+      <div class="stats">
+        <div class="stat">Tenants<b>1</b></div>
+        <div class="stat">Sockets<b>1</b></div>
+        <div class="stat">Messages<b id="admin-msgs">4</b></div>
+        <div class="stat">MRR<b>R49</b></div>
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const state = {
+      msgs: [
+        { who: 'in', text: 'Hi, can I book a table for 2 tomorrow at 7pm?' },
+        { who: 'out', text: 'Done, Thandi — table for 2 tomorrow at 19:00 at The Marula Room.' }
+      ],
+      books: [{ guest: 'Thandi M.', when: 'Tomorrow 19:00', party: 2, status: 'confirmed' }],
+      waits: [{ guest: 'Johan V.', party: 4, status: 'waiting' }],
+      points: 180
+    };
+
+    function replyFor(text) {
+      const t = text.trim().toLowerCase();
+      if (t === 'stop') return 'You have been unsubscribed from The Marula Room. Reply START to opt back in.';
+      if (t === 'points' || t === 'loyalty') return 'Hello — you have *' + state.points + ' loyalty points* at The Marula Room.';
+      if (t.startsWith('waitlist') || t.includes('queue')) {
+        const n = parseInt((t.match(/\d+/) || ['4'])[0], 10);
+        state.waits.unshift({ guest: 'Walk-in guest', party: n, status: 'waiting' });
+        return 'You are on the live waitlist for a table of ' + n + '.';
+      }
+      if (t.includes('book') || t.includes('table')) {
+        state.books.unshift({ guest: 'Walk-in guest', when: 'Tomorrow 19:00', party: 2, status: 'confirmed' });
+        return 'Reserved. Table for 2 at The Marula Room, tomorrow 19:00. We hold it 15 minutes.';
+      }
+      if (t.includes('menu')) return 'Our menu lives here — open See a public menu on the home page.';
+      return 'The Marula Room has your message. Reply MENU, BOOK, WAITLIST or POINTS.';
+    }
+
+    function render() {
+      document.getElementById('stat-convos').textContent = '2';
+      document.getElementById('stat-msgs').textContent = String(state.msgs.length);
+      document.getElementById('stat-wait').textContent = String(state.waits.length);
+      document.getElementById('stat-books').textContent = String(state.books.length);
+      document.getElementById('admin-msgs').textContent = String(state.msgs.length);
+      document.getElementById('thandi-pts').textContent = state.points;
+      document.getElementById('thread').innerHTML = state.msgs.map(m =>
+        '<div class="msg ' + m.who + '">' + m.text + '</div>'
+      ).join('');
+      document.getElementById('book-rows').innerHTML = state.books.map(b =>
+        '<tr><td>' + b.guest + '</td><td>' + b.when + '</td><td>' + b.party + '</td><td>' + b.status + '</td></tr>'
+      ).join('');
+      document.getElementById('wait-rows').innerHTML = state.waits.map(w =>
+        '<tr><td>' + w.guest + '</td><td>' + w.party + '</td><td>' + w.status + '</td></tr>'
+      ).join('');
+    }
+
+    function show() {
+      const id = (location.hash || '#overview').slice(1);
+      document.querySelectorAll('main section').forEach(s => { s.hidden = s.id !== id; });
+      document.querySelectorAll('[data-nav]').forEach(a => {
+        a.classList.toggle('active', a.getAttribute('href') === '#' + id);
+      });
+    }
+
+    document.getElementById('guest-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const text = document.getElementById('guest-text').value.trim();
+      if (!text) return;
+      state.msgs.push({ who: 'in', text });
+      const out = replyFor(text);
+      state.msgs.push({ who: 'out', text: out });
+      document.getElementById('toast').textContent = out;
+      render();
+    });
+    document.getElementById('award').addEventListener('click', () => {
+      state.points += 20;
+      render();
+    });
+    window.addEventListener('hashchange', show);
+    show();
+    render();
+  </script>
+</body>
+</html>
