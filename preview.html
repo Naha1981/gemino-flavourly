@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Flavourly — preview</title>
+  <style>
+    :root { --ink:#0c0b0a; --ink2:#161210; --cream:#f4efe6; --dim:#c4b8a4; --gold:#c9862a; --line:#2a241e; }
+    * { box-sizing: border-box; }
+    body { margin:0; background:var(--ink); color:var(--cream); font-family:"Avenir Next","Segoe UI",system-ui,sans-serif; }
+    .serif { font-family:Georgia,"Iowan Old Style",serif; }
+    header { display:flex; justify-content:space-between; align-items:center; max-width:1100px; margin:0 auto; padding:18px 24px; border-bottom:1px solid var(--line); }
+    .brand { display:flex; gap:10px; align-items:center; font-size:22px; }
+    .mark { width:36px; height:36px; border-radius:999px; background:var(--gold); color:var(--ink); display:grid; place-items:center; font-weight:700; }
+    .btn { border:0; border-radius:8px; padding:10px 16px; font-weight:600; cursor:default; }
+    .btn-cream { background:var(--cream); color:var(--ink); }
+    .btn-gold { background:var(--gold); color:var(--ink); }
+    .btn-ghost { background:transparent; color:var(--cream); border:1px solid var(--line); }
+    .hero { max-width:1100px; margin:0 auto; padding:64px 24px 40px; display:grid; gap:48px; grid-template-columns:1.1fr .9fr; }
+    @media (max-width:860px){ .hero { grid-template-columns:1fr; } }
+    .pill { display:inline-block; border:1px solid var(--line); background:var(--ink2); color:var(--gold); font-size:11px; letter-spacing:.18em; text-transform:uppercase; padding:6px 12px; border-radius:999px; }
+    h1 { font-size:56px; line-height:1.05; margin:18px 0 0; font-weight:500; }
+    h1 span { color:var(--gold); display:block; }
+    .lead { color:var(--dim); font-size:18px; line-height:1.6; max-width:460px; }
+    .row { display:flex; gap:12px; flex-wrap:wrap; margin-top:28px; }
+    .fine { color:#8d8273; font-size:12px; margin-top:14px; }
+    .photo { position:relative; }
+    .photo img { width:100%; height:380px; object-fit:cover; border-radius:18px; border:1px solid var(--line); }
+    .bubble { position:absolute; left:20px; right:20px; bottom:-22px; background:#161210f2; border:1px solid var(--line); border-radius:14px; padding:14px 16px; }
+    .bubble .k { color:var(--gold); font-size:11px; letter-spacing:.16em; text-transform:uppercase; }
+    .cards { max-width:1100px; margin:48px auto 0; padding:0 24px 80px; display:grid; gap:16px; grid-template-columns:repeat(3,1fr); }
+    @media (max-width:860px){ .cards { grid-template-columns:1fr; } }
+    .card { background:var(--ink2); border:1px solid var(--line); border-radius:16px; padding:22px; }
+    .card h3 { font-size:22px; margin:0 0 8px; }
+    .card p { color:var(--dim); margin:0; line-height:1.5; }
+    .note { max-width:1100px; margin:0 auto 60px; padding:0 24px; color:var(--dim); font-size:14px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand serif"><span class="mark">F</span> Flavourly</div>
+    <div>
+      <span class="btn">Sign in</span>
+      <span class="btn btn-cream">Open the floor</span>
+    </div>
+  </header>
+  <section class="hero">
+    <div>
+      <div class="pill">Built for rooms that live on WhatsApp</div>
+      <h1 class="serif">Every message answered.<span>Every table filled.</span></h1>
+      <p class="lead">Guests already WhatsApp you. Flavourly replies in seconds — books the table, runs the waitlist, remembers the regulars — while you run the floor.</p>
+      <div class="row">
+        <span class="btn btn-gold">Tour The Marula Room</span>
+        <span class="btn btn-ghost">See a public menu</span>
+      </div>
+      <p class="fine">R49 / month per restaurant. No app for your guests. No per-message tax.</p>
+    </div>
+    <div class="photo">
+      <img src="apps/main/public/images/hero-dining.jpg" alt="The dining room" />
+      <div class="bubble">
+        <div class="k">Just now · WhatsApp</div>
+        <div style="margin-top:6px">“Book a table for 2 tomorrow 7pm”</div>
+        <div style="margin-top:8px;color:#c4b8a4">Reserved. Table for 2 at The Marula Room, tomorrow 19:00. We hold it 15 minutes.</div>
+      </div>
+    </div>
+  </section>
+  <section class="cards">
+    <div class="card"><h3 class="serif">Replies in seconds, 24/7</h3><p>Your best host never sleeps. 14:00 or 02:00 — the guest never walks to a competitor.</p></div>
+    <div class="card"><h3 class="serif">Tables book themselves</h3><p>Bookings, waitlist, reminders. All inside the chat they already opened.</p></div>
+    <div class="card"><h3 class="serif">Regulars come back</h3><p>Points, names, last visit. Flavourly remembers so you don’t have to.</p></div>
+  </section>
+  <p class="note">This is a picture of the product so you can see it in this chat. The clickable app is not on the public internet yet. Say “put it on the internet” when you want a real link.</p>
+</body>
+</html>
