@@ -8,10 +8,16 @@ const DEFAULT_WEBHOOK_URL = process.env.MAIN_APP_WEBHOOK_URL || 'http://localhos
 // Previously fell back to the literal string 'secret' if WEBHOOK_SECRET
 // was unset — meaning a misconfigured operator would silently sign every
 // forwarded message with a publicly-known value instead of refusing to
-// start. WEBHOOK_SECRET is already required in operator/src/index.ts's
-// boot-time check, so this should never actually be hit in a running
-// process; it's a second line of defense against that check being
-// bypassed or the boot check itself changing later.
+// start.
+//
+// This comment used to claim WEBHOOK_SECRET was "already required in
+// operator/src/index.ts's boot-time check". That was FALSE: no such check
+// existed, so the guard below was the only thing standing between a
+// misconfigured operator and a silently dead inbound pipeline. The boot
+// check now genuinely exists (see src/config.ts, called from index.ts
+// before the server listens), so in a running process this branch should
+// be unreachable. It is kept as a second line of defence in case the boot
+// check is later changed or bypassed.
 const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET;
 if (!WEBHOOK_SECRET) {
   logger.fatal('WEBHOOK_SECRET is not set — refusing to forward WhatsApp messages with a weak/guessable signature.');

@@ -2,12 +2,33 @@ import express from 'express';
 import { config } from 'dotenv';
 config();
 
-import { setupRoutes } from './routes/index.js';
-import { resumeConnectedAccounts } from './whatsapp/index.js';
-import { pool } from './db/client.js';
 import pino from 'pino';
+import { validateConfig } from './config.js';
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
+
+// Fail fast, before anything else is imported or any port is bound.
+//
+// This runs ahead of the ./db/client.js and ./whatsapp/index.js imports
+// below on purpose: importing db/client.js constructs a pg Pool from
+// DATABASE_URL as a side effect, so validating after it would mean
+// building a connection pool from configuration already known to be
+// broken. Static `import` statements are hoisted and evaluated before
+// any top-level statement runs, so the remaining imports are deliberately
+// dynamic (`await import(...)`) rather than declared at the top of the
+// file — that is what allows them to run AFTER this check.
+//
+// Logs variable NAMES only — never a value.
+const configCheck = validateConfig(process.env);
+if (!configCheck.ok) {
+  logger.fatal(configCheck.error);
+  process.exit(1);
+}
+
+const { setupRoutes } = await import('./routes/index.js');
+const { resumeConnectedAccounts } = await import('./whatsapp/index.js');
+const { pool } = await import('./db/client.js');
+
 const app = express();
 
 app.use(express.json({ limit: '10mb' }));
