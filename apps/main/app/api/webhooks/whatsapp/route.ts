@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import crypto from 'crypto';
 import { db } from '@/lib/db';
 import {
   tenants,
@@ -13,30 +12,15 @@ import {
 import { and, eq, gte, count } from 'drizzle-orm';
 import { processInboundAIResponse } from '@/lib/ai/responder';
 import { isOptInMessage } from '@/lib/opt-in-out';
+import { verifyWebhookSignature } from '@/lib/webhook/verify';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
 
-function verifyHmacSignature(rawBody: string, signature: string | null): boolean {
-  const secret = process.env.WEBHOOK_SECRET;
-  if (!secret) {
-    // Fail closed in production — an unset secret should never mean
-    // "accept anything." The dev fallback only applies outside prod, and
-    // only when no secret was configured at all (not when one exists and
-    // just fails to match).
-    return process.env.NODE_ENV !== 'production';
-  }
-  if (!signature) return false;
-  try {
-    const expected = crypto.createHmac('sha256', secret).update(rawBody).digest('hex');
-    const expectedBuf = Buffer.from(expected, 'hex');
-    const providedBuf = Buffer.from(signature, 'hex');
-    if (expectedBuf.length !== providedBuf.length) return false;
-    return crypto.timingSafeEqual(expectedBuf, providedBuf);
-  } catch {
-    return false;
-  }
-}
+// HMAC verification now lives in lib/webhook/verify.ts so the security
+// boundary can be unit-tested directly. It also fails closed when
+// WEBHOOK_SECRET is unset, replacing the previous
+// `NODE_ENV !== 'production'` bypass — see that file for the rationale.
 
 async function enqueueOutboundMessage(tenantId: string, waAccountId: string, to: string, text: string) {
   await db.insert(jobs).values({
@@ -53,7 +37,7 @@ export async function POST(req: NextRequest) {
   const signature = req.headers.get('x-webhook-signature');
 
   // Verify HMAC-SHA256 signature
-  if (!verifyHmacSignature(rawBody, signature)) {
+  if (!verifyWebhookSignature(rawBody, signature)) {
     return NextResponse.json({ error: 'Invalid HMAC signature' }, { status: 401 });
   }
 
