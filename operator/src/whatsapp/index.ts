@@ -229,6 +229,16 @@ export async function sendMessage(waAccountId: string, to: string, text: string)
   return await sock.sendMessage(jid, { text });
 }
 
+/**
+ * Number of WhatsApp sockets this process currently holds in memory.
+ *
+ * Used by the /ready probe to distinguish "the process is alive" from
+ * "the process can actually carry WhatsApp traffic".
+ */
+export function getActiveSocketCount(): number {
+  return sockets.size;
+}
+
 export function getSocketStatus(waAccountId: string) {
   const sock = sockets.get(waAccountId);
   return {

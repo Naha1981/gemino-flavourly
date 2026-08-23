@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Phone, Send, Bot, User, Sparkles, Loader2, CheckCheck } from 'lucide-react';
+import { ArrowLeft, Phone, Send, Bot, User, Sparkles, Loader2, CheckCheck, Clock, AlertTriangle } from 'lucide-react';
 
 interface MessageItem {
   id: string;
@@ -10,6 +10,11 @@ interface MessageItem {
   content: string;
   isAIGenerated: boolean;
   createdAt: Date | string;
+  // Null for inbound messages and for anything written before delivery
+  // tracking existed — both render without a delivery indicator rather
+  // than being shown as delivered.
+  deliveryStatus?: 'queued' | 'sent' | 'failed' | null;
+  deliveryError?: string | null;
 }
 
 interface ChatDetailClientProps {
@@ -69,14 +74,39 @@ export default function ChatDetailClient({
         body: JSON.stringify({ content }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
-        if (data.message) {
-          setMessages((prev) => prev.map((m) => (m.id === tempId ? data.message : m)));
-        }
+      const data = await res.json().catch(() => null);
+
+      // The route now returns a non-2xx status when a reply could not be
+      // dispatched at all. Previously it always returned 200, so a message
+      // that never reached the customer still rendered as sent. Replace the
+      // optimistic bubble with the server's real row either way, so the
+      // delivery indicator reflects what actually happened.
+      if (data?.message) {
+        setMessages((prev) => prev.map((m) => (m.id === tempId ? data.message : m)));
+      } else if (!res.ok) {
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === tempId
+              ? { ...m, deliveryStatus: 'failed' as const, deliveryError: data?.error ?? null }
+              : m
+          )
+        );
       }
     } catch (err) {
       console.error('Failed to send manual reply', err);
+      // The request itself failed, so we cannot know the outcome. Mark it
+      // unsent rather than leaving a bubble that looks delivered.
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === tempId
+            ? {
+                ...m,
+                deliveryStatus: 'failed' as const,
+                deliveryError: 'Could not reach the server. The message may not have been sent.',
+              }
+            : m
+        )
+      );
     } finally {
       setSending(false);
     }
@@ -161,7 +191,29 @@ export default function ChatDetailClient({
                     </span>
                   )}
                   <span>{timeStr}</span>
-                  {!isInbound && <CheckCheck className="w-3.5 h-3.5 text-emerald-500 ml-0.5" />}
+                  {/* Delivery state. Previously every outbound message got an
+                      unconditional green double-check, so a reply that never
+                      reached the customer looked identical to one that did.
+                      Messages predating delivery tracking have a null status
+                      and show no indicator at all. */}
+                  {!isInbound && m.deliveryStatus === 'sent' && (
+                    <CheckCheck className="w-3.5 h-3.5 text-emerald-500 ml-0.5" aria-label="Delivered" />
+                  )}
+                  {!isInbound && m.deliveryStatus === 'queued' && (
+                    <span className="flex items-center gap-1 text-amber-400 ml-0.5" title="Waiting to send — will retry automatically">
+                      <Clock className="w-3.5 h-3.5" />
+                      Sending
+                    </span>
+                  )}
+                  {!isInbound && m.deliveryStatus === 'failed' && (
+                    <span
+                      className="flex items-center gap-1 text-red-400 font-medium ml-0.5"
+                      title={m.deliveryError || 'This message was not delivered'}
+                    >
+                      <AlertTriangle className="w-3.5 h-3.5" />
+                      Not delivered
+                    </span>
+                  )}
                 </div>
               </div>
             );

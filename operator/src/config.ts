@@ -73,6 +73,77 @@ export function formatMissingEnvError(missing: readonly string[]): string {
 }
 
 /**
+ * True when this process is running as a real deployment rather than a
+ * developer's machine.
+ *
+ * Render sets RENDER=true on every service it runs, so a deployed
+ * operator is detected even if NODE_ENV was never configured — the same
+ * "absence must not mean development" reasoning applied to the webhook
+ * verifier in G0.1.
+ */
+export function isProductionLike(env: NodeJS.ProcessEnv): boolean {
+  return env.NODE_ENV === 'production' || env.RENDER === 'true';
+}
+
+/**
+ * Rejects a webhook target that cannot possibly reach the main app from a
+ * deployed operator.
+ *
+ * MAIN_APP_WEBHOOK_URL defaults to http://localhost:3000/... which is
+ * correct locally and catastrophic in production: the operator POSTs every
+ * inbound WhatsApp message to ITSELF, the request fails, it is retried
+ * three times and then discarded — while /health still reports 200 and
+ * Render shows the service as up. Every customer message is lost with no
+ * visible error.
+ *
+ * The per-account `wa_account_bindings.webhook_url` override does not
+ * rescue this: nothing in the codebase ever inserts into that table, so
+ * the default is the only path actually used.
+ *
+ * Returns an error string, or null when the target is acceptable.
+ */
+export function findWebhookTargetError(env: NodeJS.ProcessEnv): string | null {
+  if (!isProductionLike(env)) return null;
+
+  const raw = env.MAIN_APP_WEBHOOK_URL;
+  if (typeof raw !== 'string' || raw.trim() === '') {
+    return (
+      'Refusing to start: MAIN_APP_WEBHOOK_URL is not set. In a deployed ' +
+      'environment the operator would fall back to http://localhost:3000 and ' +
+      'silently discard every inbound WhatsApp message. Set it to the public ' +
+      'URL of the main app, e.g. https://your-app.example.com/api/webhooks/whatsapp.'
+    );
+  }
+
+  let host: string;
+  let protocol: string;
+  try {
+    const parsed = new URL(raw.trim());
+    host = parsed.hostname.toLowerCase();
+    protocol = parsed.protocol;
+  } catch {
+    return `Refusing to start: MAIN_APP_WEBHOOK_URL is not a valid URL. Set it to the public URL of the main app.`;
+  }
+
+  // Loopback and link-local addresses can never reach the main app from a
+  // separate service. ::1 arrives from the URL parser bracketed.
+  const loopback = new Set(['localhost', '127.0.0.1', '0.0.0.0', '::1', '[::1]']);
+  if (loopback.has(host) || host.endsWith('.localhost') || host === '169.254.169.254') {
+    return (
+      `Refusing to start: MAIN_APP_WEBHOOK_URL points at "${host}", which is not ` +
+      'reachable from a deployed operator. Every inbound WhatsApp message would be ' +
+      'silently discarded. Set it to the public URL of the main app.'
+    );
+  }
+
+  if (protocol !== 'http:' && protocol !== 'https:') {
+    return `Refusing to start: MAIN_APP_WEBHOOK_URL must use http or https, got "${protocol}".`;
+  }
+
+  return null;
+}
+
+/**
  * Validates configuration and returns the missing names.
  *
  * Kept separate from the process-exiting wrapper so tests can assert the
@@ -84,6 +155,14 @@ export function validateConfig(env: NodeJS.ProcessEnv): {
   error?: string;
 } {
   const missing = findMissingEnvVars(env);
-  if (missing.length === 0) return { ok: true, missing: [] };
-  return { ok: false, missing, error: formatMissingEnvError(missing) };
+  if (missing.length > 0) {
+    return { ok: false, missing, error: formatMissingEnvError(missing) };
+  }
+
+  const webhookError = findWebhookTargetError(env);
+  if (webhookError) {
+    return { ok: false, missing: [], error: webhookError };
+  }
+
+  return { ok: true, missing: [] };
 }

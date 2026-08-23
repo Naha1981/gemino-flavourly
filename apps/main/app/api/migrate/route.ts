@@ -87,6 +87,21 @@ export async function GET() {
     `;
     await sql`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT NOW();`;
 
+    // 7. Outbound delivery state. Additive and backward compatible:
+    // nullable with no default, so every existing row keeps NULL and is
+    // rendered as "no delivery information" rather than being
+    // retroactively relabelled. Only messages written after this
+    // migration carry a state.
+    await sql`ALTER TABLE messages ADD COLUMN IF NOT EXISTS delivery_status text;`;
+    await sql`ALTER TABLE messages ADD COLUMN IF NOT EXISTS delivery_error text;`;
+    // Lets the outbox reconcile a job back to its message row cheaply,
+    // and lets the dashboard find undelivered messages without scanning.
+    await sql`
+      CREATE INDEX IF NOT EXISTS messages_delivery_status_idx
+        ON messages (tenant_id, delivery_status)
+        WHERE delivery_status IS NOT NULL;
+    `;
+
     return NextResponse.json({ ok: true, message: 'All Neon database columns and tables synchronized successfully' });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Migration failed' }, { status: 500 });
