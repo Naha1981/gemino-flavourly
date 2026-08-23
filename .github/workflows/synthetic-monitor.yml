@@ -2,8 +2,15 @@ name: Operator & Main App Synthetic Health Monitor
 
 on:
   schedule:
-    # Run every hour to ensure Render operator doesn't sleep and stays connected
-    - cron: '*/15 * * * *'
+    # Was */15 (every 15 minutes = 96 runs/day) despite the comment
+    # claiming "every hour" — combined with both URLs below being wrong
+    # placeholders that don't exist, this meant every single one of
+    # those 96 daily runs failed and sent a notification email. This is
+    # an outage alert, not a keep-alive mechanism (that's already
+    # handled separately by the cron-job.org "Operator Keep-Alive" job
+    # hitting /health every 5 minutes) — every 30 minutes is plenty for
+    # "tell me if something is actually down."
+    - cron: '*/30 * * * *'
   workflow_dispatch:
 
 jobs:
@@ -12,7 +19,7 @@ jobs:
     steps:
       - name: Ping Operator Health
         run: |
-          OPERATOR_URL="${{ vars.OPERATOR_URL || 'https://gemino-operator.onrender.com' }}"
+          OPERATOR_URL="${{ vars.OPERATOR_URL || 'https://gemino-flavourly-whatsapp.onrender.com' }}"
           STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$OPERATOR_URL/health")
           echo "Operator health check status: $STATUS_CODE"
           if [ "$STATUS_CODE" -ne 200 ]; then
@@ -22,7 +29,7 @@ jobs:
 
       - name: Ping Main App Landing
         run: |
-          MAIN_APP_URL="${{ vars.MAIN_APP_URL || 'https://gemino-main.vercel.app' }}"
+          MAIN_APP_URL="${{ vars.MAIN_APP_URL || 'https://gemino-flavourly-whatsapp.vercel.app' }}"
           STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$MAIN_APP_URL")
           echo "Main app health check status: $STATUS_CODE"
           if [ "$STATUS_CODE" -ne 200 ]; then
