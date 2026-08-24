@@ -1,8 +1,8 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
-import { tenants, waAccounts, messages, systemSettings } from '@/lib/db/schema';
-import { count, eq, desc } from 'drizzle-orm';
+import { tenants, waAccounts, messages, conversations, systemSettings } from '@/lib/db/schema';
+import { count, eq, desc, sql } from 'drizzle-orm';
 import { Users, MessageSquare, Activity, DollarSign, Shield, Power, Radio, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { isSuperAdmin } from '@/lib/auth/is-super-admin';
@@ -29,12 +29,19 @@ export default async function SuperAdminDashboard() {
     .catch(() => [{ count: 0 }]);
 
   const totalMessagesResult = await db.select({ count: count() }).from(messages).catch(() => [{ count: 0 }]);
+  const missedRevenueResult = await db
+    .select({ value: sql<number>`COALESCE(SUM(${conversations.estimatedValueCents}), 0)` })
+    .from(conversations)
+    .where(eq(conversations.outcome, 'missed'))
+    .catch(() => [{ value: 0 }]);
   const recentTenants = await db.select().from(tenants).orderBy(desc(tenants.createdAt)).limit(10).catch(() => []);
   const settings = await db.query.systemSettings.findFirst().catch(() => null);
 
   const totalTenants = totalTenantsResult[0]?.count ?? 0;
   const activeConnections = activeConnectionsResult[0]?.count ?? 0;
   const totalMessages = totalMessagesResult[0]?.count ?? 0;
+  const aggregateMissedRevenueCents = Number(missedRevenueResult[0]?.value ?? 0);
+  const aggregateMissedRevenue = aggregateMissedRevenueCents / 100;
   const isMasterAiOn = settings?.masterAiSwitch ?? true;
 
   // Calculate MRR ($49/month per active tenant)
@@ -106,7 +113,7 @@ export default async function SuperAdminDashboard() {
         </div>
 
         {/* KPI Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
           <StatCard
             title="Total Tenants"
             value={totalTenants.toString()}
@@ -130,6 +137,12 @@ export default async function SuperAdminDashboard() {
             value={`$${estMrr.toLocaleString()}`}
             icon={DollarSign}
             trend="$49/mo per tenant"
+          />
+          <StatCard
+            title="Missed Revenue Detected"
+            value={`R${aggregateMissedRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+            icon={DollarSign}
+            trend="Across all tenants"
           />
         </div>
 
