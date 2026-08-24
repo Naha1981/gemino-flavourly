@@ -147,7 +147,7 @@ export const messages = pgTable(
     conversationId: uuid('conversation_id')
       .notNull()
       .references(() => conversations.id, { onDelete: 'cascade' }),
-    direction: text('direction', { enum: ['inbound', 'outbound'] }).notNull(),
+    direction: text('direction', { enum: ['inbound', 'outbound', 'system'] }).notNull(),
     content: text('content').notNull(),
     isAIGenerated: boolean('is_ai_generated').default(false).notNull(),
     sentiment: text('sentiment', { enum: ['positive', 'neutral', 'negative'] }),
@@ -505,6 +505,38 @@ export const reactivationCampaigns = pgTable(
   })
 );
 
+// -----------------------------------------------------------------------------
+// 16c. VIP Recognition Alerts (Gate #10)
+// -----------------------------------------------------------------------------
+// One row per VIP customer who walks in (first message of a new conversation).
+// `sent_at` is the moment the staff-facing alert was raised; `served_at` and
+// `note` support the quick actions on the VIP-today dashboard ("Mark as
+// served" / "Add note") without dispatching anything to the customer.
+export const vipAlerts = pgTable(
+  'vip_alerts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    customerPhone: text('customer_phone').notNull(),
+    customerName: text('customer_name'),
+    totalVisits: integer('total_visits').notNull(),
+    totalSpendCents: integer('total_spend_cents').notNull(),
+    lastVisitAt: timestamp('last_visit_at').notNull(),
+    preferences: jsonb('preferences').default({}).notNull(),
+    sentAt: timestamp('sent_at').defaultNow().notNull(),
+    // ── Gate #10 quick actions ──────────────────────────────────────────
+    servedAt: timestamp('served_at'),
+    note: text('note'),
+  },
+  (table) => ({
+    tenantIdx: index('vip_alerts_tenant_idx').on(table.tenantId),
+    phoneIdx: index('vip_alerts_phone_idx').on(table.customerPhone),
+    sentIdx: index('vip_alerts_sent_idx').on(table.sentAt),
+  })
+);
+
 export const staffMembers = pgTable('staff_members', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id')
@@ -534,6 +566,7 @@ export const tenantRelations = relations(tenants, ({ many, one }) => ({
   jobs: many(jobs),
   customerProfiles: many(customerProfiles),
   reactivationCampaigns: many(reactivationCampaigns),
+  vipAlerts: many(vipAlerts),
 }));
 
 export const waAccountRelations = relations(waAccounts, ({ one, many }) => ({

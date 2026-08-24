@@ -15,6 +15,8 @@ import { isOptInMessage } from '@/lib/opt-in-out';
 import { verifyWebhookSignature } from '@/lib/webhook/verify';
 import { isReactivationBookingReply } from '@/lib/customer/reactivation';
 import { markLatestCampaignResponded } from '@/lib/customer/reactivation-store';
+import { processFirstMessageVip } from '@/lib/customer/vip-recognition';
+import { drizzleVipRecognitionStore } from '@/lib/customer/vip-store';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -164,6 +166,9 @@ export async function POST(req: NextRequest) {
   }
 
   // 5. Upsert Conversation
+  // VIP recognition fires only on the FIRST message of a NEW conversation,
+  // so we must know whether this message created the conversation row.
+  let isNewConversation = false;
   let conversation = await db.query.conversations.findFirst({
     where: and(eq(conversations.tenantId, tenantId), eq(conversations.contactId, contact.id)),
   });
@@ -179,6 +184,7 @@ export async function POST(req: NextRequest) {
       })
       .returning();
     conversation = newConv;
+    isNewConversation = true;
   } else {
     await db
       .update(conversations)
@@ -215,7 +221,30 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, note: 'Duplicate message (race on concurrent delivery)' });
   }
 
-  // 6b. Gate #9 — reactivation response attribution. The customer replying at
+  // 6b. Gate #10 — VIP recognition. Only when a NEW conversation starts (the
+  // first message from a customer phone number) do we check for a VIP. If the
+  // profile exists and its segment is 'vip', insert an alert row into
+  // vip_alerts AND a staff-only system message into the thread. The alert is
+  // never enqueued for dispatch, so the customer never sees it. Wrapped so a
+  // VIP bookkeeping failure can never break the customer's conversation.
+  if (isNewConversation) {
+    try {
+      const processed = await processFirstMessageVip(drizzleVipRecognitionStore, {
+        tenantId,
+        customerPhone: fromPhone,
+        conversationId: conversation.id,
+      });
+      if (processed) {
+        console.log(
+          `[VIP] Alert raised for ${fromPhone} · ${processed.alert.customerName ?? 'Guest'} (${processed.alert.totalVisits} visits)`
+        );
+      }
+    } catch (err) {
+      console.error(`[VIP] Failed to process VIP recognition for ${fromPhone}`, err);
+    }
+  }
+
+  // 6c. Gate #9 — reactivation response attribution. The customer replying at
   // all IS the response the campaign wanted, so any inbound message here (a
   // direct reply, or a "book"/"reserve" keyword message) marks the latest
   // dispatched, unresponded campaign within the 30-day response window as
