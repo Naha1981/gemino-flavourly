@@ -46,11 +46,14 @@ export interface ReactivationCandidate {
   tenantManualMode: boolean;
 }
 
-export function serializeReactivationCampaign(campaign: ReactivationCampaignRow) {
+export function serializeReactivationCampaign(
+  campaign: ReactivationCampaignRow & { customerName?: string | null }
+) {
   return {
     id: campaign.id,
     tenantId: campaign.tenantId,
     customerPhone: campaign.customerPhone,
+    customerName: campaign.customerName ?? null,
     segment: campaign.segment,
     messageText: campaign.messageText,
     sentAt: campaign.sentAt,
@@ -262,14 +265,34 @@ export async function dispatchWhatsApp(input: {
 // Dashboard reads
 // ---------------------------------------------------------------------------
 
+/** Campaign row plus the customer's profile name for the dashboard list. */
+export type CampaignListItem = ReactivationCampaignRow & { customerName: string | null };
+
 export async function listCampaigns(
   tenantId: string,
   limit = 50,
   offset = 0
-): Promise<ReactivationCampaignRow[]> {
+): Promise<CampaignListItem[]> {
   return db
-    .select()
+    .select({
+      id: reactivationCampaigns.id,
+      tenantId: reactivationCampaigns.tenantId,
+      customerPhone: reactivationCampaigns.customerPhone,
+      segment: reactivationCampaigns.segment,
+      messageText: reactivationCampaigns.messageText,
+      sentAt: reactivationCampaigns.sentAt,
+      responded: reactivationCampaigns.responded,
+      createdAt: reactivationCampaigns.createdAt,
+      customerName: customerProfiles.customerName,
+    })
     .from(reactivationCampaigns)
+    .leftJoin(
+      customerProfiles,
+      and(
+        eq(customerProfiles.tenantId, reactivationCampaigns.tenantId),
+        eq(customerProfiles.customerPhone, reactivationCampaigns.customerPhone)
+      )
+    )
     .where(eq(reactivationCampaigns.tenantId, tenantId))
     .orderBy(desc(reactivationCampaigns.createdAt))
     .limit(limit)
