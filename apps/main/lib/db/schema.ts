@@ -236,6 +236,25 @@ export const reservations = pgTable(
     // a second follow-up.
     cancellationFollowupSent: boolean('cancellation_followup_sent').default(false).notNull(),
     cancellationFollowupSentAt: timestamp('cancellation_followup_sent_at'),
+    // ── Gate #4: no-show monitoring ─────────────────────────────────────
+    //
+    // A confirmed booking whose time has passed without the customer
+    // showing is stamped by the /api/cron/no-show-detect cron:
+    //   no_show_detected / no_show_detected_at  -> detection ran, at the
+    //     instant it ran (the follow-up delay is measured from HERE, not
+    //     from the booking time)
+    //   no_show_followup_sent / _at             -> the rebook offer has
+    //     been handed to the outbox
+    //
+    // Both flags default false and both timestamps stay NULL, so this is
+    // additive: pre-existing rows are untouched and can never be
+    // retroactively detected or messaged. Deduplication lives on the row,
+    // not on the job queue — the outbox retries, and a retried job must
+    // not produce a second "we missed you".
+    noShowDetected: boolean('no_show_detected').default(false).notNull(),
+    noShowDetectedAt: timestamp('no_show_detected_at'),
+    noShowFollowupSent: boolean('no_show_followup_sent').default(false).notNull(),
+    noShowFollowupSentAt: timestamp('no_show_followup_sent_at'),
   },
   (table) => ({
     // The follow-up cron runs every 6 hours against a table that only ever
@@ -244,6 +263,18 @@ export const reservations = pgTable(
     cancellationFollowupIdx: index('reservations_cancellation_followup_idx')
       .on(table.cancelledAt)
       .where(sql`${table.status} = 'cancelled' AND ${table.cancellationFollowupSent} = false`),
+    // The no-show detection scan runs every 30 minutes: only confirmed
+    // bookings that have not yet been evaluated as a no-show. Everything
+    // else (cancelled, completed, already detected) is excluded from the
+    // index entirely, so the scan stays flat as the table grows.
+    noShowDetectionIdx: index('reservations_no_show_detection_idx')
+      .on(table.date)
+      .where(sql`${table.status} = 'confirmed' AND ${table.noShowDetected} = false`),
+    // The follow-up scan: only detected no-shows whose rebook offer has
+    // not gone out yet.
+    noShowFollowupIdx: index('reservations_no_show_followup_idx')
+      .on(table.noShowDetectedAt)
+      .where(sql`${table.noShowFollowupSent} = false AND ${table.noShowDetectedAt} IS NOT NULL`),
   })
 );
 
