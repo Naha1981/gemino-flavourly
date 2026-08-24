@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, CheckCircle2, Bot, Sparkles, Clock, Building, Sliders, Shield } from 'lucide-react';
+import { Save, CheckCircle2, Bot, Sparkles, Clock, Building, Sliders, Shield, MapPin, KeyRound } from 'lucide-react';
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -18,6 +18,15 @@ export default function SettingsPage() {
     aiEnabled: true,
     manualMode: false,
   });
+
+  // Gate #11 — Google Places configuration (review monitoring). The API key
+  // is write-only from the UI's perspective: it is never echoed back, so the
+  // field stays empty unless the owner is (re)setting it, and leaving it
+  // empty on save keeps the stored key.
+  const [googleConfig, setGoogleConfig] = useState({ placeId: '', apiKey: '', hasApiKey: false, lastFetchAt: '' });
+  const [googleSaving, setGoogleSaving] = useState(false);
+  const [googleSuccess, setGoogleSuccess] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchSettings() {
@@ -45,6 +54,65 @@ export default function SettingsPage() {
     }
     fetchSettings();
   }, []);
+
+  useEffect(() => {
+    async function fetchGoogleConfig() {
+      try {
+        const res = await fetch('/api/reputation/google-config');
+        if (res.ok) {
+          const data = await res.json();
+          if (data.config) {
+            setGoogleConfig((prev) => ({
+              ...prev,
+              placeId: data.config.place_id || '',
+              hasApiKey: Boolean(data.config.has_api_key),
+              lastFetchAt: data.config.last_fetch_at
+                ? new Date(data.config.last_fetch_at).toISOString().slice(0, 16).replace('T', ' ')
+                : '',
+            }));
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load Google Places config', err);
+      }
+    }
+    fetchGoogleConfig();
+  }, []);
+
+  async function handleGoogleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    setGoogleSaving(true);
+    setGoogleSuccess(false);
+    setGoogleError(null);
+    try {
+      const res = await fetch('/api/reputation/google-config', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          place_id: googleConfig.placeId,
+          // Omit the key entirely when blank — the API keeps the stored one.
+          ...(googleConfig.apiKey.trim() ? { api_key: googleConfig.apiKey.trim() } : {}),
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setGoogleConfig((prev) => ({
+          ...prev,
+          apiKey: '',
+          hasApiKey: Boolean(data.config?.has_api_key) || prev.hasApiKey,
+        }));
+        setGoogleSuccess(true);
+        setTimeout(() => setGoogleSuccess(false), 4000);
+      } else {
+        const errData = await res.json().catch(() => ({}));
+        setGoogleError(errData.error || 'Failed to save Google Places configuration');
+      }
+    } catch (err: any) {
+      setGoogleError(err.message || 'An error occurred');
+    } finally {
+      setGoogleSaving(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -189,7 +257,82 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        {/* Section 3: Safety & Controls */}
+        {/* Section 3: Google Places Configuration (Gate #11) */}
+        <form onSubmit={handleGoogleSubmit} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6 space-y-4 shadow-sm">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-zinc-800">
+            <MapPin className="h-4 w-4 text-emerald-400" />
+            <h2 className="text-sm font-semibold text-zinc-100 uppercase tracking-wider">Google Places Configuration</h2>
+          </div>
+          <p className="text-xs text-zinc-500 -mt-2">
+            Link your Google Business Profile so the 6am daily pull can monitor your reviews. Find your Place ID at{' '}
+            <a
+              href="https://developers.google.com/maps/documentation/places/web-service/place-id"
+              target="_blank"
+              rel="noreferrer"
+              className="text-emerald-400 hover:text-emerald-300"
+            >
+              Google&apos;s Place ID finder
+            </a>
+            .
+          </p>
+
+          {googleSuccess && (
+            <div className="flex items-center gap-2 rounded-md border border-emerald-900 bg-emerald-950/40 px-3 py-2 text-xs text-emerald-300">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              Google Places configuration saved. Reviews will pull daily at 6am.
+            </div>
+          )}
+          {googleError && (
+            <div className="rounded-md border border-red-900 bg-red-950/40 px-3 py-2 text-xs text-red-300">{googleError}</div>
+          )}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-zinc-300">Google Place ID</label>
+              <input
+                type="text"
+                required
+                value={googleConfig.placeId}
+                onChange={(e) => setGoogleConfig({ ...googleConfig, placeId: e.target.value })}
+                placeholder="ChIJN1t_tDeuEmsRUsoyG83frY4"
+                className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3.5 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
+                <KeyRound className="w-3 h-3 text-zinc-400" />
+                Google Places API Key
+                <span className="ml-auto text-[11px] font-normal text-zinc-500">
+                  {googleConfig.hasApiKey ? 'stored — leave blank to keep' : 'not set'}
+                </span>
+              </label>
+              <input
+                type="password"
+                value={googleConfig.apiKey}
+                onChange={(e) => setGoogleConfig({ ...googleConfig, apiKey: e.target.value })}
+                placeholder={googleConfig.hasApiKey ? '••••••••••••••••' : 'AIza…'}
+                autoComplete="off"
+                className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3.5 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[11px] text-zinc-500">
+              {googleConfig.lastFetchAt ? `Last review pull: ${googleConfig.lastFetchAt}` : 'No review pull yet.'}
+            </p>
+            <button
+              type="submit"
+              disabled={googleSaving}
+              className="inline-flex items-center justify-center gap-2 rounded-md border border-emerald-700 bg-emerald-950/40 px-5 py-2 text-sm font-semibold text-emerald-300 hover:bg-emerald-900/40 transition-colors disabled:opacity-60"
+            >
+              <Save className="h-4 w-4" />
+              {googleSaving ? 'Saving…' : 'Save Google Config'}
+            </button>
+          </div>
+        </form>
+
+        {/* Section 4: Safety & Controls */}
         <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-sm">
           <div className="flex items-center gap-3">
             <div className="rounded-md bg-zinc-800 p-2 text-emerald-400">
