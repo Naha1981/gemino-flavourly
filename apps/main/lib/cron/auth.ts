@@ -1,40 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { isCronAuthorized } from './authorize';
+
+export { isCronAuthorized };
 
 /**
- * Guards the cron-triggered routes (/api/cron/*).
+ * Next.js adapter for the cron authorization guard.
  *
- * This deployment's cron jobs run via an external scheduler hitting these
- * URLs directly (not Vercel's native `crons` config in vercel.json, which
- * would auto-attach a Bearer token) — so this check is deliberately
- * "soft-fail-open, hard-fail-on-mismatch":
+ * The decision logic lives in ./authorize.ts (no framework imports) so it
+ * can be unit-tested directly. This file only maps a NextRequest onto that
+ * decision and turns a rejection into a 401.
  *
- *   - CRON_SECRET unset  -> request is ALLOWED through (logs a warning).
- *     Breaking the outbox/waitlist/daily-brief crons in production because
- *     an optional secret wasn't configured would be worse than the current
- *     exposure — these routes are idempotent reads/queue-drains, not
- *     destructive actions.
- *   - CRON_SECRET set    -> either the `Authorization: Bearer <secret>`
- *     header OR a `?key=<secret>` query param must match, or the request
- *     is rejected. Once you add CRON_SECRET as a Vercel env var, configure
- *     your scheduler (cron-job.org or similar) with one of the two.
+ * The secret itself is never logged and never returned in a response body.
+ * This module is server-only: it is imported exclusively by route handlers
+ * under app/api/cron/, so CRON_SECRET is never bundled into client code.
  */
 export function assertCronAuthorized(req: NextRequest): NextResponse | null {
   const secret = process.env.CRON_SECRET;
+
   if (!secret) {
-    console.warn(
-      `[cron-auth] CRON_SECRET is not set — ${req.nextUrl.pathname} is running without auth. ` +
-        'Set CRON_SECRET in Vercel and a matching Authorization header in your scheduler to lock this down.'
+    // Log that the guard tripped, but never log the expected or provided
+    // credential.
+    console.error(
+      `[cron-auth] CRON_SECRET is not configured — rejecting ${req.nextUrl.pathname}. ` +
+        'Set CRON_SECRET in the deployment environment and send it as ' +
+        '"Authorization: Bearer <secret>" from the scheduler.'
     );
-    return null;
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const authHeader = req.headers.get('authorization');
-  const queryKey = req.nextUrl.searchParams.get('key');
-
-  const headerMatches = authHeader === `Bearer ${secret}`;
-  const queryMatches = queryKey === secret;
-
-  if (!headerMatches && !queryMatches) {
+  if (!isCronAuthorized(req.headers.get('authorization'), secret)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

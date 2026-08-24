@@ -153,6 +153,30 @@ export const messages = pgTable(
     // the same customer message every time the operator restarts or
     // flaps. See the idempotency check in the webhook route.
     waMessageId: text('wa_message_id'),
+    // Delivery state for OUTBOUND messages.
+    //
+    // Previously there was no delivery state at all: a staff reply was
+    // written here and rendered in the inbox identically whether it
+    // reached the customer, was still queued, or had exhausted every
+    // retry and died. A restaurant had no way to tell which of its
+    // replies actually arrived.
+    //
+    // Nullable on purpose, and with NO default, so this migration is
+    // additive and backward compatible: every pre-existing row keeps
+    // NULL, which the UI renders exactly as it does today ("no delivery
+    // information"). Only rows written after this change carry a state,
+    // so nothing historical is retroactively mislabelled as failed.
+    //
+    // Inbound messages leave this NULL — delivery state is meaningless
+    // for a message the customer sent us.
+    //   queued  -> accepted into the outbox, not yet dispatched
+    //   sent    -> the operator confirmed dispatch to WhatsApp
+    //   failed  -> retries exhausted, or no dispatch route existed
+    deliveryStatus: text('delivery_status', { enum: ['queued', 'sent', 'failed'] }),
+    // Why a delivery failed, surfaced to staff so the failure is
+    // actionable rather than just a red dot. Never contains a secret:
+    // it is set from operator/job error strings only.
+    deliveryError: text('delivery_error'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (table) => ({
