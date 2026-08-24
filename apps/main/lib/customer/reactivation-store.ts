@@ -1,7 +1,19 @@
-import { and, count, desc, eq, isNotNull, isNull, sql } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { reactivationCampaigns } from '@/lib/db/schema';
+import {
+  contacts,
+  customerProfiles,
+  jobs,
+  reactivationCampaigns,
+  tenants,
+  waAccounts,
+} from '@/lib/db/schema';
 import { isWithinResponseWindow, type ReactivationSegment } from './reactivation.ts';
+import type {
+  ReactivationCampaignStore,
+  ReactivationCandidate,
+  ReactivationTenant,
+} from './reactivation-cron.ts';
 
 /**
  * Drizzle adapter for Gate #9 — the only module that reads or writes
@@ -212,4 +224,99 @@ export const drizzleReactivationCampaignStore = {
   countCampaigns,
   campaignStats,
   markLatestCampaignResponded,
+};
+
+// -----------------------------------------------------------------------------
+// Cron adapter — satisfies ./reactivation-cron.ts's store interface
+// -----------------------------------------------------------------------------
+
+/** Every tenant with its automation flags; the runner enforces them. */
+export async function findReactivationTenants(): Promise<ReactivationTenant[]> {
+  const rows = await db
+    .select({ id: tenants.id, name: tenants.name, aiEnabled: tenants.aiEnabled, manualMode: tenants.manualMode })
+    .from(tenants);
+  return rows;
+}
+
+/**
+ * Profiles stored as dormant / at_risk for one tenant, with the contact's
+ * POPIA opt-out flag attached. Opted-out contacts are excluded in SQL so the
+ * rows never even reach the loop (the runner re-checks the flag for other
+ * store implementations). A LEFT JOIN keeps profiles whose contact row is
+ * gone — there is no opt-out record to respect for those.
+ */
+export async function fetchCampaignCandidates(tenantId: string): Promise<ReactivationCandidate[]> {
+  const rows = await db
+    .select({
+      profileId: customerProfiles.id,
+      tenantId: customerProfiles.tenantId,
+      customerPhone: customerProfiles.customerPhone,
+      customerName: customerProfiles.customerName,
+      totalVisits: customerProfiles.totalVisits,
+      lastVisitAt: customerProfiles.lastVisitAt,
+      storedSegment: customerProfiles.segment,
+      preferences: customerProfiles.preferences,
+      blocklisted: contacts.blocklisted,
+    })
+    .from(customerProfiles)
+    .leftJoin(
+      contacts,
+      and(eq(contacts.tenantId, customerProfiles.tenantId), eq(contacts.phone, customerProfiles.customerPhone))
+    )
+    .where(
+      and(
+        eq(customerProfiles.tenantId, tenantId),
+        inArray(customerProfiles.segment, ['dormant', 'at_risk']),
+        // POPIA: opted-out contacts are filtered out before loading.
+        sql`COALESCE(${contacts.blocklisted}, false) = false`
+      )
+    );
+
+  return rows.map((row) => ({
+    ...row,
+    // SQL already excluded opted-out contacts; normalize the LEFT JOIN's
+    // NULL (no contact row) to the runner's boolean shape.
+    blocklisted: Boolean(row.blocklisted),
+  }));
+}
+
+/**
+ * Hand the campaign message to the outbox rather than calling the operator
+ * directly: the outbox owns retries, stuck-job recovery and delivery state.
+ * This is the same send path the webhook and cancellation follow-up use.
+ */
+export async function queueCampaignMessage(input: {
+  tenantId: string;
+  waAccountId: string;
+  to: string;
+  text: string;
+}): Promise<void> {
+  await db.insert(jobs).values({
+    tenantId: input.tenantId,
+    type: 'send_whatsapp',
+    payload: { waAccountId: input.waAccountId, to: input.to, text: input.text },
+    status: 'pending',
+    nextRunAt: new Date(),
+  });
+}
+
+/** The tenant's connected WhatsApp account, or null when none is linked. */
+export async function resolveReactivationSender(tenantId: string): Promise<{ waAccountId: string } | null> {
+  const [account] = await db
+    .select({ id: waAccounts.id })
+    .from(waAccounts)
+    .where(and(eq(waAccounts.tenantId, tenantId), eq(waAccounts.isConnected, true)))
+    .limit(1);
+  return account ? { waAccountId: account.id } : null;
+}
+
+/** The cron store wired from the functions above plus the campaign CRUD. */
+export const drizzleReactivationCronStore: ReactivationCampaignStore = {
+  findTenants: findReactivationTenants,
+  fetchCampaignCandidates,
+  findLatestCampaign,
+  createPendingCampaign,
+  markSent,
+  queueCampaignMessage,
+  resolveSender: resolveReactivationSender,
 };
