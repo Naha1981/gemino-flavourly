@@ -70,6 +70,7 @@ export async function processInboundAIResponse(ctx: InboundContext): Promise<str
     await db.insert(waitlistEntries).values({
       tenantId,
       contactId,
+      conversationId,
       customerName: senderName,
       customerPhone: phone,
       partySize: size,

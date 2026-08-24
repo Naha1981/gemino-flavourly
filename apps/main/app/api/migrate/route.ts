@@ -33,6 +33,14 @@ export async function GET() {
     // 2. Conversations table
     await sql`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS manual_takeover boolean DEFAULT false;`;
     await sql`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS is_resolved boolean DEFAULT false;`;
+    await sql`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS outcome text;`;
+    await sql`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS estimated_value_cents integer DEFAULT 0;`;
+    await sql`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS outcome_classified_at timestamp;`;
+    await sql`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS outcome_classifier text;`;
+    await sql`
+      CREATE INDEX IF NOT EXISTS conversations_outcome_tenant_idx
+        ON conversations (tenant_id, outcome, outcome_classified_at);
+    `;
 
     // 3. Contacts table
     await sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS blocklisted boolean DEFAULT false;`;
@@ -87,7 +95,32 @@ export async function GET() {
     `;
     await sql`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT NOW();`;
 
-    // 7. Outbound delivery state. Additive and backward compatible:
+    // 7. Revenue intelligence linkage. Both columns are nullable for
+    // existing rows; new rows can link a conversion back to the inbound
+    // WhatsApp conversation that created it.
+    await sql`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS conversation_id uuid REFERENCES conversations(id) ON DELETE SET NULL;`;
+    await sql`ALTER TABLE waitlist_entries ADD COLUMN IF NOT EXISTS conversation_id uuid REFERENCES conversations(id) ON DELETE SET NULL;`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS revenue_events (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        event_type text NOT NULL,
+        conversation_id uuid REFERENCES conversations(id) ON DELETE SET NULL,
+        estimated_value_cents integer DEFAULT 0 NOT NULL,
+        realized_cents integer DEFAULT 0 NOT NULL,
+        occurred_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS revenue_events_tenant_occurred_idx
+        ON revenue_events (tenant_id, occurred_at);
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS revenue_events_conversation_idx
+        ON revenue_events (conversation_id);
+    `;
+
+    // 8. Outbound delivery state. Additive and backward compatible:
     // nullable with no default, so every existing row keeps NULL and is
     // rendered as "no delivery information" rather than being
     // retroactively relabelled. Only messages written after this
