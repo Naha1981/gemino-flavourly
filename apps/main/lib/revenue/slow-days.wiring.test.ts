@@ -120,8 +120,25 @@ describe('seam 3: the super-admin overview counts slow days platform-wide', () =
     assert.match(src, /totalSlowDays\(/);
   });
 
-  test('degrades to 0 instead of breaking the page', () => {
-    assert.match(from(src, 'fetchSlowDayAggregatesByTenant('), /\.catch\(\(\)\s*=>\s*0\)/);
+  test('fetch failure degrades to an empty map, so the metric renders 0', () => {
+    // Gate #5 restructured this seam: instead of `.catch(() => 0)` on an
+    // already-derived count, the fetch itself now fails over to an empty
+    // map, and every KPI derived from it — totalSlowDays included —
+    // computes 0 over an empty map. Same invariant, new mechanism.
+    const fetchCall = from(src, 'fetchSlowDayAggregatesByTenant(');
+    assert.match(fetchCall, /\.catch\(\(\)\s*=>\s*new Map/);
+    assert.ok(
+      fetchCall.indexOf('totalSlowDays(') > fetchCall.indexOf('.catch('),
+      'totalSlowDays must be derived from the caught value, not a separate fetch'
+    );
+  });
+
+  test('the single shared fetch also feeds the Gate #5 priority KPI', () => {
+    // One query, two KPIs: the "Total Priority Value" must reuse the same
+    // per-tenant aggregate the slow-day count uses, not issue a second
+    // platform-wide read of the reservation history.
+    assert.equal(src.match(/fetchSlowDayAggregatesByTenant\(/g)?.length, 1);
+    assert.match(src, /totalTopPriorityValueCents\(\s*slowDayAggregates\s*,/);
   });
 });
 

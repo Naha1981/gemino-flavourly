@@ -5,6 +5,8 @@ import { eq, sql, and, gte } from 'drizzle-orm';
 import { assertCronAuthorized } from '@/lib/cron/auth';
 import { detectSlowDaysForTenant, slowDayAlertLines } from '@/lib/revenue/slow-days';
 import { drizzleSlowDayStore } from '@/lib/revenue/slow-days-store';
+import { buildTenantPriorities } from '@/lib/revenue/priorities';
+import { drizzlePriorityStore } from '@/lib/revenue/priorities-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -33,6 +35,7 @@ export async function GET(req: NextRequest) {
 
   let briefed = 0;
   let alerted = 0;
+  let prioritized = 0;
 
   for (const tenant of allTenants) {
     const [msgCount] = await db
@@ -52,8 +55,17 @@ export async function GET(req: NextRequest) {
     const slowDayAlerts = slowDayAlertLines(slowDays.criticalSlowDays);
     if (slowDayAlerts.length > 0) alerted++;
 
+    // Gate #5 — the single most worthwhile action today, ranked across
+    // missed enquiries, critical slow days, pending cancellations and
+    // pending no-shows. Reuses the slow-day report from the Gate #2 call
+    // above (one reservation scan, two uses) so the brief's top action and
+    // its slow-day alert can never disagree about the week.
+    const topPriorities = await buildTenantPriorities(drizzlePriorityStore, tenant.id, slowDays);
+    const topPriority = topPriorities[0];
+    if (topPriority) prioritized++;
+
     console.log(
-      `[Daily Brief] Tenant ${tenant.name}: ${msgCount.count} msgs (24h), ${bookingCount.count} bookings (24h), ${slowDays.slowDays.length} slow day(s).`
+      `[Daily Brief] Tenant ${tenant.name}: ${msgCount.count} msgs (24h), ${bookingCount.count} bookings (24h), ${slowDays.slowDays.length} slow day(s), top action: ${topPriority ? topPriority.opportunity_type : 'none'}.`
     );
 
     const waAccount = await db.query.waAccounts.findFirst({
@@ -66,6 +78,7 @@ export async function GET(req: NextRequest) {
       `💬 ${msgCount.count} WhatsApp message(s) in the last 24h`,
       `📅 ${bookingCount.count} reservation(s) in the last 24h`,
       ...slowDayAlerts,
+      ...(topPriority ? [`🎯 Today's top action: ${topPriority.description}`] : []),
     ].join('\n');
 
     await db.insert(jobs).values({
@@ -83,6 +96,7 @@ export async function GET(req: NextRequest) {
     tenantsChecked: allTenants.length,
     tenantsBriefed: briefed,
     tenantsWithSlowDayAlert: alerted,
+    tenantsWithTopPriority: prioritized,
   });
 }
 
