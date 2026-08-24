@@ -12,8 +12,25 @@ import {
   buildProfileSnapshot,
   lookbackStart,
 } from './profile-builder';
+import type { CustomerSegment } from './segmentation';
 
 export type CustomerProfileRow = typeof customerProfiles.$inferSelect;
+
+/**
+ * Keep the established Drizzle camelCase shape while exposing the explicit
+ * snake_case API name used by the segmentation contract. Numeric columns are
+ * normalized to JSON numbers so clients do not have to parse Postgres
+ * decimals themselves.
+ */
+export function serializeCustomerProfile(profile: CustomerProfileRow) {
+  const confidence = Number(profile.segmentConfidence ?? 0);
+  return {
+    ...profile,
+    segmentConfidence: confidence,
+    segment_confidence: confidence,
+    segment_updated_at: profile.segmentUpdatedAt,
+  };
+}
 
 export async function findOrCreateProfile(
   tenantId: string,
@@ -199,22 +216,31 @@ export async function getProfile(tenantId: string, customerPhone: string): Promi
 export async function listProfiles(
   tenantId: string,
   limit = 50,
-  offset = 0
+  offset = 0,
+  segment?: CustomerSegment
 ): Promise<CustomerProfileRow[]> {
   return db
     .select()
     .from(customerProfiles)
-    .where(eq(customerProfiles.tenantId, tenantId))
+    .where(
+      segment
+        ? and(eq(customerProfiles.tenantId, tenantId), eq(customerProfiles.segment, segment))
+        : eq(customerProfiles.tenantId, tenantId)
+    )
     .orderBy(desc(customerProfiles.lastVisitAt), desc(customerProfiles.updatedAt))
     .limit(limit)
     .offset(offset);
 }
 
-export async function countProfiles(tenantId: string): Promise<number> {
+export async function countProfiles(tenantId: string, segment?: CustomerSegment): Promise<number> {
   const [row] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(customerProfiles)
-    .where(eq(customerProfiles.tenantId, tenantId));
+    .where(
+      segment
+        ? and(eq(customerProfiles.tenantId, tenantId), eq(customerProfiles.segment, segment))
+        : eq(customerProfiles.tenantId, tenantId)
+    );
   return row?.n ?? 0;
 }
 

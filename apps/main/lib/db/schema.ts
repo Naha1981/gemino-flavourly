@@ -446,6 +446,14 @@ export const customerProfiles = pgTable(
     lastVisitAt: timestamp('last_visit_at'),
     firstVisitAt: timestamp('first_visit_at'),
     preferences: jsonb('preferences').default({}).notNull(),
+    // Gate #8 — computed customer lifecycle segment. The default keeps
+    // profile creation backward-compatible; the segmentation cron replaces
+    // it with the first calculated value for every profile.
+    segment: text('segment', { enum: ['vip', 'regular', 'at_risk', 'dormant', 'new'] })
+      .default('new')
+      .notNull(),
+    segmentConfidence: numeric('segment_confidence').default('0').notNull(),
+    segmentUpdatedAt: timestamp('segment_updated_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
@@ -453,6 +461,7 @@ export const customerProfiles = pgTable(
     tenantIdx: index('customer_profiles_tenant_idx').on(table.tenantId),
     phoneIdx: index('customer_profiles_phone_idx').on(table.customerPhone),
     contactIdx: index('customer_profiles_contact_idx').on(table.contactId),
+    segmentIdx: index('customer_profiles_segment_idx').on(table.segment),
   })
 );
 

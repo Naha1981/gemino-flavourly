@@ -11,6 +11,7 @@ import { fetchSlowDayAggregatesByTenant } from '@/lib/revenue/slow-days-store';
 import { totalTopPriorityValueCents } from '@/lib/revenue/priorities';
 import { calculatePlatformOpportunity, type OpportunityInputs } from '@/lib/revenue/opportunity';
 import { fetchCrossTenantOpportunityInputs } from '@/lib/revenue/opportunity-store';
+import { emptySegmentCounts, fetchCrossTenantSegmentCounts } from '@/lib/customer/segmentation-store';
 import { toggleGlobalAiAction } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -84,6 +85,12 @@ export default async function SuperAdminDashboard() {
     now,
     slowDayAggregatesByTenant: slowDayAggregates,
   });
+
+  // Gate #8 — one grouped read for the platform-wide segmentation metric.
+  // This page is already behind the Super Admin gate, and the store returns
+  // zeroes for missing segments so a sparse platform still renders a stable
+  // KPI. A transient read failure should not take down the entire overview.
+  const platformSegmentCounts = await fetchCrossTenantSegmentCounts().catch(() => emptySegmentCounts());
 
   const totalTenants = totalTenantsResult[0]?.count ?? 0;
   const activeConnections = activeConnectionsResult[0]?.count ?? 0;
@@ -161,7 +168,7 @@ export default async function SuperAdminDashboard() {
         </div>
 
         {/* KPI Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-8 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-9">
           <StatCard
             title="Total Tenants"
             value={totalTenants.toString()}
@@ -209,6 +216,12 @@ export default async function SuperAdminDashboard() {
             value={`R${(platformOpportunity.total_opportunity_cents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
             icon={TrendingUp}
             trend="Sum of all tenants' potential recovery"
+          />
+          <StatCard
+            title="Platform Segmentation"
+            value={`VIP ${platformSegmentCounts.vip} · Regular ${platformSegmentCounts.regular} · At-risk ${platformSegmentCounts.at_risk} · Dormant ${platformSegmentCounts.dormant} · New ${platformSegmentCounts.new}`}
+            icon={Users}
+            trend="Customer profiles across all tenants"
           />
         </div>
 
