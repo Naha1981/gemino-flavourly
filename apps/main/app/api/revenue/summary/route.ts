@@ -3,6 +3,8 @@ import { and, eq, gte, lte } from 'drizzle-orm';
 import { getOrCreateTenant } from '@/lib/tenant';
 import { db } from '@/lib/db';
 import { conversations } from '@/lib/db/schema';
+import { detectSlowDaysForTenant } from '@/lib/revenue/slow-days';
+import { drizzleSlowDayStore } from '@/lib/revenue/slow-days-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,9 +79,20 @@ export async function GET(req: NextRequest) {
   const revenueDenominator = summary.converted_count + summary.missed_count + summary.lost_count;
   const conversionRate = revenueDenominator === 0 ? 0 : summary.converted_count / revenueDenominator;
 
+  // Gate #2 — slow-day detection.
+  //
+  // Deliberately NOT driven by `range`: a slow day is defined against the
+  // weekday's own 90-day history, so honouring ?range=7d here would mean
+  // comparing one week against itself and reporting nothing. The window
+  // the comparison actually used is in `slow_day_window` if a client ever
+  // needs to show it.
+  const slowDays = await detectSlowDaysForTenant(drizzleSlowDayStore, tenant.id);
+
   return NextResponse.json({
     ...summary,
     conversion_rate: conversionRate,
+    slowDays: slowDays.slowDays,
+    slow_day_window: slowDays.window,
     range: {
       key: range.range,
       start: range.start.toISOString(),
