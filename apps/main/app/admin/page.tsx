@@ -3,9 +3,11 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { tenants, waAccounts, messages, conversations, systemSettings } from '@/lib/db/schema';
 import { count, eq, desc, sql } from 'drizzle-orm';
-import { Users, MessageSquare, Activity, DollarSign, Shield, Power, Radio, RefreshCw } from 'lucide-react';
+import { Users, MessageSquare, Activity, DollarSign, Shield, Power, Radio, RefreshCw, CalendarX } from 'lucide-react';
 import Link from 'next/link';
 import { isSuperAdmin } from '@/lib/auth/is-super-admin';
+import { analyzeDayAggregates, computeSlowDayWindow, totalSlowDays } from '@/lib/revenue/slow-days';
+import { fetchSlowDayAggregatesByTenant } from '@/lib/revenue/slow-days-store';
 import { toggleGlobalAiAction } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -36,6 +38,24 @@ export default async function SuperAdminDashboard() {
     .catch(() => [{ value: 0 }]);
   const recentTenants = await db.select().from(tenants).orderBy(desc(tenants.createdAt)).limit(10).catch(() => []);
   const settings = await db.query.systemSettings.findFirst().catch(() => null);
+
+  // Gate #2 — slow days across the whole platform, this week.
+  //
+  // Same definition the tenant dashboard and the morning brief use
+  // (lib/revenue/slow-days.ts): each day of the last complete week against
+  // that weekday's own 90-day average, flagged below 60%. Booking counts
+  // are grouped per tenant per day in Postgres, so a platform-wide count
+  // costs one aggregate query rather than 97 days of raw reservation rows
+  // for every tenant. Falls back to 0 like every other metric on this
+  // page — the overview should still render if one query fails.
+  const slowDayWindow = computeSlowDayWindow();
+  const slowDaysDetected = await fetchSlowDayAggregatesByTenant(slowDayWindow.historyStart, slowDayWindow.weekEnd)
+    .then((aggregatesByTenant) =>
+      totalSlowDays(
+        Array.from(aggregatesByTenant.values()).map((aggregates) => analyzeDayAggregates(aggregates, { now: new Date() }))
+      )
+    )
+    .catch(() => 0);
 
   const totalTenants = totalTenantsResult[0]?.count ?? 0;
   const activeConnections = activeConnectionsResult[0]?.count ?? 0;
@@ -113,7 +133,7 @@ export default async function SuperAdminDashboard() {
         </div>
 
         {/* KPI Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
           <StatCard
             title="Total Tenants"
             value={totalTenants.toString()}
@@ -143,6 +163,12 @@ export default async function SuperAdminDashboard() {
             value={`R${aggregateMissedRevenue.toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
             icon={DollarSign}
             trend="Across all tenants"
+          />
+          <StatCard
+            title="Slow Days Detected"
+            value={slowDaysDetected.toString()}
+            icon={CalendarX}
+            trend="Under 60% of normal, this week"
           />
         </div>
 
