@@ -11,8 +11,10 @@ import { operatorClient } from '@/lib/operator-client';
 import {
   REACTIVATION_REPLY_WINDOW_DAYS,
   isReactivationReply,
+  type ReactivationPreferences,
   type ReactivationSegment,
 } from './reactivation.ts';
+import type { ReactivationCronStore } from './reactivation-cron.ts';
 
 /**
  * Drizzle adapter for Gate #9 — the only module that reads or writes
@@ -36,7 +38,7 @@ export interface ReactivationCandidate {
   /** Stored Gate #8 segment, re-derived by resolveReactivationTarget. */
   segment: string;
   lastVisitAt: Date | null;
-  preferences: unknown;
+  preferences: ReactivationPreferences | null;
   /** True when the matching contact row is opted out (POPIA STOP). */
   optedOut: boolean;
   tenantName: string;
@@ -197,7 +199,7 @@ export async function fetchReactivationCandidates(
     customerName: row.customerName,
     segment: row.segment,
     lastVisitAt: row.lastVisitAt,
-    preferences: row.preferences,
+    preferences: (row.preferences ?? null) as ReactivationPreferences | null,
     optedOut: false,
     tenantName: row.tenantName,
     tenantAiEnabled: row.aiEnabled,
@@ -360,3 +362,25 @@ export async function markRespondedForReply(
   await markResponded(campaign.id);
   return campaign;
 }
+
+// ---------------------------------------------------------------------------
+// Cron adapter
+// ---------------------------------------------------------------------------
+
+/**
+ * Object form of the store for the cron route to inject into
+ * runReactivationCampaignCron. Kept here (not in the route) so the seam
+ * between the framework-free runner and Postgres lives in exactly one file.
+ */
+export const drizzleReactivationStore: ReactivationCronStore = {
+  async findTenantIds(): Promise<string[]> {
+    const rows = await db.select({ id: tenants.id }).from(tenants);
+    return rows.map((row) => row.id);
+  },
+  fetchReactivationCandidates,
+  fetchRecentCampaignRecipients,
+  findWhatsAppAccount,
+  createPendingCampaign,
+  markSent,
+  dispatchWhatsApp,
+};
