@@ -36,6 +36,13 @@
       "when": 1787570000000,
       "tag": "0005_customer_profiles",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1787573600000,
+      "tag": "0006_customer_segmentation",
+      "breakpoints": true
     }
   ]
 }

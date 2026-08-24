@@ -187,6 +187,9 @@ export async function GET() {
         last_visit_at timestamp,
         first_visit_at timestamp,
         preferences jsonb DEFAULT '{}'::jsonb NOT NULL,
+        segment text DEFAULT 'new' NOT NULL,
+        segment_confidence numeric DEFAULT 0 NOT NULL,
+        segment_updated_at timestamp,
         created_at timestamp DEFAULT NOW() NOT NULL,
         updated_at timestamp DEFAULT NOW() NOT NULL
       );
@@ -194,6 +197,14 @@ export async function GET() {
     await sql`CREATE INDEX IF NOT EXISTS customer_profiles_tenant_idx ON customer_profiles (tenant_id);`;
     await sql`CREATE INDEX IF NOT EXISTS customer_profiles_phone_idx ON customer_profiles (customer_phone);`;
     await sql`CREATE INDEX IF NOT EXISTS customer_profiles_contact_idx ON customer_profiles (contact_id);`;
+
+    // 12. Gate #8 — Customer Segmentation. Keep these ALTER statements even
+    // though the CREATE TABLE above includes the columns: /api/migrate is
+    // also used against databases where Gate #7 already created the table.
+    await sql`ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS segment text DEFAULT 'new' NOT NULL;`;
+    await sql`ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS segment_confidence numeric DEFAULT 0 NOT NULL;`;
+    await sql`ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS segment_updated_at timestamp;`;
+    await sql`CREATE INDEX IF NOT EXISTS customer_profiles_segment_idx ON customer_profiles (segment);`;
 
     return NextResponse.json({ ok: true, message: 'All Neon database columns and tables synchronized successfully' });
   } catch (err: any) {
