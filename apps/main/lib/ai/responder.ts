@@ -8,8 +8,11 @@ import {
   waitlistEntries,
   loyaltyTransactions,
 } from '@/lib/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { eq, and, or, desc } from 'drizzle-orm';
 import { isOptInMessage, isOptOutMessage } from '@/lib/opt-in-out';
+import { isCancellationRequest, handleCancellationIntent, type CancelIntentStore, type CancelIntentReservation } from './cancel-intent';
+import { markReservationCancelled } from '@/lib/revenue/cancellation-followup';
+import { drizzleCancellationFollowupStore } from '@/lib/revenue/cancellation-followup-store';
 
 interface InboundContext {
   tenantId: string;
@@ -20,6 +23,66 @@ interface InboundContext {
   conversationId: string;
   contactId: string;
 }
+
+/**
+ * Drizzle adapter for the cancellation intent — the only caller is
+ * processInboundAIResponse below. Lives here (and not in cancel-intent.ts)
+ * so cancel-intent.ts stays free of `@/lib/db` and unit-testable without a
+ * database, mirroring the revenue modules' split between logic and store.
+ *
+ * `cancelReservation` deliberately routes through `markReservationCancelled`
+ * + the Gate #3 Drizzle store: that is the single entry point that stamps
+ * `cancelled_at`, so the follow-up cron is guaranteed to see this
+ * cancellation. Writing the UPDATE here instead would risk drifting out of
+ * sync with the only path the cron reads.
+ */
+const drizzleCancelIntentStore: CancelIntentStore = {
+  async isManualTakeover(conversationId) {
+    const conversation = await db.query.conversations.findFirst({
+      where: eq(conversations.id, conversationId),
+    });
+    return Boolean(conversation?.manualTakeover);
+  },
+
+  async findCandidateReservations({ tenantId, contactId, phone }) {
+    // Match by contact OR by the exact phone captured on the reservation
+    // (a booking taken over the phone may have no contact row). Newest date
+    // first: upcoming reservations have the largest dates, so they are always
+    // inside the limit and the handler re-sorts to pick the next one anyway.
+    const rows = await db
+      .select({
+        id: reservations.id,
+        tenantId: reservations.tenantId,
+        contactId: reservations.contactId,
+        customerPhone: reservations.customerPhone,
+        date: reservations.date,
+        partySize: reservations.partySize,
+        status: reservations.status,
+      })
+      .from(reservations)
+      .where(
+        and(
+          eq(reservations.tenantId, tenantId),
+          or(eq(reservations.contactId, contactId), eq(reservations.customerPhone, phone))
+        )
+      )
+      .orderBy(desc(reservations.date))
+      .limit(25);
+    return rows.map((row) => ({
+      id: row.id,
+      tenantId: row.tenantId,
+      contactId: row.contactId,
+      customerPhone: row.customerPhone,
+      date: row.date,
+      partySize: row.partySize,
+      status: row.status as CancelIntentReservation['status'],
+    }));
+  },
+
+  async cancelReservation(reservationId, cancelledAt) {
+    await markReservationCancelled(drizzleCancellationFollowupStore, reservationId, cancelledAt);
+  },
+};
 
 export async function processInboundAIResponse(ctx: InboundContext): Promise<string | null> {
   const { tenantId, phone, senderName, text, conversationId, contactId } = ctx;
@@ -81,12 +144,26 @@ export async function processInboundAIResponse(ctx: InboundContext): Promise<str
     return `🎟️ You've been added to our live waitlist for a table of *${size}*!\n\nWe will WhatsApp you the moment your table is ready. Please remain nearby.`;
   }
 
-  // 4. Booking / Reservation Intent
+  // 4. Cancellation Intent — let a customer cancel their OWN upcoming booking
+  // over WhatsApp. Runs BEFORE the booking intent on purpose: "cancel my
+  // booking" / "cancel my reservation" contain the words "booking" and
+  // "reservation", so a booking match placed above this would swallow the
+  // request and answer with the generic reservation prompt instead of
+  // cancelling. When the matcher fires, the handler owns the reply (either a
+  // cancellation confirmation or the not-found message), so we return here.
+  if (isCancellationRequest(text)) {
+    return await handleCancellationIntent(
+      { tenantId, contactId, phone, conversationId },
+      drizzleCancelIntentStore
+    );
+  }
+
+  // 5. Booking / Reservation Intent
   if (lower.includes('book') || lower.includes('table') || lower.includes('reservation')) {
     return `🍽️ We'd love to host you at ${tenant.name}!\n\nTo reserve a table, please tell us:\n1. Date & Preferred Time\n2. Number of guests\n3. Any special dietary requirements`;
   }
 
-  // 5. Menu & Trading Hours
+  // 6. Menu & Trading Hours
   if (lower.includes('menu') || lower.includes('food') || lower.includes('drinks')) {
     return `📋 You can explore our full interactive menu and chef specials here: ${process.env.NEXT_PUBLIC_APP_URL || 'https://gemino.app'}/m/${tenant.slug}\n\nCan I help you with any recommendations or table bookings?`;
   }
@@ -96,7 +173,7 @@ export async function processInboundAIResponse(ctx: InboundContext): Promise<str
     return `📍 *${tenant.name}*\n🕒 Trading Hours:\n${hours}\n\nWe look forward to welcoming you!`;
   }
 
-  // 6. Intelligent Contextual AI Fallback (Groq / Gemini / OpenAI)
+  // 7. Intelligent Contextual AI Fallback (Groq / Gemini / OpenAI)
   try {
     const groqKey = process.env.GROQ_API_KEY;
     const geminiKey = process.env.GOOGLE_GEMINI_API_KEY;
@@ -113,7 +190,7 @@ Guidelines:
 - If asking about bookings, invite them to share date, time, and party size.
 - If asking for a human manager, inform them our floor manager has been alerted.`;
 
-    // 6a. Try Groq.
+    // 7a. Try Groq.
     // Was llama-3.1-8b-instant, which Groq shut down on Aug 16, 2026 —
     // every call here was returning an error (this !groqRes.ok branch),
     // so the AI fallback silently degraded to the generic "our team
@@ -151,7 +228,7 @@ Guidelines:
       }
     }
 
-    // 6b. Try Gemini.
+    // 7b. Try Gemini.
     // Was gemini-1.5-flash, which Google has fully shut down (all
     // requests return 404). Migrated to gemini-3.5-flash — current-gen,
     // no shutdown date announced as of this writing. Google deprecates
