@@ -26,6 +26,11 @@ import type {
 
 export type ReactivationCampaignRow = typeof reactivationCampaigns.$inferSelect;
 
+/** Campaign row joined with the customer's display name, for list views. */
+export type ReactivationCampaignListRow = ReactivationCampaignRow & {
+  customerName: string | null;
+};
+
 /**
  * Keep the Drizzle camelCase shape while exposing the snake_case names the
  * table (and the Gate #9 contract) use, so API consumers can rely on either.
@@ -124,14 +129,26 @@ export async function listCampaigns(
   tenantId: string,
   limit: number,
   offset: number
-): Promise<ReactivationCampaignRow[]> {
-  return db
-    .select()
+): Promise<ReactivationCampaignListRow[]> {
+  const rows = await db
+    .select({
+      campaign: reactivationCampaigns,
+      customerName: customerProfiles.customerName,
+    })
     .from(reactivationCampaigns)
+    .leftJoin(
+      customerProfiles,
+      and(
+        eq(customerProfiles.tenantId, reactivationCampaigns.tenantId),
+        eq(customerProfiles.customerPhone, reactivationCampaigns.customerPhone)
+      )
+    )
     .where(eq(reactivationCampaigns.tenantId, tenantId))
     .orderBy(desc(reactivationCampaigns.createdAt))
     .limit(limit)
     .offset(offset);
+
+  return rows.map((row) => ({ ...row.campaign, customerName: row.customerName }));
 }
 
 export async function countCampaigns(tenantId: string): Promise<number> {
@@ -140,6 +157,54 @@ export async function countCampaigns(tenantId: string): Promise<number> {
     .from(reactivationCampaigns)
     .where(eq(reactivationCampaigns.tenantId, tenantId));
   return Number(row?.value ?? 0);
+}
+
+/**
+ * One profile plus its POPIA opt-out flag, for the manual-send API. Unlike
+ * fetchCampaignCandidates this does NOT prefilter on the stored segment: the
+ * API decides eligibility with a fresh resolveReactivationTarget call, so a
+ * staff member can send to a customer the segmentation cron has not yet
+ * re-classified. The blocklisted flag is still returned — and enforced by the
+ * caller — because opting out must block even a manual send.
+ */
+export interface ReactivationTargetProfile {
+  profileId: string;
+  customerPhone: string;
+  customerName: string | null;
+  totalVisits: number;
+  lastVisitAt: Date | null;
+  segment: string | null;
+  preferences: unknown;
+  blocklisted: boolean;
+}
+
+export async function findReactivationTargetProfile(
+  tenantId: string,
+  customerPhone: string
+): Promise<ReactivationTargetProfile | null> {
+  const [profile] = await db
+    .select()
+    .from(customerProfiles)
+    .where(and(eq(customerProfiles.tenantId, tenantId), eq(customerProfiles.customerPhone, customerPhone)))
+    .limit(1);
+  if (!profile) return null;
+
+  const [contact] = await db
+    .select({ blocklisted: contacts.blocklisted })
+    .from(contacts)
+    .where(and(eq(contacts.tenantId, tenantId), eq(contacts.phone, customerPhone)))
+    .limit(1);
+
+  return {
+    profileId: profile.id,
+    customerPhone: profile.customerPhone,
+    customerName: profile.customerName,
+    totalVisits: profile.totalVisits,
+    lastVisitAt: profile.lastVisitAt,
+    segment: profile.segment,
+    preferences: profile.preferences,
+    blocklisted: Boolean(contact?.blocklisted),
+  };
 }
 
 export interface ReactivationCampaignStats {

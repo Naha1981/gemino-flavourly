@@ -95,7 +95,10 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
             Customers
           </h1>
           <p className="text-xs text-zinc-400">
-            {total} profile{total === 1 ? '' : 's'} · last 365 days of visits
+            {total} profile{total === 1 ? '' : 's'} · last 365 days of visits ·{' '}
+            <Link href="/dashboard/customers/reactivation" className="text-emerald-400 hover:text-emerald-300">
+              reactivation campaigns
+            </Link>
           </p>
         </div>
 
