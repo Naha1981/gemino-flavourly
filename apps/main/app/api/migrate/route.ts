@@ -254,6 +254,79 @@ export async function GET() {
     await sql`CREATE INDEX IF NOT EXISTS vip_alerts_phone_idx ON vip_alerts (customer_phone);`;
     await sql`CREATE INDEX IF NOT EXISTS vip_alerts_sent_idx ON vip_alerts (sent_at);`;
 
+    // 15. Gate #11 — Google Review Monitoring. Additive CREATE TABLEs.
+    await sql`
+      CREATE TABLE IF NOT EXISTS google_reviews (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        google_place_id text NOT NULL,
+        review_id text NOT NULL UNIQUE,
+        author_name text NOT NULL,
+        rating integer NOT NULL,
+        text text,
+        time timestamp NOT NULL,
+        sentiment text DEFAULT 'neutral' NOT NULL,
+        response_text text,
+        response_sent_at timestamp,
+        created_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS google_reviews_tenant_idx ON google_reviews (tenant_id);`;
+    await sql`CREATE INDEX IF NOT EXISTS google_reviews_rating_idx ON google_reviews (rating);`;
+    await sql`CREATE INDEX IF NOT EXISTS google_reviews_time_idx ON google_reviews (time);`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS google_places_config (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        place_id text NOT NULL,
+        api_key_encrypted text,
+        last_fetch_at timestamp,
+        created_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`CREATE UNIQUE INDEX IF NOT EXISTS google_places_config_tenant_uniq ON google_places_config (tenant_id);`;
+    await sql`CREATE INDEX IF NOT EXISTS google_places_config_tenant_idx ON google_places_config (tenant_id);`;
+
+    // 16. Gate #13 — Post-Visit Review Requests. Additive columns + the
+    // partial index that keeps the hourly cron's scan cheap. (The gate names
+    // a (review_request_sent, date, time) index; `time` is not a separate
+    // column — the booking datetime lives in `date`.)
+    await sql`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS review_request_sent boolean DEFAULT false NOT NULL;`;
+    await sql`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS review_request_sent_at timestamp;`;
+    await sql`
+      CREATE INDEX IF NOT EXISTS reservations_review_request_idx
+        ON reservations (review_request_sent, date)
+        WHERE status IN ('confirmed', 'completed') AND review_request_sent = false;
+    `;
+
+    // 17. Gate #14 — Competitor Rating Monitoring. Additive CREATE TABLEs.
+    await sql`
+      CREATE TABLE IF NOT EXISTS competitors (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        name text NOT NULL,
+        google_place_id text NOT NULL,
+        current_rating numeric DEFAULT 0 NOT NULL,
+        review_count integer DEFAULT 0 NOT NULL,
+        last_check_at timestamp,
+        created_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS competitors_tenant_idx ON competitors (tenant_id);`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS competitor_rating_history (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        competitor_id uuid NOT NULL REFERENCES competitors(id) ON DELETE CASCADE,
+        rating numeric NOT NULL,
+        review_count integer NOT NULL,
+        recorded_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS competitor_rating_history_competitor_idx
+        ON competitor_rating_history (competitor_id);
+    `;
+
     return NextResponse.json({ ok: true, message: 'All Neon database columns and tables synchronized successfully' });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Migration failed' }, { status: 500 });
