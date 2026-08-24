@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { tenants, waAccounts, messages, conversations, systemSettings } from '@/lib/db/schema';
 import { count, eq, desc, sql } from 'drizzle-orm';
-import { Users, MessageSquare, Activity, DollarSign, Shield, Power, Radio, RefreshCw, CalendarX, Target, TrendingUp, Star } from 'lucide-react';
+import { Users, MessageSquare, Activity, DollarSign, Shield, Power, Radio, RefreshCw, CalendarX, Target, TrendingUp, Star, Swords, TrendingDown } from 'lucide-react';
 import Link from 'next/link';
 import { isSuperAdmin } from '@/lib/auth/is-super-admin';
 import { analyzeDayAggregates, computeSlowDayWindow, totalSlowDays, type DayAggregate } from '@/lib/revenue/slow-days';
@@ -13,6 +13,7 @@ import { calculatePlatformOpportunity, type OpportunityInputs } from '@/lib/reve
 import { fetchCrossTenantOpportunityInputs } from '@/lib/revenue/opportunity-store';
 import { emptySegmentCounts, fetchCrossTenantSegmentCounts } from '@/lib/customer/segmentation-store';
 import { countVipAlertsToday } from '@/lib/customer/vip-store';
+import { countAllCompetitors, countRatingDropAlertsThisWeek } from '@/lib/reputation/competitor-store';
 import { toggleGlobalAiAction } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -97,6 +98,12 @@ export default async function SuperAdminDashboard() {
   // facing only; degrades to 0 so a transient read failure never takes down
   // the Super Admin overview.
   const vipAlertsToday = await countVipAlertsToday().catch(() => 0);
+
+  // Gate #14 — reputation engine, platform-wide: how many competitors are
+  // being tracked across all tenants, and how many rating-drop alerts the
+  // daily 7am sweep raised this week. Same degrade-to-0 contract as above.
+  const competitorsMonitored = await countAllCompetitors().catch(() => 0);
+  const ratingDropAlertsThisWeek = await countRatingDropAlertsThisWeek().catch(() => 0);
 
   const totalTenants = totalTenantsResult[0]?.count ?? 0;
   const activeConnections = activeConnectionsResult[0]?.count ?? 0;
@@ -234,6 +241,18 @@ export default async function SuperAdminDashboard() {
             value={vipAlertsToday.toString()}
             icon={Star}
             trend="Staff-facing walk-in alerts, all tenants"
+          />
+          <StatCard
+            title="Competitors Monitored"
+            value={competitorsMonitored.toString()}
+            icon={Swords}
+            trend="Google ratings tracked, all tenants"
+          />
+          <StatCard
+            title="Rating Drop Alerts"
+            value={ratingDropAlertsThisWeek.toString()}
+            icon={TrendingDown}
+            trend="0.2★+ drops flagged this week"
           />
         </div>
 
