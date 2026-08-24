@@ -50,6 +50,13 @@
       "when": 1787580000000,
       "tag": "0007_reactivation_campaigns",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1787616000000,
+      "tag": "0008_vip_recognition",
+      "breakpoints": true
     }
   ]
 }

@@ -231,6 +231,29 @@ export async function GET() {
         WHERE sent_at IS NULL;
     `;
 
+    // 14. Gate #10 — VIP Recognition. Additive CREATE TABLE; one row per VIP
+    // customer who walks in (first message of a new conversation). `sent_at`
+    // is the staff-facing alert moment; `served_at` / `note` support the
+    // VIP-today quick actions without dispatching anything to the customer.
+    await sql`
+      CREATE TABLE IF NOT EXISTS vip_alerts (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        customer_phone text NOT NULL,
+        customer_name text,
+        total_visits integer NOT NULL,
+        total_spend_cents integer NOT NULL,
+        last_visit_at timestamp NOT NULL,
+        preferences jsonb DEFAULT '{}'::jsonb NOT NULL,
+        sent_at timestamp DEFAULT NOW() NOT NULL,
+        served_at timestamp,
+        note text
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS vip_alerts_tenant_idx ON vip_alerts (tenant_id);`;
+    await sql`CREATE INDEX IF NOT EXISTS vip_alerts_phone_idx ON vip_alerts (customer_phone);`;
+    await sql`CREATE INDEX IF NOT EXISTS vip_alerts_sent_idx ON vip_alerts (sent_at);`;
+
     return NextResponse.json({ ok: true, message: 'All Neon database columns and tables synchronized successfully' });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Migration failed' }, { status: 500 });
