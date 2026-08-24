@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrCreateTenant } from '@/lib/tenant';
-import { getProfile, listVisitHistory } from '@/lib/customer/profile-store';
+import {
+  getProfile,
+  listVisitHistory,
+  serializeCustomerProfile,
+} from '@/lib/customer/profile-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,5 +24,5 @@ export async function GET(
   }
 
   const visits = await listVisitHistory(tenant.id, customerPhone, profile.contactId);
-  return NextResponse.json({ profile, visits });
+  return NextResponse.json({ profile: serializeCustomerProfile(profile), visits });
 }
