@@ -3,11 +3,12 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { tenants, waAccounts, messages, conversations, systemSettings } from '@/lib/db/schema';
 import { count, eq, desc, sql } from 'drizzle-orm';
-import { Users, MessageSquare, Activity, DollarSign, Shield, Power, Radio, RefreshCw, CalendarX } from 'lucide-react';
+import { Users, MessageSquare, Activity, DollarSign, Shield, Power, Radio, RefreshCw, CalendarX, Target } from 'lucide-react';
 import Link from 'next/link';
 import { isSuperAdmin } from '@/lib/auth/is-super-admin';
-import { analyzeDayAggregates, computeSlowDayWindow, totalSlowDays } from '@/lib/revenue/slow-days';
+import { analyzeDayAggregates, computeSlowDayWindow, totalSlowDays, type DayAggregate } from '@/lib/revenue/slow-days';
 import { fetchSlowDayAggregatesByTenant } from '@/lib/revenue/slow-days-store';
+import { totalTopPriorityValueCents } from '@/lib/revenue/priorities';
 import { toggleGlobalAiAction } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -48,14 +49,19 @@ export default async function SuperAdminDashboard() {
   // costs one aggregate query rather than 97 days of raw reservation rows
   // for every tenant. Falls back to 0 like every other metric on this
   // page — the overview should still render if one query fails.
+  //
+  // Gate #5 — the SAME fetch now feeds a second KPI: "Total Priority
+  // Value", the sum of each tenant's top-priority critical slow day. One
+  // shared query, two KPIs — no second read of the reservation history,
+  // and both degrade to 0 together when the fetch fails (an empty map is
+  // "no data", and 0 is the honest number to show).
   const slowDayWindow = computeSlowDayWindow();
-  const slowDaysDetected = await fetchSlowDayAggregatesByTenant(slowDayWindow.historyStart, slowDayWindow.weekEnd)
-    .then((aggregatesByTenant) =>
-      totalSlowDays(
-        Array.from(aggregatesByTenant.values()).map((aggregates) => analyzeDayAggregates(aggregates, { now: new Date() }))
-      )
-    )
-    .catch(() => 0);
+  const slowDayAggregates = await fetchSlowDayAggregatesByTenant(slowDayWindow.historyStart, slowDayWindow.weekEnd)
+    .catch(() => new Map<string, DayAggregate[]>());
+  const slowDaysDetected = totalSlowDays(
+    Array.from(slowDayAggregates.values()).map((aggregates) => analyzeDayAggregates(aggregates, { now: new Date() }))
+  );
+  const totalPriorityValueCents = totalTopPriorityValueCents(slowDayAggregates, { now: new Date() });
 
   const totalTenants = totalTenantsResult[0]?.count ?? 0;
   const activeConnections = activeConnectionsResult[0]?.count ?? 0;
@@ -133,7 +139,7 @@ export default async function SuperAdminDashboard() {
         </div>
 
         {/* KPI Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
           <StatCard
             title="Total Tenants"
             value={totalTenants.toString()}
@@ -169,6 +175,12 @@ export default async function SuperAdminDashboard() {
             value={slowDaysDetected.toString()}
             icon={CalendarX}
             trend="Under 60% of normal, this week"
+          />
+          <StatCard
+            title="Total Priority Value"
+            value={`R${(totalPriorityValueCents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+            icon={Target}
+            trend="Sum of each tenant's top critical action"
           />
         </div>
 

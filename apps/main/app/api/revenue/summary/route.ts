@@ -5,6 +5,8 @@ import { db } from '@/lib/db';
 import { conversations } from '@/lib/db/schema';
 import { detectSlowDaysForTenant } from '@/lib/revenue/slow-days';
 import { drizzleSlowDayStore } from '@/lib/revenue/slow-days-store';
+import { buildTenantPriorities } from '@/lib/revenue/priorities';
+import { drizzlePriorityStore } from '@/lib/revenue/priorities-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -88,11 +90,22 @@ export async function GET(req: NextRequest) {
   // needs to show it.
   const slowDays = await detectSlowDaysForTenant(drizzleSlowDayStore, tenant.id);
 
+  // Gate #5 — priority recommendations.
+  //
+  // The top 3 actions for today, ranked by probability-weighted value
+  // across missed enquiries, critical slow days, pending cancellations and
+  // pending no-shows. Reuses the slow-day report from the Gate #2 call
+  // above (one reservation scan, two uses) and adds three more
+  // tenant-scoped reads via the priority store — all bounded by the same
+  // tenant.id, so the ranking can only ever see this tenant's data.
+  const topPriorities = await buildTenantPriorities(drizzlePriorityStore, tenant.id, slowDays);
+
   return NextResponse.json({
     ...summary,
     conversion_rate: conversionRate,
     slowDays: slowDays.slowDays,
     slow_day_window: slowDays.window,
+    topPriorities,
     range: {
       key: range.range,
       start: range.start.toISOString(),
