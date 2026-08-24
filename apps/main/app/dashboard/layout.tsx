@@ -7,6 +7,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   const links = [
     { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
     { href: '/dashboard/inbox', label: 'Inbox', icon: MessageSquare },
+    { href: '/dashboard/customers', label: 'Customers', icon: Users },
     { href: '/dashboard/whatsapp', label: 'WhatsApp', icon: QrCode },
     { href: '/dashboard/settings', label: 'Settings', icon: Settings },
   ];

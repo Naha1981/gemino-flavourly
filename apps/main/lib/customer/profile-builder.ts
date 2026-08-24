@@ -85,9 +85,9 @@ export function extractPreferences(messages: MessageLike[]): CustomerPreferences
   }
 
   return {
-    dietary: [...dietary],
-    occasions: [...occasions],
-    favorites: [...favorites],
+    dietary: Array.from(dietary),
+    occasions: Array.from(occasions),
+    favorites: Array.from(favorites),
   };
 }
 
