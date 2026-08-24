@@ -206,6 +206,31 @@ export async function GET() {
     await sql`ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS segment_updated_at timestamp;`;
     await sql`CREATE INDEX IF NOT EXISTS customer_profiles_segment_idx ON customer_profiles (segment);`;
 
+    // 13. Gate #9 — Reactivation Campaigns. Additive CREATE TABLE; one row
+    // per reactivation message queued to a dormant / at-risk customer.
+    // `sent_at` NULL means the campaign is still pending dispatch, so the
+    // partial index keeps the cron's pending scan and the dashboard's
+    // pending view off the full campaign history.
+    await sql`
+      CREATE TABLE IF NOT EXISTS reactivation_campaigns (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        customer_phone text NOT NULL,
+        segment text NOT NULL,
+        message_text text NOT NULL,
+        sent_at timestamp,
+        responded boolean DEFAULT false NOT NULL,
+        created_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS reactivation_campaigns_tenant_idx ON reactivation_campaigns (tenant_id);`;
+    await sql`CREATE INDEX IF NOT EXISTS reactivation_campaigns_phone_idx ON reactivation_campaigns (customer_phone);`;
+    await sql`
+      CREATE INDEX IF NOT EXISTS reactivation_campaigns_pending_idx
+        ON reactivation_campaigns (tenant_id, sent_at)
+        WHERE sent_at IS NULL;
+    `;
+
     return NextResponse.json({ ok: true, message: 'All Neon database columns and tables synchronized successfully' });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Migration failed' }, { status: 500 });
