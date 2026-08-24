@@ -13,6 +13,7 @@ import { and, eq, gte, count } from 'drizzle-orm';
 import { processInboundAIResponse } from '@/lib/ai/responder';
 import { isOptInMessage } from '@/lib/opt-in-out';
 import { verifyWebhookSignature } from '@/lib/webhook/verify';
+import { markRespondedForReply } from '@/lib/customer/reactivation-store';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -211,6 +212,26 @@ export async function POST(req: NextRequest) {
 
   if (!insertedMessage && waMessageId) {
     return NextResponse.json({ ok: true, note: 'Duplicate message (race on concurrent delivery)' });
+  }
+
+  // 6b. Gate #9 — reactivation response handling. If this inbound message
+  // carries booking intent ("book", "reserve", "table", …) and the customer
+  // was sent a reactivation campaign within the reply window, flip that
+  // campaign's responded flag. This is bookkeeping only: the normal flow
+  // below still runs, so the reply drops straight into the regular booking
+  // flow (AI or manual takeover, exactly as any other inbound message).
+  // Fire-and-guard rather than fire-and-forget: if the campaign table is
+  // not migrated yet, a 500 here must never cost the customer their AI
+  // reply.
+  try {
+    const respondedCampaign = await markRespondedForReply(tenantId, fromPhone, textContent);
+    if (respondedCampaign) {
+      console.log(
+        `[Reactivation] ${fromPhone} responded to campaign ${respondedCampaign.id} — handing over to the normal booking flow`
+      );
+    }
+  } catch (err) {
+    console.error('[Reactivation] Failed to record campaign response', err);
   }
 
   // 7. If Manual Takeover is ON for this thread, or AI is suppressed at
