@@ -15,6 +15,13 @@
       "when": 1787545440000,
       "tag": "0001_revenue_intelligence",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1787555247415,
+      "tag": "0002_cancellation_followup",
+      "breakpoints": true
     }
   ]
 }

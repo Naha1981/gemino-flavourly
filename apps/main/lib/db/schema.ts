@@ -195,22 +195,57 @@ export const messages = pgTable(
 // -----------------------------------------------------------------------------
 // 7. Reservations (Bookings & Tables)
 // -----------------------------------------------------------------------------
-export const reservations = pgTable('reservations', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: uuid('tenant_id')
-    .notNull()
-    .references(() => tenants.id, { onDelete: 'cascade' }),
-  contactId: uuid('contact_id').references(() => contacts.id, { onDelete: 'set null' }),
-  conversationId: uuid('conversation_id').references(() => conversations.id, { onDelete: 'set null' }),
-  customerName: text('customer_name'),
-  customerPhone: text('customer_phone'),
-  date: timestamp('date').notNull(),
-  partySize: integer('party_size').notNull(),
-  status: text('status', { enum: ['confirmed', 'cancelled', 'completed', 'no_show'] }).default('confirmed').notNull(),
-  deposit: decimal('deposit', { precision: 10, scale: 2 }),
-  notes: text('notes'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+export const reservations = pgTable(
+  'reservations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    contactId: uuid('contact_id').references(() => contacts.id, { onDelete: 'set null' }),
+    conversationId: uuid('conversation_id').references(() => conversations.id, { onDelete: 'set null' }),
+    customerName: text('customer_name'),
+    customerPhone: text('customer_phone'),
+    date: timestamp('date').notNull(),
+    partySize: integer('party_size').notNull(),
+    status: text('status', { enum: ['confirmed', 'cancelled', 'completed', 'no_show'] }).default('confirmed').notNull(),
+    deposit: decimal('deposit', { precision: 10, scale: 2 }),
+    notes: text('notes'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    // ── Gate #3: cancellation follow-up ─────────────────────────────────
+    //
+    // When the cancellation happened. Nothing in the schema recorded this
+    // before: `status` could be flipped to 'cancelled' with no trace of
+    // when, and the follow-up cron needs "cancelled more than 24h ago but
+    // less than 7 days ago" — `created_at` is when the booking was MADE
+    // (often weeks earlier) and `date` is when the table was FOR, so
+    // neither can answer it.
+    //
+    // Nullable with NO default, so this migration is additive: every
+    // pre-existing row keeps NULL. Rows cancelled before this column
+    // existed are therefore never followed up, which is the safe
+    // direction — back-filling a guessed timestamp would send "sorry we
+    // missed you" messages for cancellations nobody remembers making.
+    // Cancellation paths must stamp it (see
+    // lib/revenue/cancellation-followup.ts#markReservationCancelled).
+    cancelledAt: timestamp('cancelled_at'),
+    // Set once the follow-up has been handed to the outbox, so a cron run
+    // every 6 hours can never send the same customer the same message
+    // twice — deduplication lives on the reservation row, not on the job
+    // queue, because the queue retries and a retried job must not produce
+    // a second follow-up.
+    cancellationFollowupSent: boolean('cancellation_followup_sent').default(false).notNull(),
+    cancellationFollowupSentAt: timestamp('cancellation_followup_sent_at'),
+  },
+  (table) => ({
+    // The follow-up cron runs every 6 hours against a table that only ever
+    // grows. A partial index keeps that scan to the handful of rows that
+    // could possibly match instead of every booking ever taken.
+    cancellationFollowupIdx: index('reservations_cancellation_followup_idx')
+      .on(table.cancelledAt)
+      .where(sql`${table.status} = 'cancelled' AND ${table.cancellationFollowupSent} = false`),
+  })
+);
 
 // -----------------------------------------------------------------------------
 // 8. Leads (Catering, Corporate, VIP events)
