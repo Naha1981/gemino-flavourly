@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { UserButton } from '@clerk/nextjs';
-import { LayoutDashboard, MessageSquare, QrCode, Settings } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, QrCode, Settings, Users } from 'lucide-react';
 import { ReactNode } from 'react';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
