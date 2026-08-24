@@ -13,6 +13,8 @@ import { and, eq, gte, count } from 'drizzle-orm';
 import { processInboundAIResponse } from '@/lib/ai/responder';
 import { isOptInMessage } from '@/lib/opt-in-out';
 import { verifyWebhookSignature } from '@/lib/webhook/verify';
+import { isReactivationBookingReply } from '@/lib/customer/reactivation';
+import { markLatestCampaignResponded } from '@/lib/customer/reactivation-store';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -211,6 +213,26 @@ export async function POST(req: NextRequest) {
 
   if (!insertedMessage && waMessageId) {
     return NextResponse.json({ ok: true, note: 'Duplicate message (race on concurrent delivery)' });
+  }
+
+  // 6b. Gate #9 — reactivation response attribution. The customer replying at
+  // all IS the response the campaign wanted, so any inbound message here (a
+  // direct reply, or a "book"/"reserve" keyword message) marks the latest
+  // dispatched, unresponded campaign within the 30-day response window as
+  // responded. Booking-intent replies are logged for the revenue trail; the
+  // booking flow itself is the normal AI reply path below, which runs
+  // unchanged after this hook. Wrapped so a reactivation bookkeeping failure
+  // can never break the customer's conversation.
+  try {
+    const campaign = await markLatestCampaignResponded(tenantId, fromPhone);
+    if (campaign) {
+      const bookingIntent = isReactivationBookingReply(textContent) ? ' (booking intent)' : '';
+      console.log(
+        `[Reactivation] Campaign ${campaign.id} marked responded by ${fromPhone}${bookingIntent}`
+      );
+    }
+  } catch (err) {
+    console.error(`[Reactivation] Failed to attribute response from ${fromPhone}`, err);
   }
 
   // 7. If Manual Takeover is ON for this thread, or AI is suppressed at
