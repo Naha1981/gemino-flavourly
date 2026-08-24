@@ -125,6 +125,10 @@ export const conversations = pgTable('conversations', {
   waAccountId: uuid('wa_account_id').references(() => waAccounts.id, { onDelete: 'set null' }),
   manualTakeover: boolean('manual_takeover').default(false).notNull(),
   isResolved: boolean('is_resolved').default(false).notNull(),
+  outcome: text('outcome', { enum: ['converted', 'missed', 'handled', 'lost'] }),
+  estimatedValueCents: integer('estimated_value_cents').default(0).notNull(),
+  outcomeClassifiedAt: timestamp('outcome_classified_at'),
+  outcomeClassifier: text('outcome_classifier', { enum: ['rule', 'ai', 'manual'] }),
   lastMessageAt: timestamp('last_message_at').defaultNow().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
@@ -197,6 +201,7 @@ export const reservations = pgTable('reservations', {
     .notNull()
     .references(() => tenants.id, { onDelete: 'cascade' }),
   contactId: uuid('contact_id').references(() => contacts.id, { onDelete: 'set null' }),
+  conversationId: uuid('conversation_id').references(() => conversations.id, { onDelete: 'set null' }),
   customerName: text('customer_name'),
   customerPhone: text('customer_phone'),
   date: timestamp('date').notNull(),
@@ -261,6 +266,7 @@ export const waitlistEntries = pgTable('waitlist_entries', {
   contactId: uuid('contact_id')
     .notNull()
     .references(() => contacts.id, { onDelete: 'cascade' }),
+  conversationId: uuid('conversation_id').references(() => conversations.id, { onDelete: 'set null' }),
   customerName: text('customer_name'),
   customerPhone: text('customer_phone'),
   partySize: integer('party_size').notNull(),
@@ -273,7 +279,31 @@ export const waitlistEntries = pgTable('waitlist_entries', {
 });
 
 // -----------------------------------------------------------------------------
-// 11. Marketing Campaigns (Broadcast & Segmented)
+// 11. Revenue Events (Revenue Intelligence Engine)
+// -----------------------------------------------------------------------------
+export const revenueEvents = pgTable(
+  'revenue_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    eventType: text('event_type', {
+      enum: ['booking', 'waitlist', 'reactivation', 'missed_enquiry'],
+    }).notNull(),
+    conversationId: uuid('conversation_id').references(() => conversations.id, { onDelete: 'set null' }),
+    estimatedValueCents: integer('estimated_value_cents').default(0).notNull(),
+    realizedCents: integer('realized_cents').default(0).notNull(),
+    occurredAt: timestamp('occurred_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantOccurredIdx: index('revenue_events_tenant_occurred_idx').on(table.tenantId, table.occurredAt),
+    conversationIdx: index('revenue_events_conversation_idx').on(table.conversationId),
+  })
+);
+
+// -----------------------------------------------------------------------------
+// 12. Marketing Campaigns (Broadcast & Segmented)
 // -----------------------------------------------------------------------------
 export const campaigns = pgTable('campaigns', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -291,7 +321,7 @@ export const campaigns = pgTable('campaigns', {
 });
 
 // -----------------------------------------------------------------------------
-// 12. Outbox Jobs Queue (Guaranteed Delivery)
+// 13. Outbox Jobs Queue (Guaranteed Delivery)
 // -----------------------------------------------------------------------------
 export const jobs = pgTable(
   'jobs',
@@ -321,7 +351,7 @@ export const jobs = pgTable(
 );
 
 // -----------------------------------------------------------------------------
-// 13. System Settings (Super Admin Master Controls)
+// 14. System Settings (Super Admin Master Controls)
 // -----------------------------------------------------------------------------
 export const systemSettings = pgTable('system_settings', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -332,7 +362,7 @@ export const systemSettings = pgTable('system_settings', {
 });
 
 // -----------------------------------------------------------------------------
-// 14. Staff Members (Roles: super_admin, admin, manager, staff)
+// 15. Staff Members (Roles: super_admin, admin, manager, staff)
 // -----------------------------------------------------------------------------
 export const staffMembers = pgTable('staff_members', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -357,6 +387,7 @@ export const tenantRelations = relations(tenants, ({ many, one }) => ({
   messages: many(messages),
   reservations: many(reservations),
   waitlistEntries: many(waitlistEntries),
+  revenueEvents: many(revenueEvents),
   loyaltyRewards: many(loyaltyRewards),
   campaigns: many(campaigns),
   jobs: many(jobs),
@@ -395,6 +426,9 @@ export const conversationRelations = relations(conversations, ({ one, many }) =>
     references: [waAccounts.id],
   }),
   messages: many(messages),
+  reservations: many(reservations),
+  waitlistEntries: many(waitlistEntries),
+  revenueEvents: many(revenueEvents),
 }));
 
 export const messageRelations = relations(messages, ({ one }) => ({
@@ -405,5 +439,46 @@ export const messageRelations = relations(messages, ({ one }) => ({
   tenant: one(tenants, {
     fields: [messages.tenantId],
     references: [tenants.id],
+  }),
+}));
+
+export const reservationRelations = relations(reservations, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [reservations.tenantId],
+    references: [tenants.id],
+  }),
+  contact: one(contacts, {
+    fields: [reservations.contactId],
+    references: [contacts.id],
+  }),
+  conversation: one(conversations, {
+    fields: [reservations.conversationId],
+    references: [conversations.id],
+  }),
+}));
+
+export const waitlistEntryRelations = relations(waitlistEntries, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [waitlistEntries.tenantId],
+    references: [tenants.id],
+  }),
+  contact: one(contacts, {
+    fields: [waitlistEntries.contactId],
+    references: [contacts.id],
+  }),
+  conversation: one(conversations, {
+    fields: [waitlistEntries.conversationId],
+    references: [conversations.id],
+  }),
+}));
+
+export const revenueEventRelations = relations(revenueEvents, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [revenueEvents.tenantId],
+    references: [tenants.id],
+  }),
+  conversation: one(conversations, {
+    fields: [revenueEvents.conversationId],
+    references: [conversations.id],
   }),
 }));
