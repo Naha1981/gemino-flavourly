@@ -135,6 +135,22 @@ export async function GET() {
         WHERE delivery_status IS NOT NULL;
     `;
 
+    // 9. Gate #3 — cancellation follow-up. All additive: `cancelled_at`
+    // stays NULL for every pre-existing row, so cancellations recorded
+    // before this column existed are never followed up. Guessing a
+    // timestamp for them would message customers about cancellations
+    // nobody remembers making.
+    await sql`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS cancelled_at timestamp;`;
+    await sql`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS cancellation_followup_sent boolean DEFAULT false NOT NULL;`;
+    await sql`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS cancellation_followup_sent_at timestamp;`;
+    // The follow-up cron runs every 6 hours against a table that only ever
+    // grows; a partial index keeps that scan to rows that could match.
+    await sql`
+      CREATE INDEX IF NOT EXISTS reservations_cancellation_followup_idx
+        ON reservations (cancelled_at)
+        WHERE status = 'cancelled' AND cancellation_followup_sent = false;
+    `;
+
     return NextResponse.json({ ok: true, message: 'All Neon database columns and tables synchronized successfully' });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Migration failed' }, { status: 500 });
