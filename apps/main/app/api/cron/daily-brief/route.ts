@@ -7,6 +7,8 @@ import { detectSlowDaysForTenant, slowDayAlertLines } from '@/lib/revenue/slow-d
 import { drizzleSlowDayStore } from '@/lib/revenue/slow-days-store';
 import { buildTenantPriorities } from '@/lib/revenue/priorities';
 import { drizzlePriorityStore } from '@/lib/revenue/priorities-store';
+import { buildTenantOpportunity } from '@/lib/revenue/opportunity';
+import { drizzleOpportunityStore } from '@/lib/revenue/opportunity-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -64,6 +66,12 @@ export async function GET(req: NextRequest) {
     const topPriority = topPriorities[0];
     if (topPriority) prioritized++;
 
+    // Gate #6 — the bottom line: everything the owner can still recover
+    // this month, in one line. Reuses the same Gate #2 report as the
+    // slow-day alert and the top action, so one reservation scan feeds
+    // all three surfaces without disagreement.
+    const opportunity = await buildTenantOpportunity(drizzleOpportunityStore, tenant.id, slowDays);
+
     console.log(
       `[Daily Brief] Tenant ${tenant.name}: ${msgCount.count} msgs (24h), ${bookingCount.count} bookings (24h), ${slowDays.slowDays.length} slow day(s), top action: ${topPriority ? topPriority.opportunity_type : 'none'}.`
     );
@@ -79,6 +87,7 @@ export async function GET(req: NextRequest) {
       `📅 ${bookingCount.count} reservation(s) in the last 24h`,
       ...slowDayAlerts,
       ...(topPriority ? [`🎯 Today's top action: ${topPriority.description}`] : []),
+      `💰 You have R${Math.round(opportunity.total_opportunity_cents / 100)} in potential revenue on the table this month. Expected recovery: R${Math.round(opportunity.expected_recovery_cents / 100)}.`,
     ].join('\n');
 
     await db.insert(jobs).values({
