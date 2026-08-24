@@ -1,10 +1,17 @@
 import { SignUp } from '@clerk/nextjs';
+import { getSafeRedirectUrl } from '@/lib/auth/safe-redirect-url';
 
-export default function Page() {
+type SignUpPageProps = {
+  searchParams: {
+    redirect_url?: string;
+  };
+};
+
+export default function Page({ searchParams }: SignUpPageProps) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4">
       <SignUp 
-        forceRedirectUrl="/onboarding"
+        fallbackRedirectUrl={getSafeRedirectUrl(searchParams.redirect_url, "/onboarding")}
         appearance={{
           elements: {
             rootBox: "mx-auto",

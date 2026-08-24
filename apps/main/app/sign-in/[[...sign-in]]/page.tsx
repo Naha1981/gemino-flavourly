@@ -1,10 +1,17 @@
 import { SignIn } from '@clerk/nextjs';
+import { getSafeRedirectUrl } from '@/lib/auth/safe-redirect-url';
 
-export default function Page() {
+type SignInPageProps = {
+  searchParams: {
+    redirect_url?: string;
+  };
+};
+
+export default function Page({ searchParams }: SignInPageProps) {
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4">
       <SignIn 
-        forceRedirectUrl="/dashboard"
+        fallbackRedirectUrl={getSafeRedirectUrl(searchParams.redirect_url, "/dashboard")}
         appearance={{
           elements: {
             rootBox: "mx-auto",
