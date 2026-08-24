@@ -151,6 +151,28 @@ export async function GET() {
         WHERE status = 'cancelled' AND cancellation_followup_sent = false;
     `;
 
+    // 10. Gate #4 — no-show monitoring. All additive: pre-existing rows
+    // keep no_show_detected_at NULL and are never treated as no-shows.
+    // Detection flags live alongside `status` (not in it) because marking
+    // a booking 'no_show' is a staff decision — the customer can still
+    // walk in after the grace period.
+    await sql`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS no_show_detected boolean DEFAULT false NOT NULL;`;
+    await sql`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS no_show_detected_at timestamp;`;
+    await sql`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS no_show_followup_sent boolean DEFAULT false NOT NULL;`;
+    await sql`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS no_show_followup_sent_at timestamp;`;
+    // The no-show cron runs every 30 minutes against a table that only
+    // ever grows; partial indexes keep each scan to rows that could match.
+    await sql`
+      CREATE INDEX IF NOT EXISTS reservations_no_show_detection_idx
+        ON reservations (date)
+        WHERE status = 'confirmed' AND no_show_detected = false;
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS reservations_no_show_followup_idx
+        ON reservations (no_show_detected_at)
+        WHERE no_show_followup_sent = false AND no_show_detected_at IS NOT NULL;
+    `;
+
     return NextResponse.json({ ok: true, message: 'All Neon database columns and tables synchronized successfully' });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Migration failed' }, { status: 500 });
