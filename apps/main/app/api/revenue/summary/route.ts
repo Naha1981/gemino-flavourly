@@ -7,6 +7,8 @@ import { detectSlowDaysForTenant } from '@/lib/revenue/slow-days';
 import { drizzleSlowDayStore } from '@/lib/revenue/slow-days-store';
 import { buildTenantPriorities } from '@/lib/revenue/priorities';
 import { drizzlePriorityStore } from '@/lib/revenue/priorities-store';
+import { buildTenantOpportunity } from '@/lib/revenue/opportunity';
+import { drizzleOpportunityStore } from '@/lib/revenue/opportunity-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -100,12 +102,22 @@ export async function GET(req: NextRequest) {
   // tenant.id, so the ranking can only ever see this tenant's data.
   const topPriorities = await buildTenantPriorities(drizzlePriorityStore, tenant.id, slowDays);
 
+  // Gate #6 — revenue opportunity summary.
+  //
+  // Reuses the same Gate #2 report as the priorities above: the missed
+  // enquiry, cancellation and no-show scans are read once here (three
+  // tenant-scoped queries) and the slow-day value comes from `slowDays`,
+  // so a tenant's reservation history is still scanned exactly once for
+  // the slow-day analytics.
+  const opportunity = await buildTenantOpportunity(drizzleOpportunityStore, tenant.id, slowDays);
+
   return NextResponse.json({
     ...summary,
     conversion_rate: conversionRate,
     slowDays: slowDays.slowDays,
     slow_day_window: slowDays.window,
     topPriorities,
+    opportunity,
     range: {
       key: range.range,
       start: range.start.toISOString(),
