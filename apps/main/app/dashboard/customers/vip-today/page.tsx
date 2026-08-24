@@ -42,7 +42,7 @@ export default async function VipTodayPage() {
             VIP Alerts Today
           </h1>
           <p className="text-xs text-zinc-400">
-            Who walked in today · staff-only alerts raised on a VIP's first message
+            Who walked in today · staff-only alerts raised on a VIP&apos;s first message
           </p>
         </div>
         <div className="flex items-center gap-3">
