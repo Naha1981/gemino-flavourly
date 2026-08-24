@@ -25,9 +25,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Invalid segment filter' }, { status: 400 });
   }
 
+  const totalPromise = segment ? countProfiles(tenant.id, segment) : countProfiles(tenant.id);
   const [profiles, total] = await Promise.all([
     listProfiles(tenant.id, limit, offset, segment),
-    countProfiles(tenant.id, segment),
+    totalPromise,
   ]);
 
   return NextResponse.json({

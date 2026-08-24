@@ -24,7 +24,7 @@ export const NEW_MAX_DAYS = 90;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
-type DateLike = Date | string | null | undefined;
+type DateLike = Date | string | number | null | undefined;
 type NumberLike = number | string | null | undefined;
 
 /**
@@ -39,10 +39,12 @@ export interface CustomerProfileForSegmentation {
   total_spend_cents?: NumberLike;
   lastVisitAt?: DateLike;
   last_visit_at?: DateLike;
+  last_visit?: DateLike;
   /** Short aliases make the framework-free function convenient for callers. */
   lastVisit?: DateLike;
   firstVisitAt?: DateLike;
   first_visit_at?: DateLike;
+  first_visit?: DateLike;
   firstVisit?: DateLike;
 }
 
@@ -114,8 +116,8 @@ function clamp01(value: number): number {
 function profileValues(profile: CustomerProfileForSegmentation, now: Date) {
   const totalVisits = asNonNegativeNumber(valueOf(profile, 'totalVisits', 'total_visits'));
   const totalSpendCents = asNonNegativeNumber(valueOf(profile, 'totalSpendCents', 'total_spend_cents'));
-  const lastVisitAt = valueOf(profile, 'lastVisitAt', 'last_visit_at', 'lastVisit') as DateLike;
-  const firstVisitAt = valueOf(profile, 'firstVisitAt', 'first_visit_at', 'firstVisit') as DateLike;
+  const lastVisitAt = valueOf(profile, 'lastVisitAt', 'last_visit_at', 'last_visit', 'lastVisit') as DateLike;
+  const firstVisitAt = valueOf(profile, 'firstVisitAt', 'first_visit_at', 'first_visit', 'firstVisit') as DateLike;
 
   return {
     totalVisits,
@@ -237,6 +239,7 @@ export function calculateCustomerSegment(
 export const calculateSegment = calculateCustomerSegment;
 export const segmentCustomer = calculateCustomerSegment;
 export const classifyCustomer = calculateCustomerSegment;
+export const determineSegment = calculateCustomerSegment;
 
 export function isCustomerSegment(value: string | null | undefined): value is CustomerSegment {
   return !!value && (CUSTOMER_SEGMENTS as readonly string[]).includes(value);

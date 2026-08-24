@@ -2,7 +2,7 @@ import {
   calculateCustomerSegment,
   type CustomerProfileForSegmentation,
   type CustomerSegment,
-} from './segmentation';
+} from './segmentation.ts';
 
 export interface SegmentationProfile extends CustomerProfileForSegmentation {
   id: string;
