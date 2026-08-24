@@ -172,8 +172,10 @@ stuck-job reaper recovers them, but delivery is delayed.
       shows as a failed deploy, not a silent one)
 - [ ] Render logs show `listening on port` and **no** `Refusing to start`
 - [ ] `GET {OPERATOR}/health` → `200 OK`
-- [ ] `GET {OPERATOR}/ready` → `200 {"status":"ready"}`; `503 degraded`
-      before any WhatsApp account is connected is expected and correct
+- [ ] `GET {OPERATOR}/ready` → `200 {"status":"ready"}` when the database
+      is healthy and zero WhatsApp accounts are expected. A `503` at this
+      stage indicates a real failure (e.g. database unavailability), not
+      an expected degraded state.
 - [ ] `GET {APP}/` loads
 - [ ] `GET {APP}/api/cron/outbox` with **no** auth header → **401**
 - [ ] Same with correct Bearer header → **200**
