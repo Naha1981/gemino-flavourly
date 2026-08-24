@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, isNull, lt, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gte, inArray, isNotNull, isNull, lt, or, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import {
   contacts,
@@ -8,13 +8,9 @@ import {
   waAccounts,
 } from '@/lib/db/schema';
 import { operatorClient } from '@/lib/operator-client';
-import {
-  REACTIVATION_REPLY_WINDOW_DAYS,
-  isReactivationReply,
-  type ReactivationPreferences,
-  type ReactivationSegment,
-} from './reactivation.ts';
+import { REACTIVATION_REPLY_WINDOW_DAYS, type ReactivationPreferences, type ReactivationSegment } from './reactivation.ts';
 import type { ReactivationCronStore } from './reactivation-cron.ts';
+import { recordReactivationResponse } from './reactivation-response.ts';
 
 /**
  * Drizzle adapter for Gate #9 — the only module that reads or writes
@@ -344,16 +340,9 @@ export async function campaignStats(tenantId: string): Promise<ReactivationCampa
 
 /**
  * Record a customer's reply against their most recent sent-but-unanswered
- * campaign. Called from the inbound WhatsApp webhook:
- *
- *   - the reply must carry booking intent (isReactivationReply — "book",
- *     "reserve", "table", …), so a "no thanks" or a STOP does not burn the
- *     campaign's response flag;
- *   - only a campaign actually dispatched (sent_at NOT NULL) within the
- *     reply window counts as the one being answered;
- *   - the webhook's normal flow continues afterwards, so a reply like
- *     "I'd like to book Saturday for 4" drops straight into the AI booking
- *     flow — responding here is bookkeeping, not a takeover.
+ * campaign. Thin Drizzle adapter over the framework-free runner in
+ * ./reactivation-response.ts (which owns the keyword gate, the reply
+ * window and the once-only flip); see that file for the rules.
  *
  * Tenant-scoped by construction: the webhook derives tenantId from the
  * WhatsApp account, and the lookup below always pairs it with the phone.
@@ -364,26 +353,30 @@ export async function markRespondedForReply(
   text: string,
   now: Date = new Date()
 ): Promise<ReactivationCampaignRow | null> {
-  if (!isReactivationReply(text)) return null;
-
-  const windowStart = new Date(now.getTime() - REACTIVATION_REPLY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
-  const [campaign] = await db
+  const since = new Date(now.getTime() - REACTIVATION_REPLY_WINDOW_DAYS * 24 * 60 * 60 * 1000);
+  const recent = await db
     .select()
     .from(reactivationCampaigns)
     .where(
       and(
         eq(reactivationCampaigns.tenantId, tenantId),
         eq(reactivationCampaigns.customerPhone, customerPhone),
-        gte(reactivationCampaigns.sentAt, windowStart),
-        eq(reactivationCampaigns.responded, false)
+        isNotNull(reactivationCampaigns.sentAt),
+        gte(reactivationCampaigns.sentAt, since)
       )
     )
     .orderBy(desc(reactivationCampaigns.sentAt))
-    .limit(1);
+    .limit(10);
 
-  if (!campaign) return null;
-  await markResponded(campaign.id);
-  return campaign;
+  const responded = await recordReactivationResponse(
+    {
+      findRecentSentCampaigns: async () => recent,
+      markResponded,
+    },
+    { tenantId, customerPhone, text, now }
+  );
+
+  return responded ? (recent.find((row) => row.id === responded.id) ?? null) : null;
 }
 
 // ---------------------------------------------------------------------------
