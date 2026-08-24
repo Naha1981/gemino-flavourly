@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { tenants, waAccounts, messages, conversations, systemSettings } from '@/lib/db/schema';
 import { count, eq, desc, sql } from 'drizzle-orm';
-import { Users, MessageSquare, Activity, DollarSign, Shield, Power, Radio, RefreshCw, CalendarX, Target, TrendingUp } from 'lucide-react';
+import { Users, MessageSquare, Activity, DollarSign, Shield, Power, Radio, RefreshCw, CalendarX, Target, TrendingUp, Star } from 'lucide-react';
 import Link from 'next/link';
 import { isSuperAdmin } from '@/lib/auth/is-super-admin';
 import { analyzeDayAggregates, computeSlowDayWindow, totalSlowDays, type DayAggregate } from '@/lib/revenue/slow-days';
@@ -12,6 +12,7 @@ import { totalTopPriorityValueCents } from '@/lib/revenue/priorities';
 import { calculatePlatformOpportunity, type OpportunityInputs } from '@/lib/revenue/opportunity';
 import { fetchCrossTenantOpportunityInputs } from '@/lib/revenue/opportunity-store';
 import { emptySegmentCounts, fetchCrossTenantSegmentCounts } from '@/lib/customer/segmentation-store';
+import { countVipAlertsToday } from '@/lib/customer/vip-store';
 import { toggleGlobalAiAction } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -92,6 +93,11 @@ export default async function SuperAdminDashboard() {
   // KPI. A transient read failure should not take down the entire overview.
   const platformSegmentCounts = await fetchCrossTenantSegmentCounts().catch(() => emptySegmentCounts());
 
+  // Gate #10 — platform-wide VIP walk-in alerts raised so far today. Staff
+  // facing only; degrades to 0 so a transient read failure never takes down
+  // the Super Admin overview.
+  const vipAlertsToday = await countVipAlertsToday().catch(() => 0);
+
   const totalTenants = totalTenantsResult[0]?.count ?? 0;
   const activeConnections = activeConnectionsResult[0]?.count ?? 0;
   const totalMessages = totalMessagesResult[0]?.count ?? 0;
@@ -168,7 +174,7 @@ export default async function SuperAdminDashboard() {
         </div>
 
         {/* KPI Grid */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-9">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-10">
           <StatCard
             title="Total Tenants"
             value={totalTenants.toString()}
@@ -222,6 +228,12 @@ export default async function SuperAdminDashboard() {
             value={`VIP ${platformSegmentCounts.vip} · Regular ${platformSegmentCounts.regular} · At-risk ${platformSegmentCounts.at_risk} · Dormant ${platformSegmentCounts.dormant} · New ${platformSegmentCounts.new}`}
             icon={Users}
             trend="Customer profiles across all tenants"
+          />
+          <StatCard
+            title="VIP Alerts Today"
+            value={vipAlertsToday.toString()}
+            icon={Star}
+            trend="Staff-facing walk-in alerts, all tenants"
           />
         </div>
 
