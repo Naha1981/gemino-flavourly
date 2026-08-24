@@ -7,6 +7,7 @@ import {
   integer,
   boolean,
   decimal,
+  numeric,
   uniqueIndex,
   index,
 } from 'drizzle-orm/pg-core';
@@ -426,6 +427,35 @@ export const systemSettings = pgTable('system_settings', {
 // -----------------------------------------------------------------------------
 // 15. Staff Members (Roles: super_admin, admin, manager, staff)
 // -----------------------------------------------------------------------------
+// -----------------------------------------------------------------------------
+// 16. Customer 360 Profiles (Gate #7)
+// -----------------------------------------------------------------------------
+export const customerProfiles = pgTable(
+  'customer_profiles',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    contactId: uuid('contact_id').references(() => contacts.id, { onDelete: 'set null' }),
+    customerPhone: text('customer_phone').notNull(),
+    customerName: text('customer_name'),
+    totalVisits: integer('total_visits').default(0).notNull(),
+    totalSpendCents: integer('total_spend_cents').default(0).notNull(),
+    avgPartySize: numeric('avg_party_size').default('0').notNull(),
+    lastVisitAt: timestamp('last_visit_at'),
+    firstVisitAt: timestamp('first_visit_at'),
+    preferences: jsonb('preferences').default({}).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantIdx: index('customer_profiles_tenant_idx').on(table.tenantId),
+    phoneIdx: index('customer_profiles_phone_idx').on(table.customerPhone),
+    contactIdx: index('customer_profiles_contact_idx').on(table.contactId),
+  })
+);
+
 export const staffMembers = pgTable('staff_members', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id')
@@ -453,6 +483,7 @@ export const tenantRelations = relations(tenants, ({ many, one }) => ({
   loyaltyRewards: many(loyaltyRewards),
   campaigns: many(campaigns),
   jobs: many(jobs),
+  customerProfiles: many(customerProfiles),
 }));
 
 export const waAccountRelations = relations(waAccounts, ({ one, many }) => ({
@@ -472,6 +503,7 @@ export const contactRelations = relations(contacts, ({ one, many }) => ({
   reservations: many(reservations),
   waitlistEntries: many(waitlistEntries),
   loyaltyTransactions: many(loyaltyTransactions),
+  customerProfiles: many(customerProfiles),
 }));
 
 export const conversationRelations = relations(conversations, ({ one, many }) => ({
