@@ -639,9 +639,31 @@ export const competitors = pgTable(
     reviewCount: integer('review_count').default(0).notNull(),
     lastCheckAt: timestamp('last_check_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
+    // ── Gate #15: discovery + tracking columns ──────────────────────────
+    address: text('address'),
+    latitude: numeric('latitude'),
+    longitude: numeric('longitude'),
+    distance_km: numeric('distance_km'),
+    // Google rating as last seen by discovery (0-5; the rating-history
+    // table tracks Gate #14's daily readings).
+    rating: numeric('rating'),
+    // 0-4 (Google price levels); kept as text to mirror the API's enum
+    // labels (PRICE_LEVEL_INEXPENSIVE .. PRICE_LEVEL_VERY_EXPENSIVE).
+    priceLevel: text('price_level'),
+    websiteUrl: text('website_url'),
+    phone: text('phone'),
+    // True when discovery matched this row to the tenant's OWN Google
+    // place (google_places_config.place_id). Self rows are excluded from
+    // "competitor" lists but give Gate #18 positioning the tenant's own
+    // menu/prices to compare against the market.
+    isSelf: boolean('is_self').default(false).notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (table) => ({
     tenantIdx: index('competitors_tenant_idx').on(table.tenantId),
+    distanceIdx: index('competitors_distance_idx').on(table.distance_km),
+    tenantPlaceUniq: uniqueIndex('competitors_tenant_place_uniq')
+      .on(table.tenantId, table.googlePlaceId),
   })
 );
 
@@ -660,6 +682,80 @@ export const competitorRatingHistory = pgTable(
   },
   (table) => ({
     competitorIdx: index('competitor_rating_history_competitor_idx').on(table.competitorId),
+  })
+);
+
+// ── Gate #16: competitor menu / price / promotion tracking ──────────────────
+//
+// One row per scrape. `menuText` keeps the extracted page text (the diff
+// base), `menuItems` the structured parse (name / priceCents / category)
+// so the UI can highlight added/removed items and price changes without
+// re-parsing old HTML. `priceRange` is the human summary ("R95-R220").
+export const competitorMenuSnapshots = pgTable(
+  'competitor_menu_snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    competitorId: uuid('competitor_id')
+      .notNull()
+      .references(() => competitors.id, { onDelete: 'cascade' }),
+    menuUrl: text('menu_url'),
+    menuText: text('menu_text'),
+    menuItems: jsonb('menu_items').default([]).notNull(),
+    priceRange: text('price_range'),
+    snapshotAt: timestamp('snapshot_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    competitorIdx: index('competitor_menu_snapshots_competitor_idx').on(table.competitorId),
+  })
+);
+
+// One row per detected promotion mention. `promotionKey` is a normalized
+// fingerprint of the text: the daily cron compares it against recent rows
+// so the same "2-for-1 Tuesdays" blurb re-appearing on the site is NOT a
+// new promotion, while any genuinely new line is.
+export const competitorPromotions = pgTable(
+  'competitor_promotions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    competitorId: uuid('competitor_id')
+      .notNull()
+      .references(() => competitors.id, { onDelete: 'cascade' }),
+    promotionText: text('promotion_text').notNull(),
+    promotionKey: text('promotion_key').notNull(),
+    source: text('source'),
+    detectedAt: timestamp('detected_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    competitorIdx: index('competitor_promotions_competitor_idx').on(table.competitorId),
+    keyIdx: index('competitor_promotions_key_idx').on(table.competitorId, table.promotionKey),
+  })
+);
+
+// ── Gate #17: market opportunity detection ──────────────────────────────────
+//
+// One row per detected opportunity. `opportunityKey` is a stable
+// category+slot fingerprint (e.g. "meal_type:brunch") — the analyzer
+// re-runs periodically and upserts by key, so confidence updates land in
+// place and `addressed` (the tenant's own "we did this") survives re-runs.
+export const marketOpportunities = pgTable(
+  'market_opportunities',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    opportunityKey: text('opportunity_key').notNull(),
+    category: text('category').notNull(),
+    description: text('description').notNull(),
+    confidence: numeric('confidence').default('0').notNull(),
+    evidence: jsonb('evidence').default({}).notNull(),
+    addressed: boolean('addressed').default(false).notNull(),
+    addressedAt: timestamp('addressed_at'),
+    detectedAt: timestamp('detected_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantIdx: index('market_opportunities_tenant_idx').on(table.tenantId),
+    tenantKeyUniq: uniqueIndex('market_opportunities_tenant_key_uniq').on(table.tenantId, table.opportunityKey),
   })
 );
 
