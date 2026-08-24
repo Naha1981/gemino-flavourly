@@ -254,6 +254,16 @@ export const reservations = pgTable(
     noShowDetectedAt: timestamp('no_show_detected_at'),
     noShowFollowupSent: boolean('no_show_followup_sent').default(false).notNull(),
     noShowFollowupSentAt: timestamp('no_show_followup_sent_at'),
+    // ── Gate #13: post-visit review requests ────────────────────────────
+    //
+    // Set once the "please leave us a Google review" message has actually
+    // been handed to the outbox, so the hourly cron can never ask the same
+    // diner twice. Boolean default false / nullable timestamp, additive —
+    // every pre-existing row keeps false/NULL and is eligible from its next
+    // visit onwards only (the cron's window also requires the booking to be
+    // within the last ~26 hours, so backfill noise is impossible).
+    reviewRequestSent: boolean('review_request_sent').default(false).notNull(),
+    reviewRequestSentAt: timestamp('review_request_sent_at'),
   },
   (table) => ({
     // The follow-up cron runs every 6 hours against a table that only ever
@@ -272,6 +282,19 @@ export const reservations = pgTable(
     noShowFollowupIdx: index('reservations_no_show_followup_idx')
       .on(table.noShowDetectedAt)
       .where(sql`${table.noShowFollowupSent} = false AND ${table.noShowDetectedAt} IS NOT NULL`),
+    // ── Gate #13: post-visit review requests ────────────────────────────
+    //
+    // The review-request cron runs hourly and only ever cares about
+    // confirmed/completed bookings from (at most) yesterday that have not
+    // been asked for a review yet. Like the no-show indexes above, a partial
+    // index keeps that hourly scan to the handful of rows that could match.
+    // (The gate spec names `reservations_review_request_idx (review_request_
+    // sent, date, time)` — `time` does not exist as a separate column: the
+    // booking's full datetime lives in `date`, so the index covers
+    // (review_request_sent, date) and the WHERE clause encodes the rest.)
+    reviewRequestIdx: index('reservations_review_request_idx')
+      .on(table.reviewRequestSent, table.date)
+      .where(sql`${table.status} IN ('confirmed', 'completed') AND ${table.reviewRequestSent} = false`),
   })
 );
 
@@ -537,6 +560,109 @@ export const vipAlerts = pgTable(
   })
 );
 
+// -----------------------------------------------------------------------------
+// 17. Reputation Engine (Gates #11-#14)
+// -----------------------------------------------------------------------------
+// ── Gate #11: Google reviews pulled daily per tenant ────────────────────────
+//
+// `review_id` is Google's own review identifier (Places API (New) review
+// name segment), unique ACROSS tenants because Google review ids are
+// globally unique. It is the upsert key for the daily fetch cron: the same
+// review re-fetched tomorrow must update its row (text/rating/sentiment),
+// never duplicate — and must never clobber an owner-approved response draft.
+export const googleReviews = pgTable(
+  'google_reviews',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    googlePlaceId: text('google_place_id').notNull(),
+    reviewId: text('review_id').notNull().unique(),
+    authorName: text('author_name').notNull(),
+    rating: integer('rating').notNull(),
+    text: text('text'),
+    time: timestamp('time').notNull(),
+    sentiment: text('sentiment', { enum: ['positive', 'neutral', 'negative'] }).default('neutral').notNull(),
+    // AI-drafted owner-facing response (Gate #12). NEVER auto-sent: the
+    // owner edits/approves it in the dashboard; `response_sent_at` is only
+    // stamped by the explicit "Send Response" action.
+    responseText: text('response_text'),
+    responseSentAt: timestamp('response_sent_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantIdx: index('google_reviews_tenant_idx').on(table.tenantId),
+    ratingIdx: index('google_reviews_rating_idx').on(table.rating),
+    timeIdx: index('google_reviews_time_idx').on(table.time),
+  })
+);
+
+// One Google Places configuration per tenant (unique tenant_id): the place
+// whose reviews we pull, and the API key that authorises the pull. The key
+// is stored encrypted (AES-256-GCM, see lib/reputation/secret-box.ts) and
+// is never returned by any API — only a hasApiKey boolean.
+export const googlePlacesConfig = pgTable(
+  'google_places_config',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    placeId: text('place_id').notNull(),
+    apiKeyEncrypted: text('api_key_encrypted'),
+    lastFetchAt: timestamp('last_fetch_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantUniq: uniqueIndex('google_places_config_tenant_uniq').on(table.tenantId),
+    tenantIdx: index('google_places_config_tenant_idx').on(table.tenantId),
+  })
+);
+
+// ── Gate #14: competitor Google rating monitoring ───────────────────────────
+//
+// Competitors a tenant wants to watch. NOTE (Gate #15): the Market
+// Intelligence engine extends this table with address/geo/website columns;
+// `google_place_id` stays NOT NULL because rating monitoring (Gate #14) is
+// meaningless without it.
+export const competitors = pgTable(
+  'competitors',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    googlePlaceId: text('google_place_id').notNull(),
+    currentRating: numeric('current_rating').default('0').notNull(),
+    reviewCount: integer('review_count').default(0).notNull(),
+    lastCheckAt: timestamp('last_check_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantIdx: index('competitors_tenant_idx').on(table.tenantId),
+  })
+);
+
+// One row per daily rating check, so a tenant can see the trend (and the
+// cron can detect a 0.2+ star drop against the previous reading).
+export const competitorRatingHistory = pgTable(
+  'competitor_rating_history',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    competitorId: uuid('competitor_id')
+      .notNull()
+      .references(() => competitors.id, { onDelete: 'cascade' }),
+    rating: numeric('rating').notNull(),
+    reviewCount: integer('review_count').notNull(),
+    recordedAt: timestamp('recorded_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    competitorIdx: index('competitor_rating_history_competitor_idx').on(table.competitorId),
+  })
+);
+
 export const staffMembers = pgTable('staff_members', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id')
@@ -567,6 +693,9 @@ export const tenantRelations = relations(tenants, ({ many, one }) => ({
   customerProfiles: many(customerProfiles),
   reactivationCampaigns: many(reactivationCampaigns),
   vipAlerts: many(vipAlerts),
+  googleReviews: many(googleReviews),
+  googlePlacesConfig: one(googlePlacesConfig),
+  competitors: many(competitors),
 }));
 
 export const waAccountRelations = relations(waAccounts, ({ one, many }) => ({
@@ -657,5 +786,34 @@ export const revenueEventRelations = relations(revenueEvents, ({ one }) => ({
   conversation: one(conversations, {
     fields: [revenueEvents.conversationId],
     references: [conversations.id],
+  }),
+}));
+
+export const googleReviewRelations = relations(googleReviews, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [googleReviews.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export const googlePlacesConfigRelations = relations(googlePlacesConfig, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [googlePlacesConfig.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export const competitorRelations = relations(competitors, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [competitors.tenantId],
+    references: [tenants.id],
+  }),
+  ratingHistory: many(competitorRatingHistory),
+}));
+
+export const competitorRatingHistoryRelations = relations(competitorRatingHistory, ({ one }) => ({
+  competitor: one(competitors, {
+    fields: [competitorRatingHistory.competitorId],
+    references: [competitors.id],
   }),
 }));

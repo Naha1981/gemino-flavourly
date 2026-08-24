@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { UserButton } from '@clerk/nextjs';
-import { LayoutDashboard, MessageSquare, QrCode, Settings, Star, Users } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, QrCode, Settings, Star, TrendingUp, Users } from 'lucide-react';
 import { ReactNode } from 'react';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -9,6 +9,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     { href: '/dashboard/inbox', label: 'Inbox', icon: MessageSquare },
     { href: '/dashboard/customers', label: 'Customers', icon: Users },
     { href: '/dashboard/customers/vip-today', label: 'VIP Today', icon: Star },
+    // Gate #11 — Reputation: Google reviews, response drafting, competitor ratings.
+    { href: '/dashboard/reputation', label: 'Reputation', icon: TrendingUp },
     { href: '/dashboard/whatsapp', label: 'WhatsApp', icon: QrCode },
     { href: '/dashboard/settings', label: 'Settings', icon: Settings },
   ];
