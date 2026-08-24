@@ -3,12 +3,14 @@ import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
 import { tenants, waAccounts, messages, conversations, systemSettings } from '@/lib/db/schema';
 import { count, eq, desc, sql } from 'drizzle-orm';
-import { Users, MessageSquare, Activity, DollarSign, Shield, Power, Radio, RefreshCw, CalendarX, Target } from 'lucide-react';
+import { Users, MessageSquare, Activity, DollarSign, Shield, Power, Radio, RefreshCw, CalendarX, Target, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { isSuperAdmin } from '@/lib/auth/is-super-admin';
 import { analyzeDayAggregates, computeSlowDayWindow, totalSlowDays, type DayAggregate } from '@/lib/revenue/slow-days';
 import { fetchSlowDayAggregatesByTenant } from '@/lib/revenue/slow-days-store';
 import { totalTopPriorityValueCents } from '@/lib/revenue/priorities';
+import { calculatePlatformOpportunity, type OpportunityInputs } from '@/lib/revenue/opportunity';
+import { fetchCrossTenantOpportunityInputs } from '@/lib/revenue/opportunity-store';
 import { toggleGlobalAiAction } from './actions';
 
 export const dynamic = 'force-dynamic';
@@ -62,6 +64,26 @@ export default async function SuperAdminDashboard() {
     Array.from(slowDayAggregates.values()).map((aggregates) => analyzeDayAggregates(aggregates, { now: new Date() }))
   );
   const totalPriorityValueCents = totalTopPriorityValueCents(slowDayAggregates, { now: new Date() });
+
+  // Gate #6 — "Platform Total Opportunity": the sum of every tenant's
+  // own total opportunity value (missed enquiries + slow days +
+  // cancellations + no-shows over the last 30 days).
+  //
+  // The three new scans (missed enquiries, cancellations, no-shows) run
+  // here for the whole platform. The slow-day component is NOT re-read:
+  // it comes from the same `slowDayAggregates` the Gate #2/#5 KPIs above
+  // already fetched, so one reservation-history fetch still serves all
+  // three KPIs. Fetches degrade to empty maps, so the page renders 0 on
+  // a transient query failure rather than crashing.
+  const now = new Date();
+  const opportunityWindowStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+  const opportunityInputsByTenant = await fetchCrossTenantOpportunityInputs(opportunityWindowStart, now).catch(
+    () => new Map<string, OpportunityInputs>()
+  );
+  const platformOpportunity = calculatePlatformOpportunity(opportunityInputsByTenant, {
+    now,
+    slowDayAggregatesByTenant: slowDayAggregates,
+  });
 
   const totalTenants = totalTenantsResult[0]?.count ?? 0;
   const activeConnections = activeConnectionsResult[0]?.count ?? 0;
@@ -139,7 +161,7 @@ export default async function SuperAdminDashboard() {
         </div>
 
         {/* KPI Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-7 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-8 gap-4">
           <StatCard
             title="Total Tenants"
             value={totalTenants.toString()}
@@ -181,6 +203,12 @@ export default async function SuperAdminDashboard() {
             value={`R${(totalPriorityValueCents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
             icon={Target}
             trend="Sum of each tenant's top critical action"
+          />
+          <StatCard
+            title="Platform Total Opportunity"
+            value={`R${(platformOpportunity.total_opportunity_cents / 100).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
+            icon={TrendingUp}
+            trend="Sum of all tenants' potential recovery"
           />
         </div>
 
