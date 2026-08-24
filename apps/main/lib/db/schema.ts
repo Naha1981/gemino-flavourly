@@ -236,6 +236,23 @@ export const reservations = pgTable(
     // a second follow-up.
     cancellationFollowupSent: boolean('cancellation_followup_sent').default(false).notNull(),
     cancellationFollowupSentAt: timestamp('cancellation_followup_sent_at'),
+    // ── Gate #4: no-show monitoring ─────────────────────────────────────
+    //
+    // A confirmed booking whose start time passed more than 2 hours ago
+    // without the customer arriving. Detection does NOT touch `status`:
+    // flipping it to 'no_show' is a staff decision (the customer may still
+    // walk in and be marked 'completed'), so the cron records its own
+    // flags alongside instead of rewriting the restaurant's book.
+    //
+    // `no_show_detected` is the deduplication key for the detection scan
+    // and the timestamp the follow-up's 2-hour delay is measured from, so
+    // a 30-minute cron can never detect — or message — the same booking
+    // twice. The timestamps are nullable with NO default so this migration
+    // is additive: every pre-existing row keeps NULL.
+    noShowDetected: boolean('no_show_detected').default(false).notNull(),
+    noShowDetectedAt: timestamp('no_show_detected_at'),
+    noShowFollowupSent: boolean('no_show_followup_sent').default(false).notNull(),
+    noShowFollowupSentAt: timestamp('no_show_followup_sent_at'),
   },
   (table) => ({
     // The follow-up cron runs every 6 hours against a table that only ever
@@ -244,6 +261,16 @@ export const reservations = pgTable(
     cancellationFollowupIdx: index('reservations_cancellation_followup_idx')
       .on(table.cancelledAt)
       .where(sql`${table.status} = 'cancelled' AND ${table.cancellationFollowupSent} = false`),
+    // The no-show cron runs every 30 minutes. Two partial indexes keep
+    // each of its scans to the rows that could possibly match:
+    //   detection  — confirmed bookings not yet flagged, by start time
+    //   follow-up  — detected bookings not yet messaged, by detection time
+    noShowDetectionIdx: index('reservations_no_show_detection_idx')
+      .on(table.date)
+      .where(sql`${table.status} = 'confirmed' AND ${table.noShowDetected} = false`),
+    noShowFollowupIdx: index('reservations_no_show_followup_idx')
+      .on(table.noShowDetectedAt)
+      .where(sql`${table.noShowFollowupSent} = false AND ${table.noShowDetectedAt} IS NOT NULL`),
   })
 );
 
