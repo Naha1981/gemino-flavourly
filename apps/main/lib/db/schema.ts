@@ -643,7 +643,7 @@ export const competitors = pgTable(
     address: text('address'),
     latitude: numeric('latitude'),
     longitude: numeric('longitude'),
-    distance_km: numeric('distance_km'),
+    distanceKm: numeric('distance_km'),
     // Google rating as last seen by discovery (0-5; the rating-history
     // table tracks Gate #14's daily readings).
     rating: numeric('rating'),
@@ -661,7 +661,7 @@ export const competitors = pgTable(
   },
   (table) => ({
     tenantIdx: index('competitors_tenant_idx').on(table.tenantId),
-    distanceIdx: index('competitors_distance_idx').on(table.distance_km),
+    distanceIdx: index('competitors_distance_idx').on(table.distanceKm),
     tenantPlaceUniq: uniqueIndex('competitors_tenant_place_uniq')
       .on(table.tenantId, table.googlePlaceId),
   })
