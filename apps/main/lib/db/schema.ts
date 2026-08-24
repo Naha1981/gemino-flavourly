@@ -465,6 +465,43 @@ export const customerProfiles = pgTable(
   })
 );
 
+// -----------------------------------------------------------------------------
+// 17. Reactivation Campaigns (Gate #9)
+// -----------------------------------------------------------------------------
+// One row per win-back message dispatched to a dormant / at-risk customer.
+// `sent_at` doubles as the send state: NULL = still pending (created but not
+// yet dispatched through the operator), non-NULL = dispatched. The 90-day
+// anti-spam cooldown in the reactivation cron measures from
+// COALESCE(sent_at, created_at), so a pending row still counts and a crashed
+// run can never double-message the same customer.
+export const reactivationCampaigns = pgTable(
+  'reactivation_campaigns',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    customerPhone: text('customer_phone').notNull(),
+    // Only the two win-back segments are valid here; 'vip'/'regular'/'new'
+    // customers are never reactivation targets.
+    segment: text('segment', { enum: ['dormant', 'at_risk'] }).notNull(),
+    messageText: text('message_text').notNull(),
+    sentAt: timestamp('sent_at'),
+    responded: boolean('responded').default(false).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantIdx: index('reactivation_campaigns_tenant_idx').on(table.tenantId),
+    phoneIdx: index('reactivation_campaigns_phone_idx').on(table.customerPhone),
+    // Partial index for the two scans that hit this table most: the cron's
+    // "what is still pending" reconciliation and the dashboard's pending
+    // count. Sent campaigns are history and must not slow either scan down.
+    pendingIdx: index('reactivation_campaigns_pending_idx')
+      .on(table.tenantId, table.sentAt)
+      .where(sql`${table.sentAt} IS NULL`),
+  })
+);
+
 export const staffMembers = pgTable('staff_members', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id')
@@ -493,6 +530,7 @@ export const tenantRelations = relations(tenants, ({ many, one }) => ({
   campaigns: many(campaigns),
   jobs: many(jobs),
   customerProfiles: many(customerProfiles),
+  reactivationCampaigns: many(reactivationCampaigns),
 }));
 
 export const waAccountRelations = relations(waAccounts, ({ one, many }) => ({
@@ -583,5 +621,12 @@ export const revenueEventRelations = relations(revenueEvents, ({ one }) => ({
   conversation: one(conversations, {
     fields: [revenueEvents.conversationId],
     references: [conversations.id],
+  }),
+}));
+
+export const reactivationCampaignRelations = relations(reactivationCampaigns, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [reactivationCampaigns.tenantId],
+    references: [tenants.id],
   }),
 }));
