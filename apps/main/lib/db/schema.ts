@@ -465,6 +465,46 @@ export const customerProfiles = pgTable(
   })
 );
 
+// -----------------------------------------------------------------------------
+// 16b. Reactivation Campaigns (Gate #9)
+// -----------------------------------------------------------------------------
+// One row per reactivation message queued to a dormant / at-risk customer.
+//
+// `sent_at` is NULL from creation until the message is actually handed to the
+// outbox — a campaign row exists BEFORE the send so a crash between "decided
+// to message" and "message dispatched" leaves a visible pending row (in the
+// dashboard and in the next cron run) instead of silently vanishing.
+//
+// `responded` is set by the inbound webhook when the customer replies to a
+// recently-sent campaign, and is the numerator of the response-rate metric.
+export const reactivationCampaigns = pgTable(
+  'reactivation_campaigns',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    customerPhone: text('customer_phone').notNull(),
+    // Only the two win-back segments are campaign audiences; 'dormant' is
+    // 180+ days, 'at_risk' is 120-180 days (see lib/customer/segmentation.ts).
+    segment: text('segment', { enum: ['dormant', 'at_risk'] }).notNull(),
+    messageText: text('message_text').notNull(),
+    sentAt: timestamp('sent_at'),
+    responded: boolean('responded').default(false).notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantIdx: index('reactivation_campaigns_tenant_idx').on(table.tenantId),
+    phoneIdx: index('reactivation_campaigns_phone_idx').on(table.customerPhone),
+    // The cron's cooldown check ("was this customer campaigned in the last
+    // 90 days?") and the dashboard's "pending" view both scan by tenant; a
+    // partial index keeps those scans to rows that could still match.
+    pendingIdx: index('reactivation_campaigns_pending_idx')
+      .on(table.tenantId, table.sentAt)
+      .where(sql`${table.sentAt} IS NULL`),
+  })
+);
+
 export const staffMembers = pgTable('staff_members', {
   id: uuid('id').primaryKey().defaultRandom(),
   tenantId: uuid('tenant_id')
@@ -493,6 +533,7 @@ export const tenantRelations = relations(tenants, ({ many, one }) => ({
   campaigns: many(campaigns),
   jobs: many(jobs),
   customerProfiles: many(customerProfiles),
+  reactivationCampaigns: many(reactivationCampaigns),
 }));
 
 export const waAccountRelations = relations(waAccounts, ({ one, many }) => ({
