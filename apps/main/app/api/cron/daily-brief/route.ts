@@ -3,6 +3,8 @@ import { db } from '@/lib/db';
 import { tenants, messages, reservations, jobs, waAccounts } from '@/lib/db/schema';
 import { eq, sql, and, gte } from 'drizzle-orm';
 import { assertCronAuthorized } from '@/lib/cron/auth';
+import { detectSlowDaysForTenant, slowDayAlertLines } from '@/lib/revenue/slow-days';
+import { drizzleSlowDayStore } from '@/lib/revenue/slow-days-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,6 +32,7 @@ export async function GET(req: NextRequest) {
   });
 
   let briefed = 0;
+  let alerted = 0;
 
   for (const tenant of allTenants) {
     const [msgCount] = await db
@@ -42,7 +45,16 @@ export async function GET(req: NextRequest) {
       .from(reservations)
       .where(and(eq(reservations.tenantId, tenant.id), gte(reservations.date, since)));
 
-    console.log(`[Daily Brief] Tenant ${tenant.name}: ${msgCount.count} msgs (24h), ${bookingCount.count} bookings (24h).`);
+    // Gate #2 — escalate only the days below 50% of their weekday average.
+    // Days between 50% and 60% are on the dashboard but are not worth
+    // interrupting an owner's morning over; see lib/revenue/slow-days.ts.
+    const slowDays = await detectSlowDaysForTenant(drizzleSlowDayStore, tenant.id);
+    const slowDayAlerts = slowDayAlertLines(slowDays.criticalSlowDays);
+    if (slowDayAlerts.length > 0) alerted++;
+
+    console.log(
+      `[Daily Brief] Tenant ${tenant.name}: ${msgCount.count} msgs (24h), ${bookingCount.count} bookings (24h), ${slowDays.slowDays.length} slow day(s).`
+    );
 
     const waAccount = await db.query.waAccounts.findFirst({
       where: and(eq(waAccounts.tenantId, tenant.id), eq(waAccounts.isConnected, true)),
@@ -53,6 +65,7 @@ export async function GET(req: NextRequest) {
       `Good morning! Here's your Gemino brief for ${tenant.name}:`,
       `💬 ${msgCount.count} WhatsApp message(s) in the last 24h`,
       `📅 ${bookingCount.count} reservation(s) in the last 24h`,
+      ...slowDayAlerts,
     ].join('\n');
 
     await db.insert(jobs).values({
@@ -65,6 +78,11 @@ export async function GET(req: NextRequest) {
     briefed++;
   }
 
-  return NextResponse.json({ ok: true, tenantsChecked: allTenants.length, tenantsBriefed: briefed });
+  return NextResponse.json({
+    ok: true,
+    tenantsChecked: allTenants.length,
+    tenantsBriefed: briefed,
+    tenantsWithSlowDayAlert: alerted,
+  });
 }
 
