@@ -29,6 +29,13 @@
       "when": 1787562791305,
       "tag": "0004_no_show_monitoring",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1787570000000,
+      "tag": "0005_customer_profiles",
+      "breakpoints": true
     }
   ]
 }
