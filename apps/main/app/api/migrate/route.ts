@@ -473,6 +473,34 @@ export async function GET() {
     await sql`CREATE INDEX IF NOT EXISTS approval_requests_tenant_status_idx ON approval_requests (tenant_id, status);`;
     await sql`CREATE INDEX IF NOT EXISTS approval_requests_conversation_idx ON approval_requests (conversation_id);`;
 
+    // 20. Engine 5 — Marketing Campaigns. Additive CREATE TABLE for proactive
+    // marketing content (promotions, events, seasonal offers, announcements).
+    // Mirrors drizzle/0014_marketing_campaigns.sql.
+    await sql`
+      CREATE TABLE IF NOT EXISTS marketing_campaigns (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        name text NOT NULL,
+        description text,
+        type text NOT NULL,
+        target_segment text,
+        offer text,
+        message text NOT NULL,
+        start_date timestamp,
+        end_date timestamp,
+        launched_at timestamp,
+        estimated_reach integer,
+        estimated_revenue_cents integer,
+        sent_count integer DEFAULT 0 NOT NULL,
+        sent_at timestamp,
+        status text DEFAULT 'draft' NOT NULL,
+        created_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS marketing_campaigns_tenant_idx ON marketing_campaigns (tenant_id);`;
+    await sql`CREATE INDEX IF NOT EXISTS marketing_campaigns_tenant_status_idx ON marketing_campaigns (tenant_id, status);`;
+    await sql`CREATE INDEX IF NOT EXISTS marketing_campaigns_tenant_type_idx ON marketing_campaigns (tenant_id, type);`;
+
     return NextResponse.json({ ok: true, message: 'All Neon database columns and tables synchronized successfully' });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Migration failed' }, { status: 500 });
