@@ -169,9 +169,16 @@ describe('Market Intelligence schema wiring (Gates #15-#18)', () => {
     const journal = JSON.parse(source(JOURNAL));
     const entry = journal.entries.find((e: { tag: string }) => e.tag === '0012_competitors');
     assert.ok(entry, 'journal has no 0012_competitors entry');
-    assert.equal(entry.idx, journal.entries.length - 1);
+    assert.equal(entry.idx, 11);
     const whens = journal.entries.map((e: { when: number }) => e.when);
     assert.deepEqual(whens, [...whens].sort((a, b) => a - b), 'journal entries are not chronological');
+  });
+
+  test('migration journal registers 0013_engine6_operations as the latest entry', () => {
+    const journal = JSON.parse(source(JOURNAL));
+    const entry = journal.entries.find((e: { tag: string }) => e.tag === '0013_engine6_operations');
+    assert.ok(entry, 'journal has no 0013_engine6_operations entry');
+    assert.equal(entry.idx, journal.entries.length - 1);
   });
 
   test('/api/migrate carries the same Gate #15-#18 DDL', () => {
