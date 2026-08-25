@@ -52,15 +52,22 @@ gemeli-whatsapp-app/
 │       │   │   ├── conversations/   # Live WhatsApp thread viewer
 │       │   │   ├── waitlist/        # Waitlist queue dispatcher
 │       │   │   ├── loyalty/         # Points ledger & rewards
-│       │   │   └── settings/        # AI system prompt & trading hours
+│       │   │   ├── market/          # Market Intelligence (#15-#18)
+│       │   │   │   ├── competitors/ # Discovery + menu/promotion tracking
+│       │   │   │   ├── opportunities/ # Detected market gaps
+│       │   │   │   └── positioning/ # Price / rating / menu positioning
+│       │   │   └── settings/        # AI prompt, hours, address, menu
 │       │   └── api/
 │       │       ├── webhooks/whatsapp/ # HMAC-SHA256 verified inbound webhook
 │       │       ├── cron/outbox/       # Guaranteed outbox pattern worker
+│       │       ├── cron/track-competitors/ # Daily market sweep (08:00)
+│       │       ├── market/            # Competitors, opportunities, positioning
 │       │       └── whatsapp/connect/  # QR code generation trigger
 │       ├── lib/
 │       │   ├── db/schema.ts         # Drizzle PostgreSQL schema
 │       │   ├── db/index.ts          # Neon serverless client
 │       │   ├── operator-client.ts   # HTTP client to Render operator
+│       │   ├── market/              # Geolocation, scraper, detectors, analyzers
 │       │   └── ai/responder.ts      # Keyword detection & LLM fallback
 │       └── package.json
 ├── operator/                        # Persistent Baileys Engine (Render/Docker)
@@ -166,11 +173,57 @@ Since Vercel Hobby limits cron frequencies, set up free external cron triggers o
 4. **Keep Render Operator Awake (Every 5 minutes)**:
    - URL: `https://your-operator.onrender.com/health`
    - Schedule: Every 5 minutes
+5. **Competitor Market Sweep (Daily at 08:00)**:
+   - URL: `https://your-app.vercel.app/api/cron/track-competitors`
+   - Schedule: Every day at 08:00
+   - Header: `Authorization: Bearer <CRON_SECRET>` (mandatory — the guard fails closed)
+   - Scrapes every tracked competitor's menu, diffs it against the stored
+     snapshot, scans the same site for promotions, raises inbox alerts for
+     real changes, and then recomputes market opportunities from the result.
+
+---
+
+## 🧭 Market Intelligence Engine (Gates #15-#18)
+
+Everything a restaurant can learn about the other restaurants within 5km,
+built from data the platform already touches: Google Places for discovery
+and public websites for menus and promotions. No model calls, no scraping
+infrastructure — the analyzers are pure functions over stored rows, so the
+same input always produces the same report.
+
+| # | Capability | Where it lives |
+|---|---|---|
+| 15 | **Competitor discovery** — geocode the venue, list every restaurant in a 5km radius, track them (name, address, distance, place id, website, phone, Google price band) | `lib/market/geolocation.ts`, `lib/market/competitor-store.ts`, `/api/market/competitors*` |
+| 16 | **Menu / price / promotion tracking** — daily scrape, diff against the last snapshot, alert on new items, removals and price moves; detect promotions and dedupe them over a 30-day window | `lib/market/menu-scraper.ts`, `promotion-detector.ts`, `competitor-alerts.ts`, `/api/cron/track-competitors` |
+| 17 | **Opportunity detection** — meal, cuisine, price-band and day/time gaps with an additive, explainable confidence score | `lib/market/opportunity-analyzer.ts`, `opportunity-store.ts`, `/api/market/opportunities*` |
+| 18 | **Positioning** — price band, Google rating rank, menu overlap and unique dishes vs the tracked set | `lib/market/positioning-analyzer.ts`, `positioning-store.ts`, `/api/market/positioning` |
+
+Tenant-facing pages live under `/dashboard/market/*` (nav: **Market
+Intelligence**); the Super Admin dashboard reports competitors tracked,
+market opportunities detected and competitor alerts raised this week.
+
+Two design rules worth knowing before extending this:
+
+- **A first scrape is a baseline, not a change.** Otherwise every newly
+  tracked competitor announces itself as a menu rewrite and the alert stream
+  gets muted.
+- **Gaps and positions are only reported when the evidence supports them.**
+  An empty market returns no opportunities rather than invented ones, and a
+  tenant with no menu on record gets an "unknown" band instead of a
+  plausible-looking number.
+
+Required keys are optional by design: without `GOOGLE_MAPS_API_KEY` /
+`GOOGLE_PLACES_API_KEY` discovery reports a clear error, but menu and
+promotion tracking still run — it reads public websites and needs no Google
+key at all. Competitors can also be added by hand (name + website), which is
+why `competitors.google_place_id` is nullable.
 
 ---
 
 ## 🔒 Security & Compliance
 - **HMAC-SHA256 Signatures**: All inbound messages from the Operator are cryptographically verified using constant-time equality checks.
 - **POPIA / GDPR**: Inbound messages with keywords `STOP`, `UNSUBSCRIBE`, or `OPT OUT` automatically flag contacts as `blocklisted = true` and cease automated responses.
-- **Master AI Kill Switch**: Instant global pause toggle in database (`system_settings`) accessible via the Super Admin Dashboard.
+- **Master AI Kill Switch**: Instant global pause toggle in database (`system_settings`) accessible via the Super Admin Dashboard. The market sweep honours it too: it calls no model, but it does fetch third-party websites on a schedule, and an owner who paused automation expects everything to stop.
+- **Scraper SSRF guard**: competitor URLs are tenant-supplied, so `lib/market/menu-scraper.ts` refuses anything that is not a public http(s) host before it makes a request — `localhost`, `127.0.0.0/8`, `10/8`, `172.16/12`, `192.168/16`, the `169.254.169.254` metadata address, `::1` and non-HTTP schemes. The residual DNS-rebinding limitation is documented in that file rather than glossed over.
+- **Cron guards fail closed**: every `/api/cron/*` route requires `Authorization: Bearer <CRON_SECRET>` (constant-time comparison, never from a query string), and `lib/cron/routes.wiring.test.ts` fails the build's test run if a new cron route is added without it.
 - **Outbox Pattern**: Outbound messages are written to `jobs` and dispatched with exponential backoff retries.
