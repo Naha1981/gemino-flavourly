@@ -45,6 +45,16 @@ export interface CompetitorInput {
   googlePlaceId?: string | null;
   websiteUrl?: string | null;
   phone?: string | null;
+  /** Google Places metadata captured at discovery: {types, serves, priceLevel}. */
+  placeData?: PlaceData | null;
+}
+
+/** What Places told us about the competitor when it was discovered. */
+export interface PlaceData {
+  types?: string[];
+  serves?: string[];
+  priceLevel?: number | null;
+  rating?: number | null;
 }
 
 /**
@@ -82,6 +92,7 @@ export async function createCompetitor(
       googlePlaceId: cleanText(data.googlePlaceId, 256),
       websiteUrl: cleanText(data.websiteUrl, 500),
       phone: cleanText(data.phone, 64),
+      placeData: data.placeData ?? {},
     })
     .returning();
   return row;
@@ -107,6 +118,7 @@ export async function updateCompetitor(
   if (data.googlePlaceId !== undefined) patch.googlePlaceId = cleanText(data.googlePlaceId, 256);
   if (data.websiteUrl !== undefined) patch.websiteUrl = cleanText(data.websiteUrl, 500);
   if (data.phone !== undefined) patch.phone = cleanText(data.phone, 64);
+  if (data.placeData !== undefined) patch.placeData = data.placeData ?? {};
 
   const [row] = await db
     .update(competitors)
@@ -252,6 +264,46 @@ export async function listPromotions(
     .where(eq(competitorPromotions.competitorId, competitorId))
     .orderBy(desc(competitorPromotions.detectedAt))
     .limit(Math.max(1, Math.min(limit, 200)));
+}
+
+/**
+ * The newest menu snapshot per competitor for one tenant, in ONE query.
+ *
+ * The competitor list shows "last menu snapshot" on every row; a per-row
+ * lookup would be N+1 round trips to Neon for a page that is opened often.
+ * DISTINCT ON keeps the newest row per competitor (Postgres-specific, but
+ * this adapter is Postgres by definition).
+ */
+export async function latestSnapshotsByCompetitor(
+  tenantId: string
+): Promise<Map<string, MenuSnapshotRow>> {
+  const rows = await db
+    .selectDistinctOn([competitorMenuSnapshots.competitorId])
+    .from(competitorMenuSnapshots)
+    .innerJoin(competitors, eq(competitors.id, competitorMenuSnapshots.competitorId))
+    .where(eq(competitors.tenantId, tenantId))
+    .orderBy(competitorMenuSnapshots.competitorId, desc(competitorMenuSnapshots.snapshotAt));
+
+  const map = new Map<string, MenuSnapshotRow>();
+  for (const row of rows) map.set(row.competitor_menu_snapshots.competitorId, row.competitor_menu_snapshots);
+  return map;
+}
+
+/** Promotion counts per competitor for one tenant (dashboard badge). */
+export async function promotionCountsByCompetitor(tenantId: string): Promise<Map<string, number>> {
+  const rows = await db
+    .select({
+      competitorId: competitorPromotions.competitorId,
+      total: sql<number>`count(*)::int`,
+    })
+    .from(competitorPromotions)
+    .innerJoin(competitors, eq(competitors.id, competitorPromotions.competitorId))
+    .where(eq(competitors.tenantId, tenantId))
+    .groupBy(competitorPromotions.competitorId);
+
+  const map = new Map<string, number>();
+  for (const row of rows) map.set(row.competitorId, Number(row.total ?? 0));
+  return map;
 }
 
 // -----------------------------------------------------------------------------

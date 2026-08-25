@@ -34,6 +34,10 @@ ALTER TABLE "competitors" ADD COLUMN IF NOT EXISTS "longitude" numeric;
 ALTER TABLE "competitors" ADD COLUMN IF NOT EXISTS "distance_km" numeric;
 ALTER TABLE "competitors" ADD COLUMN IF NOT EXISTS "website_url" text;
 ALTER TABLE "competitors" ADD COLUMN IF NOT EXISTS "phone" text;
+-- Google Places metadata captured at discovery: {types, serves, priceLevel}.
+-- Cuisine / meal-type gap detection (#17) reads this rather than guessing
+-- from a scraped menu.
+ALTER TABLE "competitors" ADD COLUMN IF NOT EXISTS "place_data" jsonb DEFAULT '{}'::jsonb NOT NULL;
 -- Existing rows get now(): the migration moment is the most honest "last
 -- touched" stamp available for a row that predates the column.
 ALTER TABLE "competitors" ADD COLUMN IF NOT EXISTS "updated_at" timestamp DEFAULT now() NOT NULL;

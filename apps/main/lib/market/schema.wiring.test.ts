@@ -56,6 +56,7 @@ describe('Market Intelligence schema wiring (Gates #15-#18)', () => {
     assert.match(competitors, /distanceKm:\s*numeric\('distance_km'\)/);
     assert.match(competitors, /websiteUrl:\s*text\('website_url'\)/);
     assert.match(competitors, /phone:\s*text\('phone'\)/);
+    assert.match(competitors, /placeData:\s*jsonb\('place_data'\)\.default\(\{\}\)\.notNull\(\)/);
     assert.match(competitors, /updatedAt:\s*timestamp\('updated_at'\)\.defaultNow\(\)\.notNull\(\)/);
     assert.match(competitors, /index\('competitors_tenant_idx'\)\.on\(table\.tenantId\)/);
     assert.match(competitors, /index\('competitors_distance_idx'\)\.on\(table\.distanceKm\)/);
@@ -120,7 +121,7 @@ describe('Market Intelligence schema wiring (Gates #15-#18)', () => {
 
   test('0012 migration carries the same DDL as the schema', () => {
     const src = source(MIGRATION_0012);
-    for (const col of ['address', 'latitude', 'longitude', 'distance_km', 'website_url', 'phone', 'updated_at']) {
+    for (const col of ['address', 'latitude', 'longitude', 'distance_km', 'website_url', 'phone', 'place_data', 'updated_at']) {
       assert.ok(
         src.includes(`ADD COLUMN IF NOT EXISTS "${col}"`),
         `0012 migration is missing competitors.${col}`
@@ -176,7 +177,7 @@ describe('Market Intelligence schema wiring (Gates #15-#18)', () => {
   test('/api/migrate carries the same Gate #15-#18 DDL', () => {
     const route = code(MIGRATE_ROUTE);
     const section = from(route, 'ALTER TABLE competitors ADD COLUMN IF NOT EXISTS address');
-    for (const col of ['latitude', 'longitude', 'distance_km', 'website_url', 'phone', 'updated_at']) {
+    for (const col of ['latitude', 'longitude', 'distance_km', 'website_url', 'phone', 'place_data', 'updated_at']) {
       assert.match(section, new RegExp(`ALTER TABLE competitors ADD COLUMN IF NOT EXISTS ${col}`));
     }
     assert.match(route, /ALTER TABLE competitors ALTER COLUMN google_place_id DROP NOT NULL/);

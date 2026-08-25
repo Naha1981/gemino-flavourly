@@ -665,6 +665,12 @@ export const competitors = pgTable(
     distanceKm: numeric('distance_km'),
     websiteUrl: text('website_url'),
     phone: text('phone'),
+    // Gate #15/#17 — what Google told us about this place at discovery time:
+    // { types: ['italian_restaurant', …], serves: ['brunch', …], priceLevel: 2 }.
+    // Cuisine and meal-type gap detection (#17) reads this instead of guessing
+    // from a scraped menu; jsonb keeps it extensible without another migration
+    // every time Google adds a flag.
+    placeData: jsonb('place_data').default({}).notNull(),
     currentRating: numeric('current_rating').default('0').notNull(),
     reviewCount: integer('review_count').default(0).notNull(),
     lastCheckAt: timestamp('last_check_at'),

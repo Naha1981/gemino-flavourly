@@ -349,6 +349,7 @@ export async function GET() {
     await sql`ALTER TABLE competitors ADD COLUMN IF NOT EXISTS distance_km numeric;`;
     await sql`ALTER TABLE competitors ADD COLUMN IF NOT EXISTS website_url text;`;
     await sql`ALTER TABLE competitors ADD COLUMN IF NOT EXISTS phone text;`;
+    await sql`ALTER TABLE competitors ADD COLUMN IF NOT EXISTS place_data jsonb DEFAULT '{}'::jsonb NOT NULL;`;
     await sql`ALTER TABLE competitors ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT NOW() NOT NULL;`;
     await sql`ALTER TABLE competitors ALTER COLUMN google_place_id DROP NOT NULL;`;
     await sql`CREATE INDEX IF NOT EXISTS competitors_distance_idx ON competitors (distance_km);`;
