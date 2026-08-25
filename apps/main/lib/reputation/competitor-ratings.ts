@@ -32,7 +32,13 @@ export interface CompetitorRecord {
   id: string;
   tenantId: string;
   name: string;
-  googlePlaceId: string;
+  /**
+   * Nullable since Gate #15: the market-intelligence engine adds competitors
+   * discovered by Places search or typed in by hand, and a hand-added one may
+   * have no Google listing at all. Such rows are skipped by this sweep (there
+   * is nothing to poll) but are still tracked for menu/promotion changes.
+   */
+  googlePlaceId: string | null;
   currentRating: number;
   reviewCount: number;
   lastCheckAt: Date | null;
@@ -106,7 +112,8 @@ export interface CompetitorRatingsSummary {
   competitorsChecked: number;
   ratingsRecorded: number;
   alertsCreated: number;
-  skipped: { noApiKey: number; fetchFailed: number; noRating: number; failed: number };
+  /** `competitorsChecked` counts every swept row, including the ones skipped below. */
+  skipped: { noApiKey: number; noPlaceId: number; fetchFailed: number; noRating: number; failed: number };
   samples: Array<{ competitorId: string; name: string; previous: number | null; current: number; alert: boolean }>;
 }
 
@@ -138,7 +145,7 @@ export async function runCompetitorRatingsCron(
     competitorsChecked: 0,
     ratingsRecorded: 0,
     alertsCreated: 0,
-    skipped: { noApiKey: 0, fetchFailed: 0, noRating: 0, failed: 0 },
+    skipped: { noApiKey: 0, noPlaceId: 0, fetchFailed: 0, noRating: 0, failed: 0 },
     samples: [],
   };
 
@@ -162,6 +169,14 @@ export async function runCompetitorRatingsCron(
   for (const competitor of competitors) {
     if (summary.competitorsChecked >= positiveLimit(options.limit)) break;
     summary.competitorsChecked += 1;
+
+    if (!competitor.googlePlaceId) {
+      // A hand-added / market-discovered competitor with no Google listing:
+      // nothing to poll. Counted separately from fetchFailed so a long list of
+      // manual competitors cannot look like a broken Places integration.
+      summary.skipped.noPlaceId += 1;
+      continue;
+    }
 
     try {
       const fetched = doFetch

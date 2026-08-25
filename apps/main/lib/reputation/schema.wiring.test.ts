@@ -76,7 +76,10 @@ describe('Reputation schema wiring (Gates #11-#14)', () => {
     assert.match(competitors, /uuid\('tenant_id'\)/);
     assert.match(competitors, /references\(\(\) => tenants\.id,\s*\{\s*onDelete:\s*'cascade'/);
     assert.match(competitors, /text\('name'\)\.notNull\(\)/);
-    assert.match(competitors, /text\('google_place_id'\)\.notNull\(\)/);
+    // Gate #15 relaxed this column to nullable: hand-added and market-discovered
+    // competitors have no Google listing, and the rating sweep skips those rows
+    // (see lib/reputation/competitor-ratings.ts -> skipped.noPlaceId).
+    assert.match(competitors, /googlePlaceId:\s*text\('google_place_id'\),/);
     assert.match(competitors, /numeric\('current_rating'\)\.default\('0'\)/);
     assert.match(competitors, /integer\('review_count'\)\.default\(0\)/);
     assert.match(competitors, /index\('competitors_tenant_idx'\)\.on\(table\.tenantId\)/);

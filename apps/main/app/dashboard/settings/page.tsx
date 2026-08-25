@@ -13,6 +13,11 @@ export default function SettingsPage() {
     name: '',
     description: '',
     openingHours: '',
+    // Gates #15/#18 — the market engine's two tenant inputs: where the venue
+    // is (competitor discovery searches a 5km radius around it) and what it
+    // serves (positioning and opportunity analysis compare it to competitors).
+    address: '',
+    menuText: '',
     aiPersonality: 'friendly and professional',
     systemPrompt: '',
     aiEnabled: true,
@@ -39,6 +44,8 @@ export default function SettingsPage() {
               name: data.tenant.name || '',
               description: data.tenant.description || '',
               openingHours: data.tenant.openingHours || 'Monday - Sunday: 11:30 AM - 10:00 PM',
+              address: data.tenant.address || '',
+              menuText: data.tenant.menuText || '',
               aiPersonality: data.tenant.aiPersonality || 'warm, professional, and hospitable',
               systemPrompt: data.tenant.systemPrompt || '',
               aiEnabled: data.tenant.aiEnabled ?? true,
@@ -207,6 +214,38 @@ export default function SettingsPage() {
                 className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3.5 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
               />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-zinc-400" />
+              Street Address
+              <span className="text-[11px] text-zinc-500 font-normal">used to find competitors within 5km</span>
+            </label>
+            <input
+              type="text"
+              value={formData.address}
+              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+              placeholder="e.g. 12 Loop Street, Cape Town, 8001"
+              className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3.5 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <label className="text-xs font-medium text-zinc-300 flex items-center gap-1.5">
+              <Building className="w-3.5 h-3.5 text-zinc-400" />
+              Menu
+              <span className="text-[11px] text-zinc-500 font-normal">
+                one dish per line with its price — used for positioning and market gaps
+              </span>
+            </label>
+            <textarea
+              rows={5}
+              value={formData.menuText}
+              onChange={(e) => setFormData({ ...formData, menuText: e.target.value })}
+              placeholder={`Starters\nSoup of the day R65\nMains\nRibeye steak R280\nVeggie burger R120`}
+              className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3.5 py-2.5 text-xs font-mono leading-relaxed text-zinc-100 placeholder:text-zinc-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            />
           </div>
 
           <div className="space-y-1.5">
