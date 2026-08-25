@@ -42,6 +42,13 @@ export const tenants = pgTable('tenants', {
   latitude: numeric('latitude'),
   longitude: numeric('longitude'),
   monthlyFee: decimal('monthly_fee', { precision: 10, scale: 2 }).default('49.00'),
+  // Billing (PayFast tokenized recurring).
+  plan: text('plan').default('trial').notNull(),
+  planStatus: text('plan_status').default('trialing').notNull(),
+  trialEndsAt: timestamp('trial_ends_at').default(sql`(now() + interval '14 days')`).notNull(),
+  payfastCustomerToken: text('payfast_customer_token'),
+  payfastSubscriptionToken: text('payfast_subscription_token'),
+  onboardingComplete: boolean('onboarding_complete').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
@@ -1111,6 +1118,34 @@ export const marketingCampaignRelations = relations(marketingCampaigns, ({ one }
 export const marketingEventRelations = relations(marketingEvents, ({ one }) => ({
   tenant: one(tenants, {
     fields: [marketingEvents.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+// -----------------------------------------------------------------------------
+// 22. Consent Records (POPIA sign-up consent)
+// -----------------------------------------------------------------------------
+export const consentRecords = pgTable(
+  'consent_records',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    consentVersion: text('consent_version').notNull(),
+    consentedAt: timestamp('consented_at').defaultNow().notNull(),
+    ipAddress: text('ip_address'),
+    userAgent: text('user_agent'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantIdx: index('consent_records_tenant_idx').on(table.tenantId),
+  })
+);
+
+export const consentRecordRelations = relations(consentRecords, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [consentRecords.tenantId],
     references: [tenants.id],
   }),
 }));

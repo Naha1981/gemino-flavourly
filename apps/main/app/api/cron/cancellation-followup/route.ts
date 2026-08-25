@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { assertCronAuthorized } from '@/lib/cron/auth';
+import { canSendAutomatedMessages } from '@/lib/billing/gate-evaluate';
 import { runCancellationFollowupCron } from '@/lib/revenue/cancellation-followup';
 import { drizzleCancellationFollowupStore } from '@/lib/revenue/cancellation-followup-store';
 
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, skipped: 'master_ai_switch_off', sent: 0 });
   }
 
-  const summary = await runCancellationFollowupCron(drizzleCancellationFollowupStore, { now: new Date() });
+  const summary = await runCancellationFollowupCron(drizzleCancellationFollowupStore, { now: new Date(), isSendable: canSendAutomatedMessages });
 
   console.log(
     `[Cancellation Follow-Up] scanned=${summary.scanned} sent=${summary.sent} ` +

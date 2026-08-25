@@ -525,6 +525,27 @@ export async function GET() {
     await sql`CREATE INDEX IF NOT EXISTS marketing_events_tenant_status_idx ON marketing_events (tenant_id, status);`;
     await sql`CREATE INDEX IF NOT EXISTS marketing_events_tenant_type_idx ON marketing_events (tenant_id, event_type);`;
 
+    // 22. Billing (PayFast tokenized recurring), onboarding, consent records.
+    // Mirrors drizzle/0016_billing_onboarding_consent.sql. All additive.
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan text DEFAULT 'trial' NOT NULL;`;
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS plan_status text DEFAULT 'trialing' NOT NULL;`;
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS trial_ends_at timestamp DEFAULT (now() + interval '14 days') NOT NULL;`;
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS payfast_customer_token text;`;
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS payfast_subscription_token text;`;
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS onboarding_complete boolean DEFAULT false NOT NULL;`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS consent_records (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        consent_version text NOT NULL,
+        consented_at timestamp DEFAULT NOW() NOT NULL,
+        ip_address text,
+        user_agent text,
+        created_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS consent_records_tenant_idx ON consent_records (tenant_id);`;
+
     return NextResponse.json({ ok: true, message: 'All Neon database columns and tables synchronized successfully' });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Migration failed' }, { status: 500 });

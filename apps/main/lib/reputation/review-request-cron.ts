@@ -46,6 +46,12 @@ export interface ReviewRequestCronOptions {
   now?: Date;
   /** Ceiling on messages queued per run, across all tenants. */
   limit?: number;
+  /**
+   * Billing gate predicate. When provided, tenants it rejects are skipped.
+   * Defaults to allowing all — the production route wires the real billing
+   * gate; tests leave it unset.
+   */
+  isSendable?: (tenantId: string) => Promise<boolean> | boolean;
 }
 
 export interface ReviewRequestCronSummary {
@@ -100,6 +106,20 @@ export async function runReviewRequestCron(
     if (!tenant.aiEnabled || tenant.manualMode) {
       summary.skipped.tenantDisabled += 1;
       continue;
+    }
+
+    // Billing gate: past-due / canceled tenants lose automated sending.
+    if (options.isSendable) {
+      try {
+        if (!(await options.isSendable(tenant.id))) {
+          summary.skipped.tenantDisabled += 1;
+          continue;
+        }
+      } catch (err) {
+        summary.skipped.failed += 1;
+        console.error(`[ReviewRequest] Billing gate check failed for tenant ${tenant.id}`, err);
+        continue;
+      }
     }
 
     // No Google Places config -> no review link -> no point asking.

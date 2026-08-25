@@ -158,6 +158,12 @@ export interface NoShowCronOptions {
   graceHours?: number;
   followupDelayHours?: number;
   limit?: number;
+  /**
+   * Billing gate predicate. When provided, reservations whose tenant it
+   * rejects are skipped. Defaults to allowing all — the production route wires
+   * the real billing gate; tests leave it unset.
+   */
+  isSendable?: (tenantId: string) => Promise<boolean> | boolean;
 }
 
 export type DetectionEligibility = 'detect' | 'not_confirmed' | 'already_detected' | 'too_early';
@@ -367,6 +373,20 @@ export async function runNoShowCron(
               : 'notYetDue'
       ] += 1;
       continue;
+    }
+
+    // Billing gate: past-due / canceled tenants lose automated sending.
+    if (options.isSendable) {
+      try {
+        if (!(await options.isSendable(candidate.tenantId))) {
+          summary.followup.skipped.noRecipient += 1;
+          continue;
+        }
+      } catch (err) {
+        summary.followup.skipped.failed += 1;
+        console.error(`[No-Show] Billing gate check failed for reservation ${candidate.id}`, err);
+        continue;
+      }
     }
 
     const recipient = await store.findRecipient(candidate);

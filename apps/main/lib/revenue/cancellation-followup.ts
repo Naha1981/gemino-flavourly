@@ -116,6 +116,12 @@ export interface CancellationFollowupOptions {
   delayHours?: number;
   maxAgeDays?: number;
   limit?: number;
+  /**
+   * Billing gate predicate. When provided, reservations whose tenant it
+   * rejects are skipped. Defaults to allowing all — the production route wires
+   * the real billing gate; tests leave it unset.
+   */
+  isSendable?: (tenantId: string) => Promise<boolean> | boolean;
 }
 
 export interface CancellationWindow {
@@ -237,6 +243,20 @@ export async function runCancellationFollowupCron(
     if (eligibility !== 'due') {
       summary.skipped[eligibility === 'too_old' ? 'tooOld' : 'notYetDue'] += 1;
       continue;
+    }
+
+    // Billing gate: past-due / canceled tenants lose automated sending.
+    if (options.isSendable) {
+      try {
+        if (!(await options.isSendable(reservation.tenantId))) {
+          summary.skipped.noRecipient += 1;
+          continue;
+        }
+      } catch (err) {
+        summary.skipped.failed += 1;
+        console.error(`[Cancellation Follow-Up] Billing gate check failed for reservation ${reservation.id}`, err);
+        continue;
+      }
     }
 
     const recipient = await store.findRecipient(reservation);
