@@ -151,8 +151,14 @@ export default async function SuperAdminDashboard() {
               href="/dashboard"
               className="px-3.5 py-1.5 text-xs font-medium bg-zinc-900 border border-zinc-800 rounded-md hover:bg-zinc-800 text-zinc-200 transition-colors"
             >
-              Open Tenant Dashboard
-            </Link>
+               Open Tenant Dashboard
+              </Link>
+              <Link
+               href="/admin/analytics"
+               className="px-3.5 py-1.5 text-xs font-medium bg-zinc-900 border border-zinc-800 rounded-md hover:bg-zinc-800 text-zinc-200 transition-colors"
+              >
+               Platform Analytics
+              </Link>
             <div className="px-3 py-1.5 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-400 flex items-center gap-2">
               <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
               <span>Fleet: Online</span>
