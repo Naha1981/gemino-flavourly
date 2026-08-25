@@ -15,6 +15,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     // promotion tracking, market opportunities and positioning.
     {href: '/dashboard/market/competitors', label: 'Market Intelligence', icon: Swords },
     { href: '/dashboard/marketing', label: 'Marketing', icon: FileText },
+    { href: '/dashboard/marketing/campaigns', label: 'Campaigns', icon: FileText },
     { href: '/dashboard/operations/channel-configs', label: 'Channels', icon: Radio },
     { href: '/dashboard/operations/approval-requests', label: 'Approvals', icon: TrendingUp },
     { href: '/dashboard/whatsapp', label: 'WhatsApp', icon: QrCode },
