@@ -3,8 +3,10 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs';
-import { ArrowRight, CalendarCheck, Timer, TrendingUp } from 'lucide-react';
+import { ArrowRight, CalendarCheck, Timer, TrendingUp, Star, Megaphone, Swords, BarChart3, QrCode, ShieldCheck } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+
+const WHATSAPP_CONTACT = process.env.NEXT_PUBLIC_WHATSAPP_CONTACT || '27820000000';
 
 export default function LandingClient() {
   const router = useRouter();
@@ -14,7 +16,6 @@ export default function LandingClient() {
       {/* ── Nav ─────────────────────────────────────────── */}
       <header className="border-b border-zinc-800/80">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          {/* Double-click logo = Super Admin (hidden door) */}
           <button
             type="button"
             onDoubleClick={() => router.push('/admin')}
@@ -28,6 +29,9 @@ export default function LandingClient() {
           </button>
 
           <nav className="flex items-center gap-3">
+            <Link href="/pricing" className="hidden sm:inline rounded-md px-3 py-2 text-sm font-medium text-zinc-300 hover:text-white">
+              Pricing
+            </Link>
             <SignedOut>
               <SignInButton forceRedirectUrl="/dashboard">
                 <button className="rounded-md px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:text-white">
@@ -36,7 +40,7 @@ export default function LandingClient() {
               </SignInButton>
               <SignUpButton forceRedirectUrl="/dashboard">
                 <button className="rounded-md bg-zinc-100 px-4 py-2 text-sm font-semibold text-zinc-900 transition-colors hover:bg-white shadow-sm">
-                  Get Started
+                  Start free trial
                 </button>
               </SignUpButton>
             </SignedOut>
@@ -63,8 +67,8 @@ export default function LandingClient() {
             Every WhatsApp message answered. Every table filled.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-zinc-400">
-            Your customers already message you on WhatsApp. Gemino replies in seconds —
-            books the table, joins the waitlist, takes the deposit — while you run the
+            Your customers already message you on WhatsApp. Gemino replies in seconds &mdash;
+            books the table, joins the waitlist, takes the deposit &mdash; while you run the
             floor. Because a missed message is a customer eating somewhere else.
           </p>
 
@@ -72,14 +76,17 @@ export default function LandingClient() {
             <SignedOut>
               <SignUpButton forceRedirectUrl="/dashboard">
                 <button className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-md bg-emerald-500 px-6 py-3.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 shadow-md">
-                  Get Started — 5 Minute Setup <ArrowRight className="h-4 w-4" />
+                  Start 14-day trial <ArrowRight className="h-4 w-4" />
                 </button>
               </SignUpButton>
-              <SignInButton forceRedirectUrl="/dashboard">
-                <button className="w-full sm:w-auto rounded-md border border-zinc-700 px-6 py-3.5 text-sm font-medium text-zinc-200 transition-colors hover:bg-zinc-900">
-                  Sign In
-                </button>
-              </SignInButton>
+              <a
+                href={`https://wa.me/${WHATSAPP_CONTACT}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md border border-emerald-500/40 px-6 py-3.5 text-sm font-medium text-emerald-300 transition-colors hover:bg-emerald-500/10"
+              >
+                Contact us on WhatsApp
+              </a>
             </SignedOut>
             <SignedIn>
               <Link
@@ -91,16 +98,17 @@ export default function LandingClient() {
             </SignedIn>
           </div>
           <p className="mt-4 text-xs text-zinc-500">
-            No app for your customers. They just WhatsApp you, like always.
+            No app for your customers. They just WhatsApp you, like always. No credit card required.
           </p>
         </section>
 
-        {/* ── Outcomes, not features ────────────────────── */}
+        {/* ── Six engines ───────────────────────────────── */}
         <section className="mx-auto max-w-6xl px-6 pb-20">
-          <div className="grid gap-6 md:grid-cols-3">
+          <h2 className="mb-10 text-center text-2xl font-semibold text-zinc-100">Six engines, one AI assistant</h2>
+          <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <OutcomeCard
               icon={Timer}
-              title="Replies in 3 seconds, 24/7"
+              title="Instant replies, 24/7"
               body="Your best host never sleeps. Every customer gets an instant, friendly reply — 2pm or 2am — so they never take their booking to a competitor."
             />
             <OutcomeCard
@@ -109,9 +117,24 @@ export default function LandingClient() {
               body="Bookings, waitlists, deposits and reminders all happen inside the WhatsApp chat. No-shows drop. Quiet nights fill up."
             />
             <OutcomeCard
-              icon={TrendingUp}
-              title="Guests keep coming back"
-              body="Gemino remembers your regulars, rewards them automatically, and quietly wins back anyone who hasn't visited in a while."
+              icon={Star}
+              title="Regulars who come back"
+              body="Gemino remembers your regulars, rewards them automatically, and quietly wins back anyone who has not visited in a while."
+            />
+            <OutcomeCard
+              icon={Megaphone}
+              title="Campaigns that convert"
+              body="Broadcast promotions, events and seasonal offers to your whole customer base — and watch who comes back."
+            />
+            <OutcomeCard
+              icon={Swords}
+              title="Market intelligence"
+              body="See every competitor within 5km — their ratings, menus and promotions — and find the gaps they are leaving open."
+            />
+            <OutcomeCard
+              icon={BarChart3}
+              title="Revenue you can recover"
+              body="Cancellations and no-shows trigger a rebooking offer automatically. The bottom line, recovered."
             />
           </div>
         </section>
@@ -121,20 +144,50 @@ export default function LandingClient() {
           <div className="mx-auto max-w-6xl px-6">
             <h2 className="text-center text-2xl font-semibold text-zinc-100">Live in 5 minutes</h2>
             <div className="mt-12 grid gap-8 md:grid-cols-3">
-              <Step n="1" title="Create your account" body="One email and a password. That's it." />
+              <Step n="1" title="Start your free trial" body="One email. No credit card. Your 14-day trial starts immediately." />
               <Step n="2" title="Scan the QR code" body="Link your restaurant's WhatsApp exactly like WhatsApp Web." />
               <Step n="3" title="Watch it work" body="Send a test message, get an instant AI reply, see it all in your dashboard." />
+            </div>
+          </div>
+        </section>
+
+        {/* ── Trust ─────────────────────────────────────── */}
+        <section className="mx-auto max-w-6xl px-6 py-20">
+          <div className="grid gap-6 md:grid-cols-3">
+            <div className="flex items-start gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-5">
+              <QrCode className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+              <div>
+                <p className="font-semibold text-zinc-50">No new app for guests</p>
+                <p className="mt-1 text-sm text-zinc-400">They message you on WhatsApp, exactly as they already do.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-5">
+              <ShieldCheck className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+              <div>
+                <p className="font-semibold text-zinc-50">POPIA compliant</p>
+                <p className="mt-1 text-sm text-zinc-400">One-tap STOP opt-out, encrypted data, clear retention. Built for South Africa.</p>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 rounded-lg border border-zinc-800 bg-zinc-900/50 p-5">
+              <TrendingUp className="mt-0.5 h-5 w-5 shrink-0 text-emerald-400" />
+              <div>
+                <p className="font-semibold text-zinc-50">Pause anytime</p>
+                <p className="mt-1 text-sm text-zinc-400">A master kill-switch stops all AI messaging instantly. You stay in control.</p>
+              </div>
             </div>
           </div>
         </section>
       </main>
 
       <footer className="border-t border-zinc-800/80 py-8">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-6 text-sm text-zinc-500">
-          <span>© {new Date().getFullYear()} Gemino AI. Your restaurant, always on.</span>
-          <Link href="/dashboard" className="transition-colors hover:text-zinc-300 text-xs">
-            Tenant Portal
-          </Link>
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 text-sm text-zinc-500">
+          <span>&copy; {new Date().getFullYear()} Gemino AI. Your restaurant, always on.</span>
+          <div className="flex gap-5">
+            <Link href="/pricing" className="transition-colors hover:text-zinc-300">Pricing</Link>
+            <Link href="/privacy" className="transition-colors hover:text-zinc-300">Privacy</Link>
+            <Link href="/terms" className="transition-colors hover:text-zinc-300">Terms</Link>
+            <Link href="/dashboard" className="transition-colors hover:text-zinc-300">Tenant Portal</Link>
+          </div>
         </div>
       </footer>
     </div>
