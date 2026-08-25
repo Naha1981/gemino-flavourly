@@ -1,0 +1,15 @@
+{
+  "name": "Flavourly",
+  "short_name": "Flavourly",
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "any",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#000000"
+}

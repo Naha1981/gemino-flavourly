@@ -2,8 +2,6 @@ import { FileText, LayoutDashboard, MessageSquare, QrCode, Settings, Star, Sword
 import Link from 'next/link';
 import { UserButton } from '@clerk/nextjs';
 import { ReactNode } from 'react';
-import { FlavourlyLogo } from '@/components/brand/flavourly-logo';
-import { BrandLoader } from '@/components/brand/brand-loader';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
   const links = [
@@ -31,8 +29,8 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-zinc-950 text-zinc-50">
       <aside className="flex w-64 flex-col border-r border-zinc-800 bg-zinc-900/50 p-6">
-        <div className="mb-8 flex items-center gap-3">
-          <FlavourlyLogo />
+        <div className="mb-8 flex items-center">
+          <img src="/logo.png" alt="Flavourly" className="h-9 w-auto" />
         </div>
         
         <nav className="flex-1 space-y-2">
@@ -57,7 +55,6 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
       </aside>
       
       <main className="flex-1 overflow-y-auto p-8">
-        <div className="sr-only"><BrandLoader /></div>
         {children}
       </main>
     </div>

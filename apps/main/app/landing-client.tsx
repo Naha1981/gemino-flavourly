@@ -19,13 +19,10 @@ export default function LandingClient() {
           <button
             type="button"
             onDoubleClick={() => router.push('/admin')}
-            className="flex select-none items-center gap-3 transition-transform active:scale-95 text-left"
+            className="flex select-none items-center transition-transform active:scale-95 text-left"
             title="Flavourly (Double-click for Admin)"
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 text-lg font-bold text-zinc-900 shadow-sm">
-              G
-            </span>
-            <span className="text-lg font-semibold tracking-tight">Flavourly</span>
+            <img src="/logo.png" alt="Flavourly" className="h-9 w-auto" />
           </button>
 
           <nav className="flex items-center gap-3">
@@ -61,13 +58,13 @@ export default function LandingClient() {
         {/* ── Hero ──────────────────────────────────────── */}
         <section className="mx-auto max-w-4xl px-6 pb-16 pt-24 text-center">
           <p className="mb-6 inline-block rounded-full border border-zinc-700 bg-zinc-900/60 px-4 py-1.5 text-xs font-medium text-zinc-300 shadow-sm">
-            MADE FOR SOUTH AFRICAN RESTAURANTS
+            Built for restaurants that live on WhatsApp
           </p>
           <h1 className="text-5xl font-bold leading-tight tracking-tight sm:text-6xl text-zinc-50">
-            Your restaurant, fully booked. While you cook.
+            Every WhatsApp message answered. Every table filled.
           </h1>
           <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-zinc-400">
-            Your customers already message you on WhatsApp. Flavourly replies in seconds &mdash;
+            Your customers already message you on WhatsApp. Gemino replies in seconds &mdash;
             books the table, joins the waitlist, takes the deposit &mdash; while you run the
             floor. Because a missed message is a customer eating somewhere else.
           </p>
@@ -75,23 +72,23 @@ export default function LandingClient() {
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-4">
             <SignedOut>
               <SignUpButton forceRedirectUrl="/dashboard">
-                <button className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-md bg-gold-500 px-6 py-3.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-gold-400 shadow-md">
+                <button className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-md bg-emerald-500 px-6 py-3.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 shadow-md">
                   Start 14-day trial <ArrowRight className="h-4 w-4" />
                 </button>
               </SignUpButton>
               <a
-                href="/pricing"
+                href={`https://wa.me/${WHATSAPP_CONTACT}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md border border-emerald-500/40 px-6 py-3.5 text-sm font-medium text-emerald-300 transition-colors hover:bg-gold-500/10"
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-md border border-emerald-500/40 px-6 py-3.5 text-sm font-medium text-emerald-300 transition-colors hover:bg-emerald-500/10"
               >
-                See pricing
+                Contact us on WhatsApp
               </a>
             </SignedOut>
             <SignedIn>
               <Link
                 href="/dashboard"
-                className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-md bg-gold-500 px-6 py-3.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-gold-400 shadow-md"
+                className="w-full sm:w-auto flex items-center justify-center gap-2 rounded-md bg-emerald-500 px-6 py-3.5 text-sm font-semibold text-zinc-950 transition-colors hover:bg-emerald-400 shadow-md"
               >
                 Open Your Dashboard <ArrowRight className="h-4 w-4" />
               </Link>
@@ -108,32 +105,32 @@ export default function LandingClient() {
           <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
             <OutcomeCard
               icon={Timer}
-              title="Answers WhatsApp in 3 seconds"
+              title="Instant replies, 24/7"
               body="Your best host never sleeps. Every customer gets an instant, friendly reply — 2pm or 2am — so they never take their booking to a competitor."
             />
             <OutcomeCard
               icon={CalendarCheck}
-              title="Fills your slow Tuesdays"
+              title="Tables book themselves"
               body="Bookings, waitlists, deposits and reminders all happen inside the WhatsApp chat. No-shows drop. Quiet nights fill up."
             />
             <OutcomeCard
               icon={Star}
-              title="Brings back lost customers"
-              body="Flavourly remembers your regulars, rewards them automatically, and quietly wins back anyone who has not visited in a while."
+              title="Regulars who come back"
+              body="Gemino remembers your regulars, rewards them automatically, and quietly wins back anyone who has not visited in a while."
             />
             <OutcomeCard
               icon={Megaphone}
-              title="Replies to Google reviews for you"
+              title="Campaigns that convert"
               body="Broadcast promotions, events and seasonal offers to your whole customer base — and watch who comes back."
             />
             <OutcomeCard
               icon={Swords}
-              title="Watches your competitors"
+              title="Market intelligence"
               body="See every competitor within 5km — their ratings, menus and promotions — and find the gaps they are leaving open."
             />
             <OutcomeCard
               icon={BarChart3}
-              title="Shows you the money on the table"
+              title="Revenue you can recover"
               body="Cancellations and no-shows trigger a rebooking offer automatically. The bottom line, recovered."
             />
           </div>
@@ -177,14 +174,11 @@ export default function LandingClient() {
             </div>
           </div>
         </section>
-        <section className="mx-auto max-w-5xl px-6 pb-20"><div className="rounded-xl border border-border bg-gradient-to-br from-green-900 to-dark-panel p-5 shadow-2xl"><div className="mb-5 flex items-center justify-between text-xs uppercase tracking-widest text-text"><span>Flavourly HQ</span><span className="text-gold-400">Live overview</span></div><div className="grid gap-4 sm:grid-cols-3"><div className="rounded-lg border border-border bg-dark-surface p-5"><p className="text-xs text-text">Revenue recovered</p><p className="mt-2 text-3xl font-semibold text-gold-400">R48 240</p><div className="mt-5 h-1 rounded bg-gradient-to-r from-green-600 via-gold-500 to-green-600" /></div><div className="rounded-lg border border-border bg-dark-surface p-5"><p className="text-xs text-text">Bookings today</p><p className="mt-2 text-3xl font-semibold text-cream">38</p><p className="mt-5 text-xs text-green-600">↑ 18% this week</p></div><div className="rounded-lg border border-border bg-dark-surface p-5"><p className="text-xs text-text">WhatsApp replies</p><p className="mt-2 text-3xl font-semibold text-cream">3 sec</p><p className="mt-5 text-xs text-gold-400">Always on</p></div></div></div></section>
-        <section className="border-y border-border bg-dark-panel/40 py-5 text-center text-xs uppercase tracking-widest text-text">POPIA-compliant · Works on any phone · No app needed for customers</section>
-        <section className="mx-auto max-w-4xl px-6 py-20"><h2 className="font-display text-3xl text-cream">Questions, answered.</h2><div className="mt-8 divide-y divide-border border-y border-border">{[['What is Flavourly?','An AI employee for your restaurant that handles WhatsApp conversations, bookings and follow-ups.'],['How does WhatsApp work?','Connect your restaurant WhatsApp with a QR code. Customers keep using the app they know.'],['Is my data safe?','Yes. We use sensible security and POPIA-aligned controls for your business data.'],['Can I turn AI off?','Yes. Your dashboard has a master switch, so you stay in control.'],['What happens after the trial?','Choose a plan that suits your restaurant. You can pause or cancel anytime.']].map(([q,a]) => <details key={q} className="py-5"><summary className="cursor-pointer font-semibold text-cream">{q}</summary><p className="mt-3 text-sm leading-relaxed text-text">{a}</p></details>)}</div></section>
       </main>
 
       <footer className="border-t border-zinc-800/80 py-8">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 text-sm text-zinc-500">
-          <span>&copy; {new Date().getFullYear()} Flavourly. Your restaurant, always on.</span>
+          <span>&copy; {new Date().getFullYear()} Gemino AI. Your restaurant, always on.</span>
           <div className="flex gap-5">
             <Link href="/pricing" className="transition-colors hover:text-zinc-300">Pricing</Link>
             <Link href="/privacy" className="transition-colors hover:text-zinc-300">Privacy</Link>
