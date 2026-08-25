@@ -166,6 +166,32 @@ function ordinal(rank: number): string {
   }
 }
 
+/**
+ * Which column the tenant's menu is read from, in order of trust:
+ *
+ *   1. `menu_text`  — the dish list the owner publishes (the real thing)
+ *   2. `description`— a marketing blurb; owners often paste a menu in here
+ *   3. `system_prompt` — the AI instructions; same habit
+ *   4. nothing
+ *
+ * The SOURCE travels with the text so the report (and the UI) can say "this
+ * comparison used your description, not a menu" instead of quietly comparing
+ * something the owner never called a menu.
+ */
+export function pickTenantMenu(row: {
+  menuText: string | null;
+  description: string | null;
+  systemPrompt: string | null;
+}): { text: string | null; source: TenantMenuSource } {
+  const menuText = row.menuText?.trim();
+  if (menuText) return { text: menuText, source: 'menu_text' };
+  const description = row.description?.trim();
+  if (description) return { text: description, source: 'description' };
+  const systemPrompt = row.systemPrompt?.trim();
+  if (systemPrompt) return { text: systemPrompt, source: 'system_prompt' };
+  return { text: null, source: 'none' };
+}
+
 export interface PositioningOptions {
   now?: Date;
   currency?: string;
