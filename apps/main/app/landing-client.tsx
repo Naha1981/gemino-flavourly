@@ -19,13 +19,10 @@ export default function LandingClient() {
           <button
             type="button"
             onDoubleClick={() => router.push('/admin')}
-            className="flex select-none items-center gap-3 transition-transform active:scale-95 text-left"
-            title="Gemino AI (Double-click for Admin)"
+            className="flex select-none items-center transition-transform active:scale-95 text-left"
+            title="Flavourly (Double-click for Admin)"
           >
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 text-lg font-bold text-zinc-900 shadow-sm">
-              G
-            </span>
-            <span className="text-lg font-semibold tracking-tight">Gemino AI</span>
+            <img src="/logo.png" alt="Flavourly" className="h-9 w-auto" />
           </button>
 
           <nav className="flex items-center gap-3">

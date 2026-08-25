@@ -5,9 +5,8 @@ export default function TermsPage() {
     <div className="min-h-screen bg-zinc-950 text-zinc-50 antialiased">
       <header className="border-b border-zinc-800/80">
         <div className="mx-auto flex h-16 max-w-4xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 text-lg font-bold text-zinc-900">G</span>
-            <span className="text-lg font-semibold tracking-tight">Gemino AI</span>
+          <Link href="/" className="flex items-center">
+            <img src="/logo.png" alt="Flavourly" className="h-9 w-auto" />
           </Link>
           <nav className="flex items-center gap-4">
             <Link href="/" className="text-sm text-zinc-300 hover:text-white">Home</Link>

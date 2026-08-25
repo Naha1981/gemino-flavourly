@@ -8,6 +8,17 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata: Metadata = {
   title: 'Gemino — Multi-Tenant WhatsApp AI Operating System',
   description: 'Automate table bookings, instant customer concierge, waitlist dispatch, and loyalty over direct WhatsApp.',
+  icons: [
+    { rel: 'icon', url: '/logo.png' },
+    { rel: 'apple-touch-icon', url: '/logo.png' },
+  ],
+  manifest: '/manifest.json',
+  openGraph: {
+    images: ['/logo.png'],
+  },
+  twitter: {
+    images: ['/logo.png'],
+  },
 };
 
 export default function RootLayout({
