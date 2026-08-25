@@ -817,6 +817,30 @@ export const marketingCampaigns = pgTable(
   })
 );
 
+export const marketingEvents = pgTable(
+  'marketing_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    description: text('description'),
+    eventType: text('event_type', { enum: ['special', 'live_music', 'tasting', 'workshop', 'holiday', 'custom'] }).notNull(),
+    startsAt: timestamp('starts_at').notNull(),
+    endsAt: timestamp('ends_at').notNull(),
+    location: text('location'),
+    capacity: integer('capacity'),
+    bookedCount: integer('booked_count').default(0),
+    message: text('message'),
+    status: text('status', { enum: ['draft', 'published', 'cancelled', 'completed'] }).default('draft').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantIdx: index('marketing_events_tenant_idx').on(table.tenantId),
+    tenantStatusIdx: index('marketing_events_tenant_status_idx').on(table.tenantId, table.status),
+    tenantTypeIdx: index('marketing_events_tenant_type_idx').on(table.tenantId, table.eventType),
+  })
+);
+
 // -----------------------------------------------------------------------------
 // 12a. Channel Configs (Multi-channel integration)
 // -----------------------------------------------------------------------------
@@ -912,6 +936,7 @@ export const tenantRelations = relations(tenants, ({ many, one }) => ({
   channelConfigs: many(channelConfigs),
   approvalRequests: many(approvalRequests),
   marketingCampaigns: many(marketingCampaigns),
+  marketingEvents: many(marketingEvents),
 }));
 
 export const waAccountRelations = relations(waAccounts, ({ one, many }) => ({
@@ -1079,6 +1104,13 @@ export const approvalRequestRelations = relations(approvalRequests, ({ one }) =>
 export const marketingCampaignRelations = relations(marketingCampaigns, ({ one }) => ({
   tenant: one(tenants, {
     fields: [marketingCampaigns.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+export const marketingEventRelations = relations(marketingEvents, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [marketingEvents.tenantId],
     references: [tenants.id],
   }),
 }));

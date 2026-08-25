@@ -99,6 +99,13 @@
       "when": 1787702405000,
       "tag": "0014_marketing_campaigns",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1787702406000,
+      "tag": "0015_marketing_events",
+      "breakpoints": true
     }
   ]
 }
