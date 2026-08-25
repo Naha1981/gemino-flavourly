@@ -758,6 +758,20 @@ export const marketOpportunities = pgTable(
   })
 );
 
+export const marketingBriefs = pgTable(
+  'marketing_briefs',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+    brief: jsonb('brief').notNull(),
+    generatedAt: timestamp('generated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantIdx: index('marketing_briefs_tenant_idx').on(table.tenantId),
+    tenantGeneratedIdx: index('marketing_briefs_tenant_generated_idx').on(table.tenantId, table.generatedAt),
+  })
+);
+
 // One row per daily rating check, so a tenant can see the trend (and the
 // cron can detect a 0.2+ star drop against the previous reading).
 export const competitorRatingHistory = pgTable(

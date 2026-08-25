@@ -414,6 +414,16 @@ export async function GET() {
       CREATE UNIQUE INDEX IF NOT EXISTS market_opportunities_tenant_key_uniq
         ON market_opportunities (tenant_id, key);
     `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS marketing_briefs (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        brief jsonb NOT NULL,
+        generated_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS marketing_briefs_tenant_idx ON marketing_briefs (tenant_id);`;
+    await sql`CREATE INDEX IF NOT EXISTS marketing_briefs_tenant_generated_idx ON marketing_briefs (tenant_id, generated_at);`;
 
     return NextResponse.json({ ok: true, message: 'All Neon database columns and tables synchronized successfully' });
   } catch (err: any) {
