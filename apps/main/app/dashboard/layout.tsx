@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { UserButton } from '@clerk/nextjs';
-import { LayoutDashboard, MessageSquare, QrCode, Settings } from 'lucide-react';
+import { LayoutDashboard, MessageSquare, QrCode, Settings, Star } from 'lucide-react';
 import { ReactNode } from 'react';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -8,6 +8,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
     { href: '/dashboard/inbox', label: 'Inbox', icon: MessageSquare },
     { href: '/dashboard/whatsapp', label: 'WhatsApp', icon: QrCode },
+    { href: '/dashboard/reputation', label: 'Reputation', icon: Star },
     { href: '/dashboard/settings', label: 'Settings', icon: Settings },
   ];
 

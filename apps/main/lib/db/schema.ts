@@ -180,8 +180,63 @@ export const reservations = pgTable('reservations', {
   status: text('status', { enum: ['confirmed', 'cancelled', 'completed', 'no_show'] }).default('confirmed').notNull(),
   deposit: decimal('deposit', { precision: 10, scale: 2 }),
   notes: text('notes'),
+  reviewRequestSent: boolean('review_request_sent').default(false).notNull(),
+  reviewRequestSentAt: timestamp('review_request_sent_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  reviewRequestIdx: index('reservations_review_request_idx').on(table.reviewRequestSent, table.date),
+}));
+
+export const googlePlacesConfig = pgTable('google_places_config', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }).unique(),
+  placeId: text('place_id').notNull(),
+  apiKeyEncrypted: text('api_key_encrypted'),
+  lastFetchAt: timestamp('last_fetch_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
+
+export const googleReviews = pgTable('google_reviews', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  googlePlaceId: text('google_place_id').notNull(),
+  reviewId: text('review_id').notNull().unique(),
+  authorName: text('author_name').notNull(),
+  rating: integer('rating').notNull(),
+  text: text('text'),
+  time: timestamp('time').notNull(),
+  sentiment: text('sentiment', { enum: ['positive', 'neutral', 'negative'] }).default('neutral').notNull(),
+  responseText: text('response_text'),
+  responseSentAt: timestamp('response_sent_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index('google_reviews_tenant_idx').on(table.tenantId),
+  ratingIdx: index('google_reviews_rating_idx').on(table.rating),
+  timeIdx: index('google_reviews_time_idx').on(table.time),
+}));
+
+export const competitors = pgTable('competitors', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  googlePlaceId: text('google_place_id').notNull(),
+  currentRating: decimal('current_rating', { precision: 3, scale: 2 }).default('0').notNull(),
+  reviewCount: integer('review_count').default(0).notNull(),
+  lastCheckAt: timestamp('last_check_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index('competitors_tenant_idx').on(table.tenantId),
+}));
+
+export const competitorRatingHistory = pgTable('competitor_rating_history', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  competitorId: uuid('competitor_id').notNull().references(() => competitors.id, { onDelete: 'cascade' }),
+  rating: decimal('rating', { precision: 3, scale: 2 }).notNull(),
+  reviewCount: integer('review_count').notNull(),
+  recordedAt: timestamp('recorded_at').defaultNow().notNull(),
+}, (table) => ({
+  competitorIdx: index('competitor_rating_history_competitor_idx').on(table.competitorId),
+}));
 
 // -----------------------------------------------------------------------------
 // 8. Leads (Catering, Corporate, VIP events)

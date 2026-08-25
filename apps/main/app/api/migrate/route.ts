@@ -87,6 +87,42 @@ export async function GET() {
     `;
     await sql`ALTER TABLE jobs ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT NOW();`;
 
+    await sql`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS review_request_sent boolean DEFAULT false;`;
+    await sql`ALTER TABLE reservations ADD COLUMN IF NOT EXISTS review_request_sent_at timestamp;`;
+    await sql`CREATE INDEX IF NOT EXISTS reservations_review_request_idx ON reservations (review_request_sent, date);`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS google_places_config (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL UNIQUE REFERENCES tenants(id) ON DELETE CASCADE,
+        place_id text NOT NULL, api_key_encrypted text, last_fetch_at timestamp, created_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`
+      CREATE TABLE IF NOT EXISTS google_reviews (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        google_place_id text NOT NULL, review_id text NOT NULL UNIQUE, author_name text NOT NULL, rating integer NOT NULL,
+        text text, time timestamp NOT NULL, sentiment text NOT NULL DEFAULT 'neutral', response_text text,
+        response_sent_at timestamp, created_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS google_reviews_tenant_idx ON google_reviews (tenant_id);`;
+    await sql`CREATE INDEX IF NOT EXISTS google_reviews_rating_idx ON google_reviews (rating);`;
+    await sql`CREATE INDEX IF NOT EXISTS google_reviews_time_idx ON google_reviews (time);`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS competitors (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        name text NOT NULL, google_place_id text NOT NULL, current_rating numeric(3,2) NOT NULL DEFAULT 0,
+        review_count integer NOT NULL DEFAULT 0, last_check_at timestamp, created_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS competitors_tenant_idx ON competitors (tenant_id);`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS competitor_rating_history (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(), competitor_id uuid NOT NULL REFERENCES competitors(id) ON DELETE CASCADE,
+        rating numeric(3,2) NOT NULL, review_count integer NOT NULL, recorded_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS competitor_rating_history_competitor_idx ON competitor_rating_history (competitor_id);`;
+
     return NextResponse.json({ ok: true, message: 'All Neon database columns and tables synchronized successfully' });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Migration failed' }, { status: 500 });
