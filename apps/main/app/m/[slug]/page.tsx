@@ -22,12 +22,11 @@ export const dynamic = 'force-dynamic';
  * WhatsApp by diners who have no account, so middleware.ts also lists
  * '/m/(.*)' as a public route.
  *
- * NOTE ON SCOPE: this reads only columns that exist in the current schema
- * (name, description, opening_hours). A dedicated `menu_text` column — so
- * owners can publish an actual dish list rather than relying on the
- * description field — is a deliberate follow-up: adding it requires a schema
- * change plus a settings-form field, and this change is scoped to stopping
- * the 404 without touching the database.
+ * `tenants.menu_text` was added in Gate #18 (market intelligence needs the
+ * tenant's own dish list to compare against competitors'). This page now
+ * renders it when the owner has filled it in, and falls back to the
+ * WhatsApp prompt when they have not — so a menu that was only ever used for
+ * internal analysis is also the one diners see.
  */
 
 interface Props {
@@ -50,6 +49,7 @@ const getTenantUncached = (slug: string) =>
       name: true,
       description: true,
       openingHours: true,
+      menuText: true,
     },
   });
 
@@ -94,8 +94,14 @@ export default async function MenuPage({ params }: Props) {
             Menu
           </h2>
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5 text-sm leading-relaxed text-zinc-400">
-            Message us on WhatsApp and we’ll gladly talk you through today’s dishes and chef
-            specials.
+            {tenant.menuText ? (
+              <p className="whitespace-pre-wrap text-zinc-300">{tenant.menuText}</p>
+            ) : (
+              <>
+                Message us on WhatsApp and we’ll gladly talk you through today’s dishes and chef
+                specials.
+              </>
+            )}
           </div>
         </section>
 

@@ -24,7 +24,8 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { name, description, openingHours, aiPersonality, systemPrompt, aiEnabled, manualMode } = body;
+    const { name, description, openingHours, aiPersonality, systemPrompt, aiEnabled, manualMode, address, menuText } =
+      body;
 
     const [updated] = await db
       .update(tenants)
@@ -32,6 +33,10 @@ export async function POST(req: Request) {
         name: name !== undefined ? name : tenant.name,
         description: description !== undefined ? description : tenant.description,
         openingHours: openingHours !== undefined ? openingHours : tenant.openingHours,
+        // Gates #15/#18: the venue address (competitor discovery radius) and
+        // the tenant's own menu (positioning / opportunity analysis).
+        address: address !== undefined ? address : tenant.address,
+        menuText: menuText !== undefined ? menuText : tenant.menuText,
         aiPersonality: aiPersonality !== undefined ? aiPersonality : tenant.aiPersonality,
         systemPrompt: systemPrompt !== undefined ? systemPrompt : tenant.systemPrompt,
         aiEnabled: aiEnabled !== undefined ? aiEnabled : tenant.aiEnabled,
