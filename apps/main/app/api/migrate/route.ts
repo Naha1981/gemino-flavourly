@@ -415,6 +415,54 @@ export async function GET() {
         ON market_opportunities (tenant_id, key);
     `;
 
+    // Gates #23-#25 — Operations & Integration Engine. Mirrors
+    // drizzle/0013_engine6.sql and is deliberately additive for existing
+    // Engine 1-4 installations.
+    await sql`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS channel text DEFAULT 'whatsapp' NOT NULL;`;
+    await sql`ALTER TABLE conversations ADD COLUMN IF NOT EXISTS external_id text;`;
+    await sql`CREATE INDEX IF NOT EXISTS conversations_tenant_channel_idx ON conversations (tenant_id, channel);`;
+    await sql`CREATE INDEX IF NOT EXISTS conversations_tenant_external_idx ON conversations (tenant_id, external_id);`;
+
+    await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS description text;`;
+    await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS target_segment text;`;
+    await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS offer text;`;
+    await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS start_date timestamp;`;
+    await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS end_date timestamp;`;
+    await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS launched_at timestamp;`;
+    await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS estimated_reach integer;`;
+    await sql`ALTER TABLE campaigns ADD COLUMN IF NOT EXISTS estimated_revenue_cents integer;`;
+    await sql`CREATE INDEX IF NOT EXISTS campaigns_tenant_status_idx ON campaigns (tenant_id, status);`;
+
+    await sql`
+      CREATE TABLE IF NOT EXISTS channel_configs (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        channel text NOT NULL,
+        credentials_encrypted text,
+        enabled boolean DEFAULT false NOT NULL,
+        created_at timestamp DEFAULT NOW() NOT NULL,
+        updated_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`CREATE UNIQUE INDEX IF NOT EXISTS channel_configs_tenant_channel_idx ON channel_configs (tenant_id, channel);`;
+    await sql`CREATE INDEX IF NOT EXISTS channel_configs_tenant_idx ON channel_configs (tenant_id);`;
+
+    await sql`
+      CREATE TABLE IF NOT EXISTS approval_requests (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        conversation_id uuid NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+        message_text text NOT NULL,
+        risk_level text NOT NULL,
+        status text DEFAULT 'pending' NOT NULL,
+        approved_by text,
+        approved_at timestamp,
+        created_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS approval_requests_tenant_status_idx ON approval_requests (tenant_id, status);`;
+    await sql`CREATE INDEX IF NOT EXISTS approval_requests_conversation_idx ON approval_requests (conversation_id);`;
+
     return NextResponse.json({ ok: true, message: 'All Neon database columns and tables synchronized successfully' });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Migration failed' }, { status: 500 });

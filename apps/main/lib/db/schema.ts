@@ -138,6 +138,10 @@ export const conversations = pgTable('conversations', {
     .notNull()
     .references(() => contacts.id, { onDelete: 'cascade' }),
   waAccountId: uuid('wa_account_id').references(() => waAccounts.id, { onDelete: 'set null' }),
+  channel: text('channel', { enum: ['whatsapp', 'email', 'instagram', 'facebook', 'web'] })
+    .default('whatsapp')
+    .notNull(),
+  externalId: text('external_id'),
   manualTakeover: boolean('manual_takeover').default(false).notNull(),
   isResolved: boolean('is_resolved').default(false).notNull(),
   outcome: text('outcome', { enum: ['converted', 'missed', 'handled', 'lost'] }),
@@ -146,7 +150,10 @@ export const conversations = pgTable('conversations', {
   outcomeClassifier: text('outcome_classifier', { enum: ['rule', 'ai', 'manual'] }),
   lastMessageAt: timestamp('last_message_at').defaultNow().notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (table) => ({
+  tenantChannelIdx: index('conversations_tenant_channel_idx').on(table.tenantId, table.channel),
+  tenantExternalIdx: index('conversations_tenant_external_idx').on(table.tenantId, table.externalId),
+}));
 
 // -----------------------------------------------------------------------------
 // 6. Messages (Inbound customer messages & Outbound AI / manual replies)
@@ -417,8 +424,46 @@ export const campaigns = pgTable('campaigns', {
   sentCount: integer('sent_count').default(0),
   sentAt: timestamp('sent_at'),
   status: text('status', { enum: ['draft', 'queued', 'sent', 'failed'] }).default('draft').notNull(),
+  description: text('description'),
+  targetSegment: text('target_segment'),
+  offer: text('offer'),
+  startDate: timestamp('start_date'),
+  endDate: timestamp('end_date'),
+  launchedAt: timestamp('launched_at'),
+  estimatedReach: integer('estimated_reach'),
+  estimatedRevenueCents: integer('estimated_revenue_cents'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+}, (table) => ({
+  tenantStatusIdx: index('campaigns_tenant_status_idx').on(table.tenantId, table.status),
+}));
+
+export const channelConfigs = pgTable('channel_configs', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  channel: text('channel', { enum: ['whatsapp', 'email', 'instagram', 'facebook', 'web'] }).notNull(),
+  credentialsEncrypted: text('credentials_encrypted'),
+  enabled: boolean('enabled').default(false).notNull(),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+}, (table) => ({
+  tenantIdx: index('channel_configs_tenant_idx').on(table.tenantId),
+  tenantChannelIdx: uniqueIndex('channel_configs_tenant_channel_idx').on(table.tenantId, table.channel),
+}));
+
+export const approvalRequests = pgTable('approval_requests', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+  conversationId: uuid('conversation_id').notNull().references(() => conversations.id, { onDelete: 'cascade' }),
+  messageText: text('message_text').notNull(),
+  riskLevel: text('risk_level', { enum: ['green', 'yellow', 'red'] }).notNull(),
+  status: text('status', { enum: ['pending', 'approved', 'rejected'] }).default('pending').notNull(),
+  approvedBy: text('approved_by'),
+  approvedAt: timestamp('approved_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+}, (table) => ({
+  tenantStatusIdx: index('approval_requests_tenant_status_idx').on(table.tenantId, table.status),
+  conversationIdx: index('approval_requests_conversation_idx').on(table.conversationId),
+}));
 
 // -----------------------------------------------------------------------------
 // 13. Outbox Jobs Queue (Guaranteed Delivery)
@@ -810,6 +855,8 @@ export const tenantRelations = relations(tenants, ({ many, one }) => ({
   googlePlacesConfig: one(googlePlacesConfig),
   competitors: many(competitors),
   marketOpportunities: many(marketOpportunities),
+  channelConfigs: many(channelConfigs),
+  approvalRequests: many(approvalRequests),
 }));
 
 export const waAccountRelations = relations(waAccounts, ({ one, many }) => ({
@@ -828,6 +875,7 @@ export const contactRelations = relations(contacts, ({ one, many }) => ({
   conversations: many(conversations),
   reservations: many(reservations),
   waitlistEntries: many(waitlistEntries),
+  approvalRequests: many(approvalRequests),
   loyaltyTransactions: many(loyaltyTransactions),
   customerProfiles: many(customerProfiles),
 }));
