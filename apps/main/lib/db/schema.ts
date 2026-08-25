@@ -27,6 +27,20 @@ export const tenants = pgTable('tenants', {
   aiEnabled: boolean('ai_enabled').default(true).notNull(),
   manualMode: boolean('manual_mode').default(false).notNull(),
   systemPrompt: text('system_prompt'),
+  // Gate #18 — the tenant's OWN menu, as the owner publishes it. Positioning
+  // analysis compares the tenant's dishes and prices against competitors', and
+  // before this column there was nowhere to read them from: `description` is a
+  // one-line blurb and `system_prompt` is AI behaviour, neither of which is a
+  // dish list. Nullable — a tenant that never fills it in simply gets an
+  // "no menu on record" positioning report rather than invented data.
+  menuText: text('menu_text'),
+  // Gate #15 — where the venue actually is. Competitor discovery is "every
+  // restaurant within 5km of ME", so the tenant needs a location to search
+  // around; storing the geocoded result means the Discover button is a single
+  // click on every later run instead of re-typing (and re-billing) an address.
+  address: text('address'),
+  latitude: numeric('latitude'),
+  longitude: numeric('longitude'),
   monthlyFee: decimal('monthly_fee', { precision: 10, scale: 2 }).default('49.00'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
@@ -621,11 +635,19 @@ export const googlePlacesConfig = pgTable(
 );
 
 // ── Gate #14: competitor Google rating monitoring ───────────────────────────
+// ── Gate #15: local market intelligence (discovery + tracking) ──────────────
 //
-// Competitors a tenant wants to watch. NOTE (Gate #15): the Market
-// Intelligence engine extends this table with address/geo/website columns;
-// `google_place_id` stays NOT NULL because rating monitoring (Gate #14) is
-// meaningless without it.
+// Competitors a tenant wants to watch. Gate #14 created this table for rating
+// monitoring; Gate #15 extends the SAME rows with the market-intelligence
+// columns (address, geo, distance, website, phone) rather than adding a second
+// competitor table — one business is one competitor, whichever engine is
+// looking at it.
+//
+// `google_place_id` became NULLABLE in Gate #15: a competitor can be added by
+// hand from the dashboard (name + address + website) or discovered by the
+// market engine, and menu/promotion tracking works from `website_url` alone.
+// The Gate #14 rating cron skips rows without a place id instead of failing a
+// Places call for them.
 export const competitors = pgTable(
   'competitors',
   {
@@ -634,14 +656,99 @@ export const competitors = pgTable(
       .notNull()
       .references(() => tenants.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
-    googlePlaceId: text('google_place_id').notNull(),
+    googlePlaceId: text('google_place_id'),
+    address: text('address'),
+    // numeric (not doublePrecision): Postgres decimals round-trip without the
+    // float noise that would make a stored 5.00 km read back as 4.999999.
+    latitude: numeric('latitude'),
+    longitude: numeric('longitude'),
+    distanceKm: numeric('distance_km'),
+    websiteUrl: text('website_url'),
+    phone: text('phone'),
     currentRating: numeric('current_rating').default('0').notNull(),
     reviewCount: integer('review_count').default(0).notNull(),
     lastCheckAt: timestamp('last_check_at'),
     createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (table) => ({
     tenantIdx: index('competitors_tenant_idx').on(table.tenantId),
+    // Discovery lists competitors nearest-first.
+    distanceIdx: index('competitors_distance_idx').on(table.distanceKm),
+  })
+);
+
+// ── Gate #16: competitor menu/price tracking ────────────────────────────────
+//
+// One row per scrape that CHANGED something. Unchanged scrapes write nothing,
+// so the table is a timeline of real edits rather than a daily log — the
+// dashboard can show "menu changed 3 times this month" truthfully.
+export const competitorMenuSnapshots = pgTable(
+  'competitor_menu_snapshots',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    competitorId: uuid('competitor_id')
+      .notNull()
+      .references(() => competitors.id, { onDelete: 'cascade' }),
+    menuUrl: text('menu_url'),
+    menuText: text('menu_text'),
+    // Human-readable band, e.g. "R100-R200 per person".
+    priceRange: text('price_range'),
+    snapshotAt: timestamp('snapshot_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    competitorIdx: index('competitor_menu_snapshots_competitor_idx').on(table.competitorId),
+  })
+);
+
+// Every promotion detected on a competitor's site. Deduplication against the
+// last N days happens in the tracking cron (the same banner running for three
+// weeks is one promotion, not 21).
+export const competitorPromotions = pgTable(
+  'competitor_promotions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    competitorId: uuid('competitor_id')
+      .notNull()
+      .references(() => competitors.id, { onDelete: 'cascade' }),
+    promotionText: text('promotion_text').notNull(),
+    // Where it was detected: "website:example.com", "google", "social".
+    source: text('source'),
+    detectedAt: timestamp('detected_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    competitorIdx: index('competitor_promotions_competitor_idx').on(table.competitorId),
+  })
+);
+
+// ── Gate #17: market opportunities ──────────────────────────────────────────
+//
+// A gap the analyzer found in the tenant's 5km market ("no competitor offers
+// Sunday brunch"). `key` is a stable per-tenant identity for the gap, so a
+// re-run UPDATEs the existing row (fresh confidence + evidence) instead of
+// piling up duplicates — and, critically, does not silently un-mark an
+// opportunity the tenant already acted on.
+export const marketOpportunities = pgTable(
+  'market_opportunities',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    key: text('key').notNull(),
+    opportunityType: text('opportunity_type').notNull(),
+    title: text('title').notNull(),
+    description: text('description').notNull(),
+    confidence: numeric('confidence').default('0').notNull(),
+    evidence: jsonb('evidence').default([]).notNull(),
+    addressed: boolean('addressed').default(false).notNull(),
+    addressedAt: timestamp('addressed_at'),
+    detectedAt: timestamp('detected_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantIdx: index('market_opportunities_tenant_idx').on(table.tenantId),
+    tenantKeyUniq: uniqueIndex('market_opportunities_tenant_key_uniq').on(table.tenantId, table.key),
   })
 );
 
@@ -696,6 +803,7 @@ export const tenantRelations = relations(tenants, ({ many, one }) => ({
   googleReviews: many(googleReviews),
   googlePlacesConfig: one(googlePlacesConfig),
   competitors: many(competitors),
+  marketOpportunities: many(marketOpportunities),
 }));
 
 export const waAccountRelations = relations(waAccounts, ({ one, many }) => ({
@@ -809,11 +917,34 @@ export const competitorRelations = relations(competitors, ({ one, many }) => ({
     references: [tenants.id],
   }),
   ratingHistory: many(competitorRatingHistory),
+  menuSnapshots: many(competitorMenuSnapshots),
+  promotions: many(competitorPromotions),
 }));
 
 export const competitorRatingHistoryRelations = relations(competitorRatingHistory, ({ one }) => ({
   competitor: one(competitors, {
     fields: [competitorRatingHistory.competitorId],
     references: [competitors.id],
+  }),
+}));
+
+export const competitorMenuSnapshotRelations = relations(competitorMenuSnapshots, ({ one }) => ({
+  competitor: one(competitors, {
+    fields: [competitorMenuSnapshots.competitorId],
+    references: [competitors.id],
+  }),
+}));
+
+export const competitorPromotionRelations = relations(competitorPromotions, ({ one }) => ({
+  competitor: one(competitors, {
+    fields: [competitorPromotions.competitorId],
+    references: [competitors.id],
+  }),
+}));
+
+export const marketOpportunityRelations = relations(marketOpportunities, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [marketOpportunities.tenantId],
+    references: [tenants.id],
   }),
 }));

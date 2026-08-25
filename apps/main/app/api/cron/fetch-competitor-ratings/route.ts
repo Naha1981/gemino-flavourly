@@ -31,7 +31,8 @@ export async function GET(req: NextRequest) {
 
   console.log(
     `[CompetitorRatings] checked=${summary.competitorsChecked} recorded=${summary.ratingsRecorded} ` +
-      `alerts=${summary.alertsCreated} noRating=${summary.skipped.noRating} failed=${summary.skipped.fetchFailed}`
+      `alerts=${summary.alertsCreated} noRating=${summary.skipped.noRating} ` +
+      `noPlaceId=${summary.skipped.noPlaceId} failed=${summary.skipped.fetchFailed}`
   );
 
   return NextResponse.json({ ok: true, ...summary });
