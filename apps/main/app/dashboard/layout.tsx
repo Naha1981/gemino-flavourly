@@ -1,6 +1,6 @@
+import { FileText, LayoutDashboard, MessageSquare, QrCode, Settings, Star, Swords, TrendingUp, Users } from 'lucide-react';
 import Link from 'next/link';
 import { UserButton } from '@clerk/nextjs';
-import { LayoutDashboard, MessageSquare, QrCode, Settings, Star, Swords, TrendingUp, Users } from 'lucide-react';
 import { ReactNode } from 'react';
 
 export default function DashboardLayout({ children }: { children: ReactNode }) {
@@ -14,6 +14,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     // Gates #15-#18 — Market Intelligence: competitor discovery, menu/price/
     // promotion tracking, market opportunities and positioning.
     { href: '/dashboard/market/competitors', label: 'Market Intelligence', icon: Swords },
+      { href: '/dashboard/marketing', label: 'Marketing', icon: FileText },
     { href: '/dashboard/whatsapp', label: 'WhatsApp', icon: QrCode },
     { href: '/dashboard/settings', label: 'Settings', icon: Settings },
   ];
