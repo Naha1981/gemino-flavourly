@@ -77,7 +77,13 @@ describe('market competitor store: tenant isolation', () => {
     // allowlist. Dropping a filter from a tenant-facing helper fails here.
     const blocks = src.split('\nexport ').slice(1);
     // Platform-wide by design: the daily cron sweep and the Super Admin KPIs.
-    const allowlist = new Set(['findTrackedCompetitors', 'countAllMarketCompetitors']);
+    // countCompetitorsWithPlaceId is the 'how many are rating-monitored'
+    // trend line on the admin card, so it is unscoped like its siblings.
+    const allowlist = new Set([
+      'findTrackedCompetitors',
+      'countAllMarketCompetitors',
+      'countCompetitorsWithPlaceId',
+    ]);
     // Cron-only writes keyed by the row id it just read.
     const cronOnlyByKey = new Set(['saveDiscoveredMenuUrl']);
 

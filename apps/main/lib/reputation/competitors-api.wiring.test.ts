@@ -75,11 +75,15 @@ describe('competitors dashboard + super admin wiring (Gate #14)', () => {
     assert.match(src, /getRatingHistory/);
   });
 
-  test('super admin gains Competitors Monitored + Rating Drop Alerts KPIs', () => {
+  test('super admin shows the competitor KPIs (Gate #14 rating + Gate #15 market)', () => {
     const src = code(ADMIN);
-    assert.match(src, /countAllCompetitors\(\)\.catch\(\(\) => 0\)/);
+    // Gate #18 renamed the competitor card to "Competitors Tracked" and moved
+    // it onto the market engine's counter — same `competitors` table, one
+    // metric instead of two that would drift apart.
+    assert.match(src, /countAllMarketCompetitors\(\)\.catch\(\(\) => 0\)/);
+    assert.match(src, /countCompetitorsWithPlaceId\(\)\.catch\(\(\) => 0\)/);
     assert.match(src, /countRatingDropAlertsThisWeek\(\)\.catch\(\(\) => 0\)/);
-    assert.match(src, /Competitors Monitored/);
+    assert.match(src, /Competitors Tracked/);
     assert.match(src, /Rating Drop Alerts/);
   });
 });

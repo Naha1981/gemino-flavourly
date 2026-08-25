@@ -183,3 +183,28 @@ describe('market API: menu history, promotions and alerts', () => {
     assert.match(src, /Math\.min\(daysParam,\s*90\)/);
   });
 });
+
+describe('super admin: market metrics (#18)', () => {
+  const ADMIN = join(HERE, '..', '..', 'app', 'admin', 'page.tsx');
+  const admin = code(ADMIN);
+
+  test('the three market KPIs are computed with the degrade-to-0 contract', () => {
+    assert.match(admin, /countAllMarketCompetitors\(\)\.catch\(\(\) => 0\)/);
+    assert.match(admin, /countAllOpportunities\(\)\.catch\(\(\) => 0\)/);
+    assert.match(admin, /countMarketAlertsThisWeek\(\)\.catch\(\(\) => 0\)/);
+  });
+
+  test('each KPI is rendered on a card', () => {
+    assert.match(admin, /title="Competitors Tracked"/);
+    assert.match(admin, /title="Market Opportunities"/);
+    assert.match(admin, /title="Competitor Alerts"/);
+  });
+
+  test('the competitor card is honest about what it counts', () => {
+    // "Competitors Tracked" is every competitor row; the trend line reports
+    // how many of those the rating sweep can actually poll (they have a
+    // Google place id), so the two numbers cannot be confused.
+    assert.match(admin, /countCompetitorsWithPlaceId\(\)\.catch\(\(\) => 0\)/);
+    assert.match(admin, /of them rating-monitored/);
+  });
+});

@@ -447,6 +447,20 @@ export async function countAllMarketCompetitors(): Promise<number> {
   return Number(row?.value ?? 0);
 }
 
+/**
+ * How many tracked competitors have a Google place id — i.e. how many the
+ * Gate #14 rating sweep can actually poll. The difference against the total is
+ * hand-added / discovered competitors that are tracked for menu and promotion
+ * changes only.
+ */
+export async function countCompetitorsWithPlaceId(): Promise<number> {
+  const [row] = await db
+    .select({ value: sql<number>`count(*)::int` })
+    .from(competitors)
+    .where(isNotNull(competitors.googlePlaceId));
+  return Number(row?.value ?? 0);
+}
+
 /** Menu-change + promotion alerts raised in the last 7 days, platform-wide. */
 export async function countMarketAlertsThisWeek(): Promise<number> {
   const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
