@@ -131,7 +131,9 @@ export class PayFastProvider implements BillingProvider {
     };
 
     const signature = buildPaymentSignature(data);
-    const query = payfastFields([...Object.entries(data).map(([name, value]) => ({ name, value })), { name: 'signature', value: signature })]);
+    const fields: PayFastField[] = Object.entries(data).map(([name, value]) => ({ name, value }));
+    fields.push({ name: 'signature', value: signature });
+    const query = payfastFields(fields);
 
     return { redirectUrl: `${BASE_URL}?${query}` };
   }
@@ -183,7 +185,7 @@ export class PayFastProvider implements BillingProvider {
     const params = new URLSearchParams(rawBody);
     const data: Record<string, string> = {};
     let signature = '';
-    for (const [k, v] of params.entries()) {
+    for (const [k, v] of Array.from(params.entries())) {
       if (k === 'signature') {
         signature = v;
       } else {

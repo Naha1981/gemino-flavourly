@@ -77,7 +77,7 @@ class FakePayFastProvider implements BillingProvider {
     const params = new URLSearchParams(rawBody);
     const data: Record<string, string> = {};
     let signature = '';
-    for (const [k, v] of params.entries()) {
+    for (const [k, v] of Array.from(params.entries())) {
       if (k === 'signature') signature = v;
       else data[k] = v;
     }
