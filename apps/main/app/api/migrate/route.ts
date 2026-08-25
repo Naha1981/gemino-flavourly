@@ -327,6 +327,93 @@ export async function GET() {
         ON competitor_rating_history (competitor_id);
     `;
 
+    // 18. Gates #15-#18 — Local Market Intelligence Engine. Mirrors
+    // drizzle/0012_competitors.sql. Everything is additive except the
+    // google_place_id relaxation, which is what makes a hand-added competitor
+    // (no Google listing) insertable at all.
+    await sql`
+      CREATE TABLE IF NOT EXISTS competitors (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        name text NOT NULL,
+        google_place_id text,
+        current_rating numeric DEFAULT 0 NOT NULL,
+        review_count integer DEFAULT 0 NOT NULL,
+        last_check_at timestamp,
+        created_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`ALTER TABLE competitors ADD COLUMN IF NOT EXISTS address text;`;
+    await sql`ALTER TABLE competitors ADD COLUMN IF NOT EXISTS latitude numeric;`;
+    await sql`ALTER TABLE competitors ADD COLUMN IF NOT EXISTS longitude numeric;`;
+    await sql`ALTER TABLE competitors ADD COLUMN IF NOT EXISTS distance_km numeric;`;
+    await sql`ALTER TABLE competitors ADD COLUMN IF NOT EXISTS website_url text;`;
+    await sql`ALTER TABLE competitors ADD COLUMN IF NOT EXISTS phone text;`;
+    await sql`ALTER TABLE competitors ADD COLUMN IF NOT EXISTS updated_at timestamp DEFAULT NOW() NOT NULL;`;
+    await sql`ALTER TABLE competitors ALTER COLUMN google_place_id DROP NOT NULL;`;
+    await sql`CREATE INDEX IF NOT EXISTS competitors_distance_idx ON competitors (distance_km);`;
+
+    // Tenant location + the tenant's own menu (positioning analysis input).
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS address text;`;
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS latitude numeric;`;
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS longitude numeric;`;
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS menu_text text;`;
+
+    // One row per menu scrape that CHANGED something (unchanged menus write
+    // nothing), so the table reads as a timeline of real edits.
+    await sql`
+      CREATE TABLE IF NOT EXISTS competitor_menu_snapshots (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        competitor_id uuid NOT NULL REFERENCES competitors(id) ON DELETE CASCADE,
+        menu_url text,
+        menu_text text,
+        price_range text,
+        snapshot_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS competitor_menu_snapshots_competitor_idx
+        ON competitor_menu_snapshots (competitor_id);
+    `;
+
+    await sql`
+      CREATE TABLE IF NOT EXISTS competitor_promotions (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        competitor_id uuid NOT NULL REFERENCES competitors(id) ON DELETE CASCADE,
+        promotion_text text NOT NULL,
+        source text,
+        detected_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`
+      CREATE INDEX IF NOT EXISTS competitor_promotions_competitor_idx
+        ON competitor_promotions (competitor_id);
+    `;
+
+    // (tenant_id, key) is unique: a re-run refreshes the row instead of
+    // duplicating it, and never clears an "addressed" flag.
+    await sql`
+      CREATE TABLE IF NOT EXISTS market_opportunities (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        key text NOT NULL,
+        opportunity_type text NOT NULL,
+        title text NOT NULL,
+        description text NOT NULL,
+        confidence numeric DEFAULT 0 NOT NULL,
+        evidence jsonb DEFAULT '[]'::jsonb NOT NULL,
+        addressed boolean DEFAULT false NOT NULL,
+        addressed_at timestamp,
+        detected_at timestamp DEFAULT NOW() NOT NULL,
+        updated_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS market_opportunities_tenant_idx ON market_opportunities (tenant_id);`;
+    await sql`
+      CREATE UNIQUE INDEX IF NOT EXISTS market_opportunities_tenant_key_uniq
+        ON market_opportunities (tenant_id, key);
+    `;
+
     return NextResponse.json({ ok: true, message: 'All Neon database columns and tables synchronized successfully' });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Migration failed' }, { status: 500 });
