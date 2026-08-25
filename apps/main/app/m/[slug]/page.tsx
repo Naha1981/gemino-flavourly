@@ -115,7 +115,7 @@ export default async function MenuPage({ params }: Props) {
         </section>
 
         <footer className="mt-10 border-t border-zinc-800 pt-5 text-center text-xs text-zinc-600">
-          Powered by Gemino AI
+          Powered by Flavourly
         </footer>
       </div>
     </main>
