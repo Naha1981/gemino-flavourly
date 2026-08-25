@@ -52,6 +52,15 @@ describe('market tracking cron wiring', () => {
     assert.match(route, /export const maxDuration = 60/);
   });
 
+  test('the same sweep refreshes market opportunities from stored data', () => {
+    assert.match(route, /refreshOpportunitiesForTrackedTenants\(\)/);
+    const handler = from(route, 'export async function GET');
+    const trackAt = handler.indexOf('runCompetitorTrackingCron(');
+    const opportunitiesAt = handler.indexOf('refreshOpportunitiesForTrackedTenants(');
+    assert.ok(trackAt > -1 && opportunitiesAt > -1);
+    assert.ok(trackAt < opportunitiesAt, 'opportunities must be recomputed AFTER the menus are scraped');
+  });
+
   test('route does not read a secret from the query string', () => {
     assert.doesNotMatch(route, /searchParams\.get\(\s*['"](key|secret|token|cron_secret)['"]\s*\)/i);
   });

@@ -5,6 +5,7 @@ import { runCompetitorTrackingCron } from '@/lib/market/competitor-alerts';
 import { drizzleMarketTrackingStore } from '@/lib/market/competitor-store';
 import { itemsFromText, menuSnapshotText, scrapeMenu } from '@/lib/market/menu-scraper';
 import { detectPromotions, newPromotions } from '@/lib/market/promotion-detector';
+import { refreshOpportunitiesForTrackedTenants } from '@/lib/market/opportunity-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -30,7 +31,8 @@ const COMPETITORS_PER_RUN = 40;
  *
  * All the logic lives in lib/market/competitor-alerts.ts's framework-free
  * runner; this handler only authorizes, wires the real implementations in,
- * and reports the summary.
+ * and reports the summary. It then recomputes market opportunities (#17)
+ * from what the sweep just stored.
  */
 export async function GET(req: NextRequest) {
   const authError = assertCronAuthorized(req);
@@ -61,5 +63,14 @@ export async function GET(req: NextRequest) {
       `noMenuItems=${summary.skipped.noMenuItems}`
   );
 
-  return NextResponse.json({ ok: true, ...summary });
+  // Gate #17 — opportunities are recomputed from what the sweep just stored,
+  // so a menu change detected at 08:00 is reflected in the gap list the same
+  // morning. It reads only stored rows (no outbound HTTP) and is per-tenant.
+  const opportunities = await refreshOpportunitiesForTrackedTenants();
+  console.log(
+    `[MarketOpportunities] tenants=${opportunities.tenants} opportunities=${opportunities.opportunities} ` +
+      `failed=${opportunities.failed}`
+  );
+
+  return NextResponse.json({ ok: true, ...summary, opportunities });
 }
