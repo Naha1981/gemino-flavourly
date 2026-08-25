@@ -7,7 +7,7 @@ export default function TermsPage() {
         <div className="mx-auto flex h-16 max-w-4xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 text-lg font-bold text-zinc-900">G</span>
-            <span className="text-lg font-semibold tracking-tight">Gemino AI</span>
+            <span className="text-lg font-semibold tracking-tight">Flavourly</span>
           </Link>
           <nav className="flex items-center gap-4">
             <Link href="/" className="text-sm text-zinc-300 hover:text-white">Home</Link>
@@ -23,7 +23,7 @@ export default function TermsPage() {
 
         <h2 className="mt-10 text-2xl font-semibold">1. Service</h2>
         <p className="mt-3 text-zinc-300">
-          Gemino AI provides a multi-tenant WhatsApp AI assistant platform for restaurants. The service includes AI-powered customer replies, booking and waitlist management, loyalty and reactivation campaigns, market intelligence, and marketing tools.
+          Flavourly provides a multi-tenant WhatsApp AI assistant platform for restaurants. The service includes AI-powered customer replies, booking and waitlist management, loyalty and reactivation campaigns, market intelligence, and marketing tools.
         </p>
 
         <h2 className="mt-10 text-2xl font-semibold">2. Accounts</h2>
@@ -53,7 +53,7 @@ export default function TermsPage() {
 
         <h2 className="mt-10 text-2xl font-semibold">7. Liability</h2>
         <p className="mt-3 text-zinc-300">
-          To the maximum extent permitted by law, Gemino AI&apos;s liability is limited to the fees paid in the 12 months preceding the claim. We are not liable for indirect or consequential damages.
+          To the maximum extent permitted by law, Flavourly&apos;s liability is limited to the fees paid in the 12 months preceding the claim. We are not liable for indirect or consequential damages.
         </p>
 
         <h2 className="mt-10 text-2xl font-semibold">8. Changes</h2>
@@ -69,7 +69,7 @@ export default function TermsPage() {
 
       <footer className="border-t border-zinc-800/80 py-8">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 text-sm text-zinc-500">
-          <span>&copy; {new Date().getFullYear()} Gemino AI</span>
+          <span>&copy; {new Date().getFullYear()} Flavourly</span>
           <div className="flex gap-5">
             <Link href="/pricing" className="hover:text-zinc-300">Pricing</Link>
             <Link href="/privacy" className="hover:text-zinc-300">Privacy</Link>

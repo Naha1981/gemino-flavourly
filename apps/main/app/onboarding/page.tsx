@@ -142,7 +142,7 @@ export default function OnboardingWizard() {
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4">
       <div className="w-full max-w-2xl space-y-6 rounded-lg border border-zinc-800 bg-zinc-900 p-8 shadow-xl">
         <div>
-          <h1 className="text-2xl font-bold">Welcome to Gemino AI</h1>
+          <h1 className="text-2xl font-bold">Welcome to Flavourly</h1>
           <p className="mt-1 text-sm text-zinc-400">Let&apos;s get your restaurant set up in a few minutes.</p>
         </div>
 
