@@ -1,15 +1,15 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Gemino Platform End-to-End Test Suite', () => {
-  // Test 1: Landing page loads, and double-clicking the "G" logo redirects to /admin
-  test('Test 1: Landing page loads and double-clicking the "G" logo redirects to /admin', async ({ page }) => {
+test.describe('Flavourly Platform End-to-End Test Suite', () => {
+  // Test 1: Landing page loads, and double-clicking the Flavourly logo redirects to /admin
+  test('Test 1: Landing page loads and double-clicking the logo redirects to /admin', async ({ page }) => {
     await page.goto('/');
     
     // Check hero headline
-    await expect(page.locator('h1')).toContainText('Every WhatsApp message answered');
+    await expect(page.locator('h1')).toContainText('Your restaurant, fully booked');
     
     // Find the logo button and double click
-    const logoButton = page.locator('button[title*="Gemino AI"]');
+    const logoButton = page.locator('button[title*="Flavourly"]');
     await expect(logoButton).toBeVisible();
     await logoButton.dblclick();
     

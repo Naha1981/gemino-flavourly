@@ -21,7 +21,7 @@ export default function PrivacyPage() {
         <p className="text-zinc-500">Effective date: August 2026 &mdash; Version 2026-08-v1</p>
 
         <p className="mt-8 text-zinc-300">
-          Gemino AI (&quot;we&quot;, &quot;us&quot;) is committed to protecting the personal information of its restaurant tenants and their customers in compliance with the Protection of Personal Information Act (POPIA) of South Africa.
+          Flavourly (&quot;we&quot;, &quot;us&quot;) is committed to protecting the personal information of its restaurant tenants and their customers in compliance with the Protection of Personal Information Act (POPIA) of South Africa.
         </p>
 
         <h2 className="mt-10 text-2xl font-semibold">Data we collect</h2>
@@ -35,7 +35,7 @@ export default function PrivacyPage() {
 
         <h2 className="mt-10 text-2xl font-semibold">Purpose</h2>
         <p className="mt-3 text-zinc-300">
-          We collect and process this data solely to operate the Gemino AI assistant on your behalf: answering customer messages, managing bookings and waitlists, running loyalty and reactivation campaigns, generating market intelligence, and reporting on your revenue. We do not sell personal information to third parties.
+          We collect and process this data solely to operate the Flavourly assistant on your behalf: answering customer messages, managing bookings and waitlists, running loyalty and reactivation campaigns, generating market intelligence, and reporting on your revenue. We do not sell personal information to third parties.
         </p>
 
         <h2 className="mt-10 text-2xl font-semibold">Legal basis &amp; consent</h2>
@@ -69,13 +69,13 @@ export default function PrivacyPage() {
 
         <h2 className="mt-10 text-2xl font-semibold">Contact</h2>
         <p className="mt-3 text-zinc-300">
-          For privacy requests or questions, contact our Information Officer at <a href="mailto:privacy@gemino.app" className="text-emerald-400 hover:text-emerald-300">privacy@gemino.app</a>.
+          For privacy requests or questions, contact our Information Officer at <a href="mailto:privacy@flavourly.app" className="text-emerald-400 hover:text-emerald-300">privacy@flavourly.app</a>.
         </p>
       </main>
 
       <footer className="border-t border-zinc-800/80 py-8">
         <div className="mx-auto flex max-w-4xl items-center justify-between px-6 text-sm text-zinc-500">
-          <span>&copy; {new Date().getFullYear()} Gemino AI</span>
+          <span>&copy; {new Date().getFullYear()} Flavourly</span>
           <div className="flex gap-5">
             <Link href="/pricing" className="hover:text-zinc-300">Pricing</Link>
             <Link href="/terms" className="hover:text-zinc-300">Terms</Link>

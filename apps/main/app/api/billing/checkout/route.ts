@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://gemino.app';
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://flavourly.app';
   const returnUrl =
     typeof body.return_url === 'string' && body.return_url
       ? body.return_url
