@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { assertCronAuthorized } from '@/lib/cron/auth';
+import { canSendAutomatedMessages } from '@/lib/billing/gate-evaluate';
 import { runReactivationCampaignCron } from '@/lib/customer/reactivation-cron';
 import { drizzleReactivationCronStore } from '@/lib/customer/reactivation-store';
 
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, skipped: 'master_ai_switch_off', sent: 0 });
   }
 
-  const summary = await runReactivationCampaignCron(drizzleReactivationCronStore, { now: new Date() });
+  const summary = await runReactivationCampaignCron(drizzleReactivationCronStore, { now: new Date(), isSendable: canSendAutomatedMessages });
 
   console.log(
     `[Reactivation] tenants=${summary.tenantsChecked} candidates=${summary.candidatesScanned} ` +

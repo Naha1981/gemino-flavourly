@@ -13,6 +13,18 @@ import { isOptInMessage, isOptOutMessage } from '@/lib/opt-in-out';
 import { isCancellationRequest, handleCancellationIntent, type CancelIntentStore, type CancelIntentReservation } from './cancel-intent';
 import { markReservationCancelled } from '@/lib/revenue/cancellation-followup';
 import { drizzleCancellationFollowupStore } from '@/lib/revenue/cancellation-followup-store';
+import { decideBillingGate, type BillingTenantLike } from '@/lib/billing/gate';
+
+const SUPER_ADMIN_EMAILS = `${process.env.SUPER_ADMIN_EMAILS ?? ''},${process.env.ADMIN_EMAIL ?? ''}`
+  .split(',')
+  .map((e) => e.trim().toLowerCase())
+  .filter(Boolean);
+
+function isSuperAdminTenant(ownerEmail: string | null | undefined): boolean {
+  if (!ownerEmail) return false;
+  const email = ownerEmail.toLowerCase();
+  return SUPER_ADMIN_EMAILS.includes(email);
+}
 
 interface InboundContext {
   tenantId: string;
@@ -95,6 +107,19 @@ export async function processInboundAIResponse(ctx: InboundContext): Promise<str
 
   if (!tenant || !tenant.aiEnabled || tenant.manualMode) {
     return null; // AI disabled or manual mode active
+  }
+
+  // Billing gate: past-due / canceled tenants lose AI sending. Super admin
+  // tenants are never gated. The gate is pure over the tenant row we already
+  // loaded, so this adds no DB round-trip.
+  const billingAllowed = isSuperAdminTenant(tenant.ownerEmail)
+    || decideBillingGate({
+        planStatus: tenant.planStatus,
+        trialEndsAt: tenant.trialEndsAt,
+        payfastSubscriptionToken: tenant.payfastSubscriptionToken,
+      }).allowed;
+  if (!billingAllowed) {
+    return null; // billing gate: AI sending suspended (renew to resume)
   }
 
   // 1. POPIA / Unsubscribe Keyword Filter.

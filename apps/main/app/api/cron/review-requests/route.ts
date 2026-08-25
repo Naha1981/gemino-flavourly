@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/lib/db';
 import { assertCronAuthorized } from '@/lib/cron/auth';
+import { canSendAutomatedMessages } from '@/lib/billing/gate-evaluate';
 import { runReviewRequestCron, type ReviewRequestStore } from '@/lib/reputation/review-request-cron';
 import {
   findReviewRequestTenants,
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: true, skipped: 'master_ai_switch_off', sent: 0 });
   }
 
-  const summary = await runReviewRequestCron(cronStore, { now: new Date() });
+  const summary = await runReviewRequestCron(cronStore, { now: new Date(), isSendable: canSendAutomatedMessages });
 
   console.log(
     `[ReviewRequest] sent=${summary.sent}/${summary.reservationsScanned} ` +
