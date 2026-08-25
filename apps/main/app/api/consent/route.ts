@@ -2,10 +2,9 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getOrCreateTenant } from '@/lib/tenant';
 import { db } from '@/lib/db';
 import { consentRecords } from '@/lib/db/schema';
+import { CONSENT_VERSION } from '@/lib/billing/consent-version';
 
 export const dynamic = 'force-dynamic';
-
-export const CONSENT_VERSION = '2026-08-v1';
 
 /**
  * POST /api/consent — record a POPIA consent record for the tenant.

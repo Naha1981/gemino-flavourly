@@ -107,6 +107,17 @@ OPERATOR_API_KEY="your-operator-api-key"
 WEBHOOK_SECRET="your-webhook-secret"
 ADMIN_EMAIL="you@yourdomain.com"
 GOOGLE_GEMINI_API_KEY="AIzaSy..."
+GROQ_API_KEY="gsk_..."
+CRON_SECRET="random-32-char-hex"
+SUPER_ADMIN_EMAILS="you@yourdomain.com"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+NEXT_PUBLIC_WHATSAPP_CONTACT="27820000000"
+
+# PayFast (billing — South Africa)
+PAYFAST_MERCHANT_ID="10000100"
+PAYFAST_MERCHANT_KEY="your-merchant-key"
+PAYFAST_PASSPHRASE="your-passphrase"
+PAYFAST_SANDBOX="true"
 
 # In operator/.env:
 PORT=3001
