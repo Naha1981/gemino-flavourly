@@ -51,3 +51,6 @@ next-env.d.ts
 
 # One-shot dev tools (may contain secrets)
 scripts/setup-cronjobs.mjs
+scripts/clean-cronjobs.mjs
+cron-cleanup.sh
+existing_jobs.json
