@@ -48,3 +48,6 @@ operator/.env.local
 # TypeScript cache
 *.tsbuildinfo
 next-env.d.ts
+
+# One-shot dev tools (may contain secrets)
+scripts/setup-cronjobs.mjs
