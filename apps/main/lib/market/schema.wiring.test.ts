@@ -174,10 +174,10 @@ describe('Market Intelligence schema wiring (Gates #15-#18)', () => {
     assert.deepEqual(whens, [...whens].sort((a, b) => a - b), 'journal entries are not chronological');
   });
 
-  test('migration journal registers 0014_marketing_campaigns as the latest entry', () => {
+  test('migration journal registers 0015_marketing_events as the latest entry', () => {
     const journal = JSON.parse(source(JOURNAL));
-    const entry = journal.entries.find((e: { tag: string }) => e.tag === '0014_marketing_campaigns');
-    assert.ok(entry, 'journal has no 0014_marketing_campaigns entry');
+    const entry = journal.entries.find((e: { tag: string }) => e.tag === '0015_marketing_events');
+    assert.ok(entry, 'journal has no 0015_marketing_events entry');
     assert.equal(entry.idx, journal.entries.length - 1);
   });
 
