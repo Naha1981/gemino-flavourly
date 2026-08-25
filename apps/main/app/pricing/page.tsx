@@ -76,7 +76,7 @@ export default function PricingPage() {
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <Link href="/" className="flex items-center gap-3">
             <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-zinc-100 text-lg font-bold text-zinc-900">G</span>
-            <span className="text-lg font-semibold tracking-tight">Gemino AI</span>
+            <span className="text-lg font-semibold tracking-tight">Flavourly</span>
           </Link>
           <nav className="flex items-center gap-4">
             <Link href="/" className="text-sm text-zinc-300 hover:text-white">Home</Link>
@@ -169,7 +169,7 @@ export default function PricingPage() {
 
       <footer className="border-t border-zinc-800/80 py-8">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 text-sm text-zinc-500">
-          <span>&copy; {new Date().getFullYear()} Gemino AI</span>
+          <span>&copy; {new Date().getFullYear()} Flavourly</span>
           <div className="flex gap-5">
             <Link href="/privacy" className="hover:text-zinc-300">Privacy</Link>
             <Link href="/terms" className="hover:text-zinc-300">Terms</Link>

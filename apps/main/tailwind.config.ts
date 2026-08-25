@@ -18,6 +18,9 @@ const config: Config = {
     },
     extend: {
       colors: {
+        'green-950': '#0A2E28', 'green-900': '#0E3B33', 'green-600': '#1F6F5C',
+        'gold-500': '#C9A25A', 'gold-400': '#D9B36A', cream: '#FAF6EE', ink: '#101915',
+        'dark-surface': '#0B1613', 'dark-panel': '#10201B', text: '#E9E4D8',
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
         ring: 'hsl(var(--ring))',
@@ -48,8 +51,9 @@ const config: Config = {
           foreground: 'hsl(var(--card-foreground))',
         },
       },
+      fontFamily: { sans: ['var(--font-inter)', 'sans-serif'], display: ['var(--font-fraunces)', 'serif'] },
       borderRadius: {
-        lg: 'var(--radius)',
+        lg: '12px',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
