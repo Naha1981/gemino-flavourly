@@ -480,8 +480,12 @@ export function parsePriceRange(value: string | null | undefined): ParsedPriceRa
 // Scrape
 // -----------------------------------------------------------------------------
 
-/** One HTTP GET with a timeout, returning the body text (size-capped). */
-async function fetchText(
+/**
+ * One HTTP GET with a timeout, returning the body text (size-capped).
+ * Exported because the promotion detector (#16) fetches the same pages and
+ * must share the timeout, size cap and error contract.
+ */
+export async function fetchPageText(
   url: string,
   options: ScrapeOptions,
   timeoutMs: number,
@@ -527,7 +531,7 @@ export async function scrapeMenu(websiteUrl: string, options: ScrapeOptions = {}
   const currency = options.currency ?? 'R';
 
   let menuUrl = websiteUrl;
-  const first = await fetchText(menuUrl, options, timeoutMs, maxBytes);
+  const first = await fetchPageText(menuUrl, options, timeoutMs, maxBytes);
   if (!/text\/html|application\/xhtml/i.test(first.contentType) && first.contentType) {
     throw new Error(`Menu page at ${menuUrl} is not HTML (${first.contentType.split(';')[0]})`);
   }
@@ -539,7 +543,7 @@ export async function scrapeMenu(websiteUrl: string, options: ScrapeOptions = {}
     const link = extractMenuLink(first.text, menuUrl);
     if (link && link !== menuUrl) {
       try {
-        const second = await fetchText(link, options, timeoutMs, maxBytes);
+        const second = await fetchPageText(link, options, timeoutMs, maxBytes);
         const secondText = htmlToText(second.text);
         const secondItems = parseMenuItems(secondText);
         if (secondItems.length > 0) {
