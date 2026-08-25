@@ -163,14 +163,21 @@ export async function collectTenantOffering(tenantId: string): Promise<TenantOff
  * collect/analyse/save path, so no tenant ever sees another tenant's data.
  * Per-tenant failures are counted and do not stop the sweep.
  */
-export async function refreshOpportunitiesForTrackedTenants(limit = 50): Promise<{
+export async function refreshOpportunitiesForTrackedTenants(limit = 200): Promise<{
   tenants: number;
   opportunities: number;
   failed: number;
 }> {
+  // DISTINCT ON collapses the competitor table to one row per tenant, so the
+  // result size is the tenant count (inherently small), not the competitor
+  // count; `limit` is a safety valve, not the normal bound. It is ordered by
+  // tenant id because an unordered DISTINCT ON + LIMIT would pick an arbitrary
+  // subset every run, and arbitrary-but-different is the one ordering that can
+  // quietly starve the same tenants week after week.
   const rows = await db
     .selectDistinctOn([competitors.tenantId], { tenantId: competitors.tenantId })
     .from(competitors)
+    .orderBy(competitors.tenantId)
     .limit(Math.max(1, Math.min(limit, 500)));
 
   const result = { tenants: 0, opportunities: 0, failed: 0 };

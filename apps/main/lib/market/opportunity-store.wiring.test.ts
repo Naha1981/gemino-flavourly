@@ -76,6 +76,9 @@ describe('opportunity store: tenant isolation', () => {
   test('the platform-wide refresh still goes through the per-tenant path', () => {
     const fnBody = body(store, 'export async function refreshOpportunitiesForTrackedTenants');
     assert.match(fnBody, /selectDistinctOn\(\[competitors\.tenantId\]/);
+    // Ordered, because an unordered DISTINCT ON + LIMIT picks an arbitrary
+    // subset each run and can starve the same tenants indefinitely.
+    assert.match(fnBody, /orderBy\(competitors\.tenantId\)/);
     assert.match(fnBody, /refreshOpportunities\(row\.tenantId\)/, 'it must reuse the tenant-scoped analysis');
     assert.match(fnBody, /result\.failed \+= 1/, 'one tenant failing must not stop the sweep');
   });
