@@ -1,4 +1,4 @@
-import { FileText, LayoutDashboard, MessageSquare, QrCode, Settings, Star, Swords, TrendingUp, Users, Radio } from 'lucide-react';
+import { FileText, LayoutDashboard, MessageSquare, QrCode, Settings, Star, Swords, TrendingUp, Users, Radio, BarChart3 } from 'lucide-react';
 import Link from 'next/link';
 import { UserButton } from '@clerk/nextjs';
 import { ReactNode } from 'react';
@@ -18,6 +18,7 @@ export default function DashboardLayout({ children }: { children: ReactNode }) {
     { href: '/dashboard/marketing/campaigns', label: 'Campaigns', icon: FileText },
     { href: '/dashboard/marketing/events', label: 'Events', icon: FileText },
     { href: '/dashboard/marketing/calendar', label: 'Calendar', icon: FileText },
+    { href: '/dashboard/analytics', label: 'Analytics', icon: BarChart3 },
     { href: '/dashboard/operations/channel-configs', label: 'Channels', icon: Radio },
     { href: '/dashboard/operations/approval-requests', label: 'Approvals', icon: TrendingUp },
     { href: '/dashboard/whatsapp', label: 'WhatsApp', icon: QrCode },
