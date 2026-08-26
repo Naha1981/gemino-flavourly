@@ -12,6 +12,10 @@ const isPublicRoute = createRouteMatcher([
   // straight from WhatsApp, who have no account and must not hit a
   // sign-in wall.
   '/m/(.*)',
+  // Public magic-link claim page: opened on a prospect owner's phone, no
+  // account required. The redeem page (/claim/redeem) is listed here too so
+  // Clerk's middleware doesn't bounce it before the page's own auth check.
+  '/claim/(.*)',
   '/api/webhooks(.*)',
   '/api/cron(.*)',
   '/api/whatsapp(.*)',

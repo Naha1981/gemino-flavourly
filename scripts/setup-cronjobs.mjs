@@ -37,6 +37,7 @@ function schedule({ hours = [-1], minutes = [0], mdays = [-1], months = [-1], wd
 
 const jobs = [
   { title: 'Outbox Worker', url: `${APP_URL}/api/cron/outbox`, schedule: schedule({ minutes: Array.from({ length: 60 }, (_, i) => i) }) },
+  { title: 'Process Prospects', url: `${APP_URL}/api/cron/process-prospects`, schedule: schedule({ minutes: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] }) },
   { title: 'Keep Operator Awake', url: `${OPERATOR_URL}/health`, schedule: schedule({ minutes: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] }) },
   { title: 'Aggregate Messages', url: `${APP_URL}/api/cron/aggregate-messages`, schedule: schedule({ minutes: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] }) },
   { title: 'Revenue Classifier', url: `${APP_URL}/api/cron/revenue-classify`, schedule: schedule({ minutes: [0, 15, 30, 45] }) },
