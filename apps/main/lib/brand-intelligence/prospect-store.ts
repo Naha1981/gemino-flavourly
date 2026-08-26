@@ -1,6 +1,7 @@
 import { desc, eq, and, or, lt, gt, isNull, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { prospects, tenantClaimTokens, type ProspectStatus } from '@/lib/db/schema';
+import { prospects, tenantClaimTokens } from '@/lib/db/schema';
+import type { ProspectStatus } from './prospects';
 import { generateClaimToken, tokenExpiry, buildClaimLink } from './magic-link.ts';
 
 export type ProspectRow = typeof prospects.$inferSelect;
