@@ -46,6 +46,7 @@ export async function GET() {
     await sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS blocklisted boolean DEFAULT false;`;
     await sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS vip boolean DEFAULT false;`;
     await sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS loyalty_points integer DEFAULT 0;`;
+    await sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS birthday text;`;
 
     // 4. Staff members table
     await sql`

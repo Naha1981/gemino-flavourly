@@ -174,7 +174,15 @@ async function seedDemoData(
     const phone = `+27${Math.floor(71 + Math.random() * 14)}${Math.floor(1000000 + Math.random() * 9000000)}`;
     await db
       .insert(contacts)
-      .values({ tenantId, phone, name: r.authorName, vip: r.rating >= 5 })
+      .values({
+        tenantId,
+        phone,
+        name: r.authorName,
+        vip: r.rating >= 5,
+        // Give ~half the seeded contacts a birthday in the next 7 days so the
+        // demo surfaces a live birthday-reward campaign on the pitch.
+        birthday: birthdayInWindow(),
+      })
       .catch((err) => console.error('[demo] failed to seed contact', err));
   }
 
@@ -236,6 +244,16 @@ async function seedDemoData(
       .values(eventRows)
       .catch((err) => console.error('[demo] failed to seed revenue events', err));
   }
+}
+
+/** A random MM-DD within the next 7 days, used to seed demo birthday rewards. */
+function birthdayInWindow(): string | null {
+  if (Math.random() < 0.5) return null;
+  const now = new Date();
+  const future = new Date(now.getTime() + Math.floor(Math.random() * 7) * 24 * 60 * 60 * 1000);
+  const mm = String(future.getMonth() + 1).padStart(2, '0');
+  const dd = String(future.getDate()).padStart(2, '0');
+  return `${mm}-${dd}`;
 }
 
 /** Guard against oversized scraped strings landing in the JSONB columns. */

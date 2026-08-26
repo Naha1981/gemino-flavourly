@@ -4,6 +4,7 @@ import { jobs, messages } from '@/lib/db/schema';
 import { and, eq, lte, lt } from 'drizzle-orm';
 import { operatorClient } from '@/lib/operator-client';
 import { assertCronAuthorized } from '@/lib/cron/auth';
+import { evaluateTierLimit } from '@/lib/billing/tier-limits-store';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -31,6 +32,12 @@ const STUCK_PROCESSING_MINUTES = 5;
  * settled correctly, and losing the UI hint must never abort the run or
  * cause the message to be dispatched twice.
  */
+function tierLimitMessage(reason: 'monthly_quota_exceeded' | 'hourly_rate_exceeded'): string {
+  return reason === 'monthly_quota_exceeded'
+    ? 'Monthly message allowance exhausted — renew to resume automated sending.'
+    : 'Hourly message rate limit exceeded.';
+}
+
 async function markMessageDelivery(
   messageId: string | undefined,
   status: 'sent' | 'failed',
@@ -104,6 +111,26 @@ export async function GET(req: NextRequest) {
 
     try {
       if (job.type === 'send_whatsapp') {
+        // Tier gate (per-tenant message quota + hourly rate). If the tenant
+        // has hit its hourly rate, defer the job so it retries on a later run
+        // rather than failing — the message is still pending, not lost. If the
+        // monthly allowance is exhausted, fail the job visibly so the dashboard
+        // can surface "renew to resume".
+        const limit = await evaluateTierLimit(job.tenantId);
+        if (!limit.allowed) {
+          if (limit.reason === 'hourly_rate_exceeded') {
+            // Defer ~10 min and keep the message queued.
+            await db
+              .update(jobs)
+              .set({ status: 'pending', nextRunAt: new Date(Date.now() + 10 * 60_000), updatedAt: new Date() })
+              .where(eq(jobs.id, job.id));
+            console.warn(`[outbox] Tenant ${job.tenantId} rate-limited (${limit.limit}/hr) — deferring job ${job.id}.`);
+            continue;
+          }
+          // Monthly quota exhausted: fail the job (it cannot be sent this cycle).
+          throw new Error(tierLimitMessage(limit.reason));
+        }
+
         const payload = job.payload as {
           waAccountId: string;
           to: string;

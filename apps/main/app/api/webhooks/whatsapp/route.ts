@@ -17,6 +17,8 @@ import { isReactivationBookingReply } from '@/lib/customer/reactivation';
 import { markLatestCampaignResponded } from '@/lib/customer/reactivation-store';
 import { processFirstMessageVip } from '@/lib/customer/vip-recognition';
 import { drizzleVipRecognitionStore } from '@/lib/customer/vip-store';
+import { classifyMessageRisk, decideApprovalAction } from '@/lib/operations/approval-classifier';
+import { createApprovalRequest } from '@/lib/operations/approval-request-store';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -311,17 +313,49 @@ export async function POST(req: NextRequest) {
   });
 
   if (aiReply) {
-    // Record Outbound Message in DB
-    await db.insert(messages).values({
-      tenantId,
-      conversationId: conversation.id,
-      direction: 'outbound',
-      content: aiReply,
-      isAIGenerated: true,
-    });
+    // Approval workflow (Engine 6): GREEN auto-sends; YELLOW and RED are held
+    // for the owner to approve before dispatch. Previously every AI reply was
+    // auto-sent regardless of content, so a message that offered a discount or
+    // mentioned a refund would reach a customer without any human gate.
+    const risk = classifyMessageRisk(aiReply);
+    const decision = decideApprovalAction(risk);
 
-    // Enqueue to Outbox table for immediate delivery
-    await enqueueOutboundMessage(tenantId, waAccountId, fromPhone, aiReply);
+    // Record the outbound message regardless, so the thread is truthful.
+    const [outboundMessage] = await db
+      .insert(messages)
+      .values({
+        tenantId,
+        conversationId: conversation.id,
+        direction: 'outbound',
+        content: aiReply,
+        isAIGenerated: true,
+        deliveryStatus: decision.outcome === 'auto_send' ? 'queued' : null,
+        deliveryError:
+          decision.outcome === 'require_approval'
+            ? 'Held for owner approval (approval workflow)'
+            : null,
+      })
+      .returning();
+
+    if (decision.outcome === 'auto_send') {
+      // Enqueue to Outbox table for immediate delivery
+      await enqueueOutboundMessage(tenantId, waAccountId, fromPhone, aiReply);
+    } else {
+      // Drop it into the approval queue instead of sending. The outbound
+      // message row above is the source of truth the owner reviews.
+      await createApprovalRequest({
+        tenantId,
+        conversationId: conversation.id,
+        messageText: aiReply,
+        riskLevel: decision.riskLevel,
+      }).catch((err) =>
+        console.error('[webhook] failed to create approval request for held message', err)
+      );
+      console.warn(
+        `[Approval] AI reply held for tenant ${tenantId} (risk=${decision.riskLevel}). ` +
+          'Message recorded but NOT sent; owner must approve.'
+      );
+    }
   }
 
   return NextResponse.json({ ok: true });

@@ -131,6 +131,10 @@ export const contacts = pgTable(
     blocklisted: boolean('blocklisted').default(false).notNull(),
     vip: boolean('vip').default(false).notNull(),
     loyaltyPoints: integer('loyalty_points').default(0).notNull(),
+    // MM-DD (e.g. "08-27") used for birthday-reward detection. Nullable so the
+    // column is additive and existing rows are unaffected; only populated when
+    // a customer shares a birthday (or a demo/seed writes one).
+    birthday: text('birthday'),
     metadata: jsonb('metadata').default({}),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },

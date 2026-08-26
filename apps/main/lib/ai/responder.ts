@@ -14,6 +14,7 @@ import { isCancellationRequest, handleCancellationIntent, type CancelIntentStore
 import { markReservationCancelled } from '@/lib/revenue/cancellation-followup';
 import { drizzleCancellationFollowupStore } from '@/lib/revenue/cancellation-followup-store';
 import { decideBillingGate, type BillingTenantLike } from '@/lib/billing/gate';
+import { loyaltyBalanceMessage } from '@/lib/customer/loyalty';
 
 const SUPER_ADMIN_EMAILS = `${process.env.SUPER_ADMIN_EMAILS ?? ''},${process.env.ADMIN_EMAIL ?? ''}`
   .split(',')
@@ -146,7 +147,10 @@ export async function processInboundAIResponse(ctx: InboundContext): Promise<str
       where: eq(contacts.id, contactId),
     });
     const pts = contact?.loyaltyPoints || 0;
-    return `🌟 Hello ${senderName}! You currently have *${pts} loyalty points* with ${tenant.name}.\n\n• 100 pts: Complimentary Dessert / Coffee\n• 250 pts: R100 Discount on next dine-in\n\nAsk our staff to redeem on your next visit!`;
+    // PRD rule: R1 spent = 1 point, 100 points = R10 off. Previously the copy
+    // offered a dessert at 100 pts / R100 at 250 pts — a mismatch with the
+    // documented rewards program.
+    return loyaltyBalanceMessage(tenant.name, pts);
   }
 
   // 3. Waitlist Keyword

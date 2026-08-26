@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrCreateTenant } from '@/lib/tenant';
-import { getApprovalRequest, updateApprovalStatus } from '@/lib/operations/approval-request-store';
+import { getApprovalRequest, dispatchApprovedRequest, updateApprovalStatus } from '@/lib/operations/approval-request-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -39,10 +39,22 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: `Request is already ${existing.status}` }, { status: 409 });
   }
 
-  const row = await updateApprovalStatus(tenant.id, requestId, status as 'approved' | 'rejected', approvedBy);
-  if (!row) {
-    return NextResponse.json({ error: 'Failed to update approval request' }, { status: 500 });
+  // Approving must actually send the held message — previously it only
+  // flipped the status, so "Approve" did nothing observable. Rejection simply
+  // marks the request resolved (the message stays un-sent).
+  if (status === 'rejected') {
+    const row = await updateApprovalStatus(tenant.id, requestId, 'rejected', approvedBy);
+    if (!row) return NextResponse.json({ error: 'Failed to reject approval request' }, { status: 500 });
+    return NextResponse.json({ ok: true, approvalRequest: row });
   }
 
-  return NextResponse.json({ ok: true, approvalRequest: row });
+  const dispatched = await dispatchApprovedRequest(tenant.id, requestId, approvedBy);
+  if (!dispatched) {
+    return NextResponse.json(
+      { error: 'Could not dispatch the approved message (no connected WhatsApp account or contact).' },
+      { status: 502 }
+    );
+  }
+
+  return NextResponse.json({ ok: true, approvalRequest: dispatched.approvalRequest, jobId: dispatched.jobId });
 }
