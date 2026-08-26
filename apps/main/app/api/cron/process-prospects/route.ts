@@ -1,11 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { assertCronAuthorized } from '@/lib/cron/auth';
-import {
-  findBuildableProspects,
-  updateProspect,
-  createClaimToken,
-  claimLinkFor,
-} from '@/lib/brand-intelligence/prospect-store';
+import { findBuildableProspects, updateProspect } from '@/lib/brand-intelligence/prospect-store';
 import { createDemoTenant } from '@/lib/brand-intelligence/create-demo-tenant';
 
 export const runtime = 'nodejs';
@@ -49,11 +44,10 @@ export async function GET(req: NextRequest) {
         city: prospect.city,
       });
 
-      const tokenRow = await createClaimToken(result.tenantId);
       await updateProspect(prospect.id, {
         status: 'ready',
         tenantId: result.tenantId,
-        claimToken: tokenRow.token,
+        claimToken: result.claimToken,
         error: null,
       });
       built.push(prospect.id);

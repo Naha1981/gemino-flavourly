@@ -97,10 +97,12 @@ describe('claim flow seams', () => {
 });
 
 describe('demo tenant builder seams', () => {
-  test('build route runs the engine and stores a claim token on success', () => {
+  test('build route runs the engine and stores the claim token on success', () => {
     const src = code(PROSPECT_BUILD);
     assert.match(src, /createDemoTenant\(/);
-    assert.match(src, /createClaimToken\(result\.tenantId\)/);
+    // The engine returns the claim token; the route stores it on the prospect
+    // rather than minting a second token.
+    assert.match(src, /claimToken: result\.claimToken/);
     assert.match(src, /status: 'ready'/);
     assert.match(src, /status: 'failed'/);
   });

@@ -18,6 +18,11 @@ dist/
 
 # Production
 build
+# ...but the magic-link / admin API route is named "build" as a Next.js
+# route segment (not a build output), so re-include that exact path.
+# The [id] brackets are gitignore globs, so they must be escaped.
+!apps/main/app/api/prospects/\[id\]/build/
+!apps/main/app/api/prospects/\[id\]/build/**
 
 # Misc
 .DS_Store
