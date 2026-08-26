@@ -53,8 +53,10 @@ export async function GET(req: NextRequest) {
       built.push(prospect.id);
     } catch (err: any) {
       const retries = (prospect.retries ?? 0) + 1;
+      // Stays 'failed' either way: with retries < 3 the next run re-picks it
+      // up (findBuildableProspects), at >= 3 it waits for manual attention.
       await updateProspect(prospect.id, {
-        status: retries >= 3 ? 'failed' : 'failed',
+        status: 'failed',
         error: err?.message ?? 'build failed',
         retries,
       });

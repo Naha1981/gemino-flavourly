@@ -337,16 +337,65 @@ function extractHoursFromText(html: string): HoursDay[] {
 }
 
 /**
+ * Optional Firecrawl fetch: when FIRECRAWL_API_KEY is set, use Firecrawl's
+ * scrape endpoint to obtain rendered HTML (better on JS-heavy sites). Same
+ * 10s budget as the direct fetch; any failure returns null so the caller
+ * falls back to the zero-cost direct fetch.
+ */
+async function fetchHtmlViaFirecrawl(
+  url: string,
+  fetchImpl: typeof fetch = fetch,
+  env: Record<string, string | undefined> = process.env
+): Promise<string | null> {
+  const apiKey = env.FIRECRAWL_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 10_000);
+    const res = await fetchImpl('https://api.firecrawl.dev/v1/scrape', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, formats: ['html'] }),
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const html = data?.data?.html;
+    return typeof html === 'string' && html.length > 0 ? html : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Live wrapper: fetch a URL and run the pure extractor. Never throws — any
  * network/DNS/status failure is returned as a low-confidence fallback profile
  * so callers (the demo tenant builder) can still create a tenant and let the
  * owner fill in the brand later.
+ *
+ * PHASE 2 — uses Firecrawl when FIRECRAWL_API_KEY is set (richer, rendered
+ * HTML), falling back to the zero-cost direct fetch.
  */
-export async function scrapeUrl(url: string): Promise<BrandProfile & { fetched: boolean; error?: string }> {
+export async function scrapeUrl(
+  url: string,
+  deps: { fetchImpl?: typeof fetch; env?: Record<string, string | undefined> } = {}
+): Promise<BrandProfile & { fetched: boolean; error?: string }> {
+  const fetchImpl = deps.fetchImpl ?? fetch;
+  const env = deps.env ?? process.env;
+
+  // 1. Firecrawl path (only when configured).
+  const firecrawlHtml = await fetchHtmlViaFirecrawl(url, fetchImpl, env);
+  if (firecrawlHtml) {
+    const profile = extractBrandProfile(firecrawlHtml);
+    return { ...profile, fetched: true };
+  }
+
+  // 2. Direct fetch fallback.
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 10_000);
-    const res = await fetch(url, {
+    const res = await fetchImpl(url, {
       headers: { 'User-Agent': 'Flavourly-BrandIntel/1.0', Accept: 'text/html' },
       signal: controller.signal,
     });
