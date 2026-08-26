@@ -26,6 +26,15 @@ export default clerkMiddleware((auth, request) => {
   if (!isPublicRoute(request)) {
     auth().protect();
   }
+
+  // S4 — forward the explicit ?tenant= selection to server components as a
+  // request header: App Router layouts never receive searchParams, and the
+  // dashboard layout resolves its tenant through lib/tenant-resolver, which
+  // reads this header as priority #1.
+  const tenantParam = request.nextUrl.searchParams.get('tenant');
+  if (tenantParam) {
+    request.headers.set('x-tenant-param', tenantParam);
+  }
 });
 
 export const config = {

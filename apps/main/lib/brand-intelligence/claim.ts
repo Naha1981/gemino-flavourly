@@ -1,5 +1,5 @@
 import { db } from '@/lib/db';
-import { tenants, tenantClaimTokens, prospects } from '@/lib/db/schema';
+import { tenants, tenantClaimTokens, prospects, memberships } from '@/lib/db/schema';
 import { and, eq, isNull } from 'drizzle-orm';
 import { clerkClient } from '@clerk/nextjs/server';
 import { findClaimToken } from './prospect-store.ts';
@@ -15,9 +15,16 @@ export type ClaimOutcome =
 export interface ClaimResult {
   ok: boolean;
   outcome: ClaimOutcome;
+  /** The tenant this claim resolved to (present on ok outcomes). */
+  tenantId?: string;
   /** Where to send the user after a successful (or idempotent) claim. */
   redirect?: string;
   error?: string;
+}
+
+/** S2 — deep-link straight into the CLAIMED tenant's dashboard. */
+export function dashboardDeepLink(tenantId: string): string {
+  return `/dashboard?tenant=${tenantId}`;
 }
 
 let lastRedeemAt: Date | null = null;
@@ -47,7 +54,13 @@ export async function redeemClaimToken(token: string, clerkUserId: string): Prom
   const attempt = assessClaimAttempt(row, clerkUserId);
   if (attempt.outcome === 'already_claimed_same_user') {
     // Idempotent: the same owner already claimed this app — not an error.
-    return { ok: true, outcome: 'already_claimed_same_user', redirect: '/onboarding' };
+    // Deep-link them straight into their (already claimed) tenant dashboard.
+    return {
+      ok: true,
+      outcome: 'already_claimed_same_user',
+      tenantId: row.tenantId,
+      redirect: dashboardDeepLink(row.tenantId),
+    };
   }
   if (attempt.outcome === 'already_claimed_other_user') {
     return { ok: false, outcome: 'already_claimed_other_user', error: 'This app has already been claimed by another account.' };
@@ -64,16 +77,24 @@ export async function redeemClaimToken(token: string, clerkUserId: string): Prom
   if (!claimedRow) {
     const latest = await findClaimToken(token);
     if (latest?.claimedByUserId === clerkUserId) {
-      return { ok: true, outcome: 'already_claimed_same_user', redirect: '/onboarding' };
+      return {
+        ok: true,
+        outcome: 'already_claimed_same_user',
+        tenantId: latest.tenantId,
+        redirect: dashboardDeepLink(latest.tenantId),
+      };
     }
     return { ok: false, outcome: 'already_claimed_other_user', error: 'This app has already been claimed.' };
   }
 
-  // Link the tenant to the owner and flip demo -> live trialing.
+  // Link the tenant to the owner and flip demo -> live trialing. Sets BOTH
+  // ownership columns (legacy owner_id and S2/S4 owner_user_id) so old and
+  // new resolvers agree.
   await db
     .update(tenants)
     .set({
       ownerId: clerkUserId,
+      ownerUserId: clerkUserId,
       tenantMode: 'live',
       planStatus: 'trialing',
       trialEndsAt: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000),
@@ -81,6 +102,15 @@ export async function redeemClaimToken(token: string, clerkUserId: string): Prom
     })
     .where(eq(tenants.id, claimedRow.tenantId))
     .catch((err) => console.error('[claim] failed to update tenant', err));
+
+  // S2 — grant the claimant an 'owner' membership on the tenant. This is the
+  // row the tenant resolver + /api/tenant/switch read to authorise access.
+  // onConflictDoNothing keeps a re-claim idempotent (unique (user, tenant)).
+  await db
+    .insert(memberships)
+    .values({ userId: clerkUserId, tenantId: claimedRow.tenantId, role: 'owner' })
+    .onConflictDoNothing()
+    .catch((err) => console.error('[claim] failed to insert membership', err));
 
   // Flip the source prospect, if there is one.
   await db
@@ -103,7 +133,13 @@ export async function redeemClaimToken(token: string, clerkUserId: string): Prom
 
   lastRedeemAt = now;
 
-  return { ok: true, outcome: 'claimed', redirect: '/onboarding' };
+  // S2 — land the owner directly in their CLAIMED tenant's dashboard.
+  return {
+    ok: true,
+    outcome: 'claimed',
+    tenantId: claimedRow.tenantId,
+    redirect: dashboardDeepLink(claimedRow.tenantId),
+  };
 }
 
 /** Convenience for tests / observability: the last successful redeem time. */

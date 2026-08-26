@@ -284,9 +284,13 @@ export function ProspectsConsole({
                         onClick={() => build(p.id)}
                         disabled={busyId === p.id}
                         loading={busyId === p.id && !p.claimToken}
-                        title={p.claimToken ? 'Rebuild demo tenant' : 'Build demo tenant'}
+                        title={p.claimToken ? 'Re-scrape branding & rebuild demo tenant' : 'Build demo tenant'}
                       >
-                        <Sparkles className="h-3.5 w-3.5" /> Build
+                        <Sparkles className="h-3.5 w-3.5" />
+                        {/* S1 — built prospects get an explicit Re-scrape action;
+                            both paths call POST /api/prospects/[id]/build, which
+                            re-runs the enrichment inline. */}
+                        {p.claimToken ? ' Re-scrape' : ' Build'}
                       </ActionButton>
                     )}
                     {p.tenantId && p.status !== 'claimed' && (

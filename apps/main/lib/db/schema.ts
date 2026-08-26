@@ -25,6 +25,12 @@ export const tenants = pgTable('tenants', {
   // Clerk user id of the owner who claimed this tenant. Null for unclaimed
   // demo tenants and platform-created rows.
   ownerId: text('owner_id'),
+  // S2/S4 — the Clerk user id set atomically when a magic-link claim is
+  // redeemed (and stamped when a fresh tenant self-signs-up). This is the
+  // ownership column the tenant resolver and the memberships table treat as
+  // the source of truth; `owner_id` stays for backward compatibility with
+  // rows written before the memberships model existed.
+  ownerUserId: text('owner_user_id'),
   // 'live' = a real paying/trialing customer; 'demo' = a pre-configured
   // prospect tenant built for a magic-link sales pitch and not yet claimed.
   tenantMode: text('tenant_mode', { enum: ['live', 'demo'] }).default('live').notNull(),
@@ -1277,6 +1283,40 @@ export const tenantClaimTokens = pgTable(
 export const tenantClaimTokenRelations = relations(tenantClaimTokens, ({ one }) => ({
   tenant: one(tenants, {
     fields: [tenantClaimTokens.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+// -----------------------------------------------------------------------------
+// 26. Memberships (S4 — multi-tenant access model)
+// -----------------------------------------------------------------------------
+// One row per (user, tenant) grant. The claim redeem path (S2) writes the
+// 'owner' membership alongside tenants.owner_user_id; staff invites write
+// 'staff'. The tenant resolver reads this table — plus ownership columns —
+// to decide which tenants a user may switch between, and /api/tenant/switch
+// refuses (403) any tenant that has no row here and is not owned.
+export const memberships = pgTable(
+  'memberships',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id').notNull(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    role: text('role', { enum: ['owner', 'staff'] }).default('owner').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    userTenantUniq: uniqueIndex('memberships_user_tenant_uniq').on(table.userId, table.tenantId),
+    userIdx: index('memberships_user_idx').on(table.userId),
+    tenantIdx: index('memberships_tenant_idx').on(table.tenantId),
+  })
+);
+
+export const membershipRelations = relations(memberships, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [memberships.tenantId],
     references: [tenants.id],
   }),
 }));

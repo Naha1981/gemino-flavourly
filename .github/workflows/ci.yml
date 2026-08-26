@@ -1,0 +1,82 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'arena/**'
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: 'Optional deployed URL for anonymous contract E2E'
+        required: false
+        default: 'https://gemino-flavourly-whatsapp.vercel.app'
+
+# Gate 1 (build verification) runs on every push/PR. The anonymous contract
+# E2E job additionally runs on demand against a deployed URL. Both jobs run
+# on GitHub-hosted runners, which have full internet access (unlike the
+# sandboxed session that prepared the branch).
+
+jobs:
+  gate-1-build:
+    name: 'Gate 1 — tsc + unit suite + next build'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: TypeScript check (apps/main)
+        working-directory: apps/main
+        run: npx tsc --noEmit
+
+      - name: Unit + wiring suite (test:main)
+        run: npm run test:main
+
+      - name: Next.js production build
+        working-directory: apps/main
+        env:
+          # Build-only placeholder: lib/db validates presence at import time;
+          # no route connects during `next build`. Real value lives in Vercel.
+          DATABASE_URL: postgres://build:build@localhost:5432/build_placeholder
+        run: npx next build
+
+  contract-e2e:
+    name: 'Anonymous contract E2E (no credentials)'
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run anonymous contract specs
+        env:
+          BASE_URL: ${{ github.event.inputs.base_url || 'https://gemino-flavourly-whatsapp.vercel.app' }}
+        run: npx playwright test e2e/contracts.spec.ts
+
+      - name: Upload failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contract-e2e-failures
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore

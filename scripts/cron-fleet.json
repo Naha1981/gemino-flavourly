@@ -1,0 +1,643 @@
+{
+  "$schema": "./cron-fleet.schema.md",
+  "version": 1,
+  "description": "Canonical Flavourly cron fleet (S5). 20 jobs + hourly system watchdog. Read by lib/cron/canonical-fleet.ts (fs), scripts/setup-cronjobs.mjs, and GET /api/admin/sync-crons.",
+  "baseUrl": "https://gemino-flavourly-whatsapp.vercel.app",
+  "operatorUrl": "https://gemino-flavourly-whatsapp.onrender.com",
+  "timezone": "Africa/Johannesburg",
+  "jobs": [
+    {
+      "key": "outbox",
+      "title": "Outbox Worker",
+      "url": "{baseUrl}/api/cron/outbox",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          -1
+        ],
+        "minutes": [
+          0,
+          1,
+          2,
+          3,
+          4,
+          5,
+          6,
+          7,
+          8,
+          9,
+          10,
+          11,
+          12,
+          13,
+          14,
+          15,
+          16,
+          17,
+          18,
+          19,
+          20,
+          21,
+          22,
+          23,
+          24,
+          25,
+          26,
+          27,
+          28,
+          29,
+          30,
+          31,
+          32,
+          33,
+          34,
+          35,
+          36,
+          37,
+          38,
+          39,
+          40,
+          41,
+          42,
+          43,
+          44,
+          45,
+          46,
+          47,
+          48,
+          49,
+          50,
+          51,
+          52,
+          53,
+          54,
+          55,
+          56,
+          57,
+          58,
+          59
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "process-prospects",
+      "title": "Process Prospects",
+      "url": "{baseUrl}/api/cron/process-prospects",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          -1
+        ],
+        "minutes": [
+          0,
+          5,
+          10,
+          15,
+          20,
+          25,
+          30,
+          35,
+          40,
+          45,
+          50,
+          55
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "keep-operator-awake",
+      "title": "Keep Operator Awake",
+      "url": "{operatorUrl}/health",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          -1
+        ],
+        "minutes": [
+          0,
+          5,
+          10,
+          15,
+          20,
+          25,
+          30,
+          35,
+          40,
+          45,
+          50,
+          55
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": null
+    },
+    {
+      "key": "aggregate-messages",
+      "title": "Aggregate Messages",
+      "url": "{baseUrl}/api/cron/aggregate-messages",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          -1
+        ],
+        "minutes": [
+          0,
+          5,
+          10,
+          15,
+          20,
+          25,
+          30,
+          35,
+          40,
+          45,
+          50,
+          55
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "revenue-classify",
+      "title": "Revenue Classifier",
+      "url": "{baseUrl}/api/cron/revenue-classify",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          -1
+        ],
+        "minutes": [
+          0,
+          15,
+          30,
+          45
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "waitlist",
+      "title": "Waitlist Expiration",
+      "url": "{baseUrl}/api/cron/waitlist",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          -1
+        ],
+        "minutes": [
+          0,
+          15,
+          30,
+          45
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "no-show-detect",
+      "title": "No-Show Detection",
+      "url": "{baseUrl}/api/cron/no-show-detect",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          -1
+        ],
+        "minutes": [
+          0,
+          30
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "review-requests",
+      "title": "Review Requests",
+      "url": "{baseUrl}/api/cron/review-requests",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          -1
+        ],
+        "minutes": [
+          0
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "birthday-rewards",
+      "title": "Birthday Rewards",
+      "url": "{baseUrl}/api/cron/birthday-rewards",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          7
+        ],
+        "minutes": [
+          0
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "vip-alerts",
+      "title": "VIP Daily Brief",
+      "url": "{baseUrl}/api/cron/vip-alerts",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          7
+        ],
+        "minutes": [
+          0
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "daily-brief",
+      "title": "Daily Brief",
+      "url": "{baseUrl}/api/cron/daily-brief",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          7
+        ],
+        "minutes": [
+          0
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "generate-briefs",
+      "title": "Generate Briefs",
+      "url": "{baseUrl}/api/cron/generate-briefs",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          7
+        ],
+        "minutes": [
+          0
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "fetch-google-reviews",
+      "title": "Fetch Google Reviews",
+      "url": "{baseUrl}/api/cron/fetch-google-reviews",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          6
+        ],
+        "minutes": [
+          0
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "fetch-competitor-ratings",
+      "title": "Fetch Competitor Ratings",
+      "url": "{baseUrl}/api/cron/fetch-competitor-ratings",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          7
+        ],
+        "minutes": [
+          0
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "track-competitors",
+      "title": "Track Competitors",
+      "url": "{baseUrl}/api/cron/track-competitors",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          8
+        ],
+        "minutes": [
+          0
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "detect-events",
+      "title": "Detect Events",
+      "url": "{baseUrl}/api/cron/detect-events",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          1
+        ],
+        "hours": [
+          8
+        ],
+        "minutes": [
+          0
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "reactivation-campaigns",
+      "title": "Reactivation Campaigns",
+      "url": "{baseUrl}/api/cron/reactivation-campaigns",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          0,
+          6,
+          12,
+          18
+        ],
+        "minutes": [
+          0
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "cancellation-followup",
+      "title": "Cancellation Follow-Up",
+      "url": "{baseUrl}/api/cron/cancellation-followup",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          0,
+          6,
+          12,
+          18
+        ],
+        "minutes": [
+          0
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "customer-segmentation",
+      "title": "Customer Segmentation",
+      "url": "{baseUrl}/api/cron/customer-segmentation",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          0,
+          6,
+          12,
+          18
+        ],
+        "minutes": [
+          0
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "generate-calendars",
+      "title": "Generate Calendars",
+      "url": "{baseUrl}/api/cron/generate-calendars",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          0
+        ],
+        "hours": [
+          18
+        ],
+        "minutes": [
+          0
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    }
+  ],
+  "watchdog": {
+    "key": "system-watchdog",
+    "title": "System Watchdog",
+    "url": "{baseUrl}/api/cron/system-watchdog",
+    "schedule": {
+      "mdays": [
+        -1
+      ],
+      "months": [
+        -1
+      ],
+      "wdays": [
+        -1
+      ],
+      "hours": [
+        -1
+      ],
+      "minutes": [
+        0
+      ],
+      "timezone": "Africa/Johannesburg",
+      "expiresAt": 0
+    },
+    "auth": "cron-secret"
+  }
+}

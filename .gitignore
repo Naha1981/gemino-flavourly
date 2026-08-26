@@ -7,6 +7,9 @@ node_modules
 /coverage
 /test-results
 /playwright-report
+/blob-report
+# Seeded E2E state (session ids / claim tokens) — never commit.
+.e2e-state.json
 
 # Next.js build output
 .next/
@@ -54,8 +57,10 @@ operator/.env.local
 *.tsbuildinfo
 next-env.d.ts
 
-# One-shot dev tools (may contain secrets)
-scripts/setup-cronjobs.mjs
+# One-shot dev tools (may contain secrets).
+# NOTE: scripts/setup-cronjobs.mjs is now canonical (S5) — it reads all
+# credentials from env and the fleet from scripts/cron-fleet.json, so it is
+# tracked in git. Only ad-hoc cleanup tools stay ignored.
 scripts/clean-cronjobs.mjs
 cron-cleanup.sh
 existing_jobs.json

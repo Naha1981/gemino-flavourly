@@ -1,5 +1,13 @@
 {
   "buildCommand": "npm run build",
   "installCommand": "npm install",
-  "framework": "nextjs"
+  "framework": "nextjs",
+  "outputFileTracingIncludes": {
+    "apps/main/app/api/admin/sync-crons": [
+      "scripts/cron-fleet.json"
+    ],
+    "apps/main/app/api/admin/sync-crons/**": [
+      "scripts/cron-fleet.json"
+    ]
+  }
 }

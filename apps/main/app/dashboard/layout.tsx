@@ -7,15 +7,30 @@ import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { brandProfiles } from '@/lib/db/schema';
 import { getOrCreateTenant } from '@/lib/tenant';
+import { resolveActiveTenant, listManagedTenants } from '@/lib/tenant-resolver';
+import { auth } from '@clerk/nextjs/server';
 import { ThemeProvider } from '@/components/theme-provider';
+import { TenantSwitcher } from '@/components/tenant-switcher';
 
 export const dynamic = 'force-dynamic';
 
 export default async function DashboardLayout({ children }: { children: ReactNode }) {
-  // Inject the tenant's own branding (logo, palette, font) when a Brand
-  // Intelligence profile exists; otherwise the default Flavourly theme stays.
-  const tenant = await getOrCreateTenant();
+  // S4 — resolve the active tenant through the tenant resolver
+  // (?tenant= -> cookie -> owned/membership -> super-admin default). Only
+  // when nothing resolves (brand-new user) fall back to getOrCreateTenant.
+  const resolved = await resolveActiveTenant();
+  let tenant = resolved?.tenant ?? null;
+  if (!tenant) tenant = await getOrCreateTenant();
   if (!tenant) redirect('/sign-in');
+
+  // Managed tenants for the sidebar switcher (server-side list; the switch
+  // endpoint re-checks grants, so this list alone authorises nothing).
+  const { userId } = await auth();
+  const managed = userId ? await listManagedTenants(userId) : [];
+  const switcherTenants =
+    managed.length > 0
+      ? managed.map((t) => ({ id: t.id, name: t.name }))
+      : [{ id: tenant.id, name: tenant.name }];
 
   const brand = await db.query.brandProfiles
     .findFirst({ where: eq(brandProfiles.tenantId, tenant.id) })
@@ -36,12 +51,22 @@ export default async function DashboardLayout({ children }: { children: ReactNod
 
   return (
     <ThemeProvider brand={themeBrand}>
-      <DashboardShell>{children}</DashboardShell>
+      <DashboardShell switcherTenants={switcherTenants} activeTenantId={tenant.id}>
+        {children}
+      </DashboardShell>
     </ThemeProvider>
   );
 }
 
-function DashboardShell({ children }: { children: ReactNode }) {
+function DashboardShell({
+  children,
+  switcherTenants,
+  activeTenantId,
+}: {
+  children: ReactNode;
+  switcherTenants: { id: string; name: string }[];
+  activeTenantId: string;
+}) {
   const links = [
     { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
     { href: '/dashboard/inbox', label: 'Inbox', icon: MessageSquare },
@@ -67,10 +92,15 @@ function DashboardShell({ children }: { children: ReactNode }) {
   return (
     <div className="flex min-h-screen bg-zinc-950 text-zinc-50">
       <aside className="flex w-64 flex-col border-r border-zinc-800 bg-zinc-900/50 p-6">
-        <div className="mb-8 flex items-center">
+        <div className="mb-4 flex items-center">
           <img src="/logo.png" alt="Flavourly" className="h-9 w-auto" />
         </div>
-        
+
+        {/* S4 — switch between tenants the user manages. */}
+        <div className="mb-6">
+          <TenantSwitcher tenants={switcherTenants} activeTenantId={activeTenantId} />
+        </div>
+
         <nav className="flex-1 space-y-2">
           {links.map((link) => (
             <Link
