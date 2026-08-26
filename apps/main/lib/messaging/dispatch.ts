@@ -18,8 +18,27 @@
  * mode this module makes impossible.
  */
 
-/** Terminal-ish state of an outbound message, mirrored on the message row. */
-export type DeliveryStatus = 'queued' | 'sent' | 'failed';
+/**
+ * The honest, exhaustive set of outbound delivery states (PRD contract:
+ * Queued → Sent → Delivered → Failed → Unknown, "never fake green ticks").
+ *
+ * - queued    -> accepted into the outbox, not yet dispatched
+ * - sent      -> the operator confirmed DISPATCH to WhatsApp. This is NOT a
+ *                delivery confirmation: the customer's phone may not have
+ *                received it yet. Rendered with a single tick, never a
+ *                double-tick.
+ * - delivered -> we have a REAL delivery receipt (read/routed confirmation).
+ *                Only ever set with an explicit `deliveryConfirmed: true`;
+ *                never assumed from a successful dispatch.
+ * - failed    -> retries exhausted, or no dispatch route existed
+ * - unknown   -> indeterminate: a dispatch was attempted but delivery cannot
+ *                be determined from the information available.
+ *
+ * Exported as a single source of truth so the schema, the dispatcher, the
+ * outbox worker and the inbox UI cannot drift apart about which states exist.
+ */
+export const DELIVERY_STATES = ['queued', 'sent', 'delivered', 'failed', 'unknown'] as const;
+export type DeliveryStatus = (typeof DELIVERY_STATES)[number];
 
 export interface DispatchOutcome {
   /** What to persist on the message row. */
@@ -59,8 +78,16 @@ export function resolveDispatchOutcome(args: {
   directSendSucceeded: boolean;
   queuedForRetry: boolean;
   error?: string;
+  /**
+   * True ONLY when there is a real delivery receipt from the channel
+   * (read/routed confirmation), not merely a successful dispatch. When
+   * omitted or false, a successful dispatch is `sent` — never `delivered`.
+   * This is what enforces "never fake green ticks": no code path can
+   * produce a double-tick without an actual delivery confirmation.
+   */
+  deliveryConfirmed?: boolean;
 }): DispatchOutcome {
-  const { blocker, directSendSucceeded, queuedForRetry, error } = args;
+  const { blocker, directSendSucceeded, queuedForRetry, error, deliveryConfirmed } = args;
 
   // Nothing could be attempted: fail immediately and visibly.
   if (blocker) {
@@ -68,7 +95,12 @@ export function resolveDispatchOutcome(args: {
   }
 
   if (directSendSucceeded) {
-    return { status: 'sent', accepted: true };
+    // A successful dispatch is only 'delivered' when we have a real
+    // delivery receipt; otherwise it is honestly 'sent' (dispatched, not
+    // confirmed delivered).
+    return deliveryConfirmed
+      ? { status: 'delivered', accepted: true }
+      : { status: 'sent', accepted: true };
   }
 
   // The direct send failed but the outbox will retry it. This is a

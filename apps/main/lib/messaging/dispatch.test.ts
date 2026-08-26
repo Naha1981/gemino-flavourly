@@ -4,6 +4,7 @@ import {
   findDispatchBlocker,
   resolveDispatchOutcome,
   dispatchHttpStatus,
+  DELIVERY_STATES,
 } from './dispatch.ts';
 
 /**
@@ -102,6 +103,68 @@ describe('resolveDispatchOutcome', () => {
       queuedForRetry: false,
     });
     assert.ok(o.error && o.error.length > 0);
+  });
+
+  // ───────────────────────────────────────────────────────────────────
+  // Honest delivery states (PRD: Queued → Sent → Delivered → Failed →
+  // Unknown; "never fake green ticks").
+  //
+  // The production contract: `sent` means the operator ACCEPTED the
+  // message for dispatch to WhatsApp. It does NOT mean the customer's
+  // phone received it. Until we have a real delivery receipt,
+  // `delivered` must never be claimed — otherwise a reply that never
+  // reached the customer would render identically to one that did.
+  // ───────────────────────────────────────────────────────────────────
+  describe('honest delivery states', () => {
+    test('the shared state list includes delivered and unknown', () => {
+      assert.ok(DELIVERY_STATES.includes('delivered'));
+      assert.ok(DELIVERY_STATES.includes('unknown'));
+      // The exhaustive, ordered PRD set — nothing missing, nothing extra.
+      assert.deepEqual(DELIVERY_STATES, ['queued', 'sent', 'delivered', 'failed', 'unknown']);
+    });
+
+    test('a confirmed dispatch WITHOUT a delivery receipt is sent, never delivered', () => {
+      const o = resolveDispatchOutcome({
+        blocker: null,
+        directSendSucceeded: true,
+        queuedForRetry: false,
+        // No deliveryConfirmation flag — the operator only confirmed dispatch.
+      });
+      assert.equal(o.status, 'sent');
+      assert.notEqual(o.status, 'delivered');
+    });
+
+    test('a dispatch WITH a real delivery receipt is delivered', () => {
+      const o = resolveDispatchOutcome({
+        blocker: null,
+        directSendSucceeded: true,
+        queuedForRetry: false,
+        deliveryConfirmed: true,
+      });
+      assert.equal(o.status, 'delivered');
+    });
+
+    test('delivered is only ever claimed on a confirmed, delivered send', () => {
+      // Exhaustive: across every flag combination, the only way to reach
+      // 'delivered' is a confirmed successful dispatch.
+      for (const blocker of [null, 'blocked']) {
+        for (const direct of [true, false]) {
+          for (const queued of [true, false]) {
+            for (const confirmed of [true, false]) {
+              const o = resolveDispatchOutcome({
+                blocker,
+                directSendSucceeded: direct,
+                queuedForRetry: queued,
+                deliveryConfirmed: confirmed,
+              });
+              if (o.status === 'delivered') {
+                assert.ok(!blocker && direct && confirmed);
+              }
+            }
+          }
+        }
+      }
+    });
   });
 
   test('exhaustive: only a real send or a real queue is ever accepted', () => {

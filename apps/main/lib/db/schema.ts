@@ -202,10 +202,19 @@ export const messages = pgTable(
     //
     // Inbound messages leave this NULL — delivery state is meaningless
     // for a message the customer sent us.
-    //   queued  -> accepted into the outbox, not yet dispatched
-    //   sent    -> the operator confirmed dispatch to WhatsApp
-    //   failed  -> retries exhausted, or no dispatch route existed
-    deliveryStatus: text('delivery_status', { enum: ['queued', 'sent', 'failed'] }),
+    // Honest delivery states (see lib/messaging/dispatch.ts): a successful
+    // operator dispatch is 'sent' (single tick), NOT 'delivered'. Only a
+    // real receipt sets 'delivered', so a reply that never reaches the
+    // customer is never shown as a delivered double-tick. 'unknown' covers
+    // a dispatch whose delivery cannot be determined.
+    //   queued    -> accepted into the outbox, not yet dispatched
+    //   sent      -> the operator confirmed dispatch to WhatsApp
+    //   delivered -> a real delivery receipt was received
+    //   failed    -> retries exhausted, or no dispatch route existed
+    //   unknown   -> delivery cannot be determined
+    deliveryStatus: text('delivery_status', {
+      enum: ['queued', 'sent', 'delivered', 'failed', 'unknown'],
+    }),
     // Why a delivery failed, surfaced to staff so the failure is
     // actionable rather than just a red dot. Never contains a secret:
     // it is set from operator/job error strings only.
