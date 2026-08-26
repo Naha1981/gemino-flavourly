@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     where: and(eq(waAccounts.tenantId, tenant.id), eq(waAccounts.isConnected, true)),
   });
 
-  const text = `Hi! This is a test message from Gemino AI on behalf of ${tenant.name || 'your restaurant'}. Your WhatsApp integration is working.`;
+  const text = `Hi! This is a test message from Flavourly on behalf of ${tenant.name || 'your restaurant'}. Your WhatsApp integration is working.`;
   await db.insert(jobs).values({
     tenantId: tenant.id,
     type: 'send_whatsapp',

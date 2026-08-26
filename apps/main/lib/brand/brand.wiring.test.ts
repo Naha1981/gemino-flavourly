@@ -28,19 +28,24 @@ describe('brand asset wiring', () => {
     }
   });
 
-  test('layout metadata wires favicon, apple-touch-icon, manifest, and social images to /logo.png', () => {
+  test('layout metadata wires logo-mark favicon, apple-touch-icon, manifest, and social images', () => {
     const src = readFileSync(LAYOUT_FILE, 'utf8');
-    assert.match(src, /rel:\s*['"]icon['"],\s*url:\s*['"]\/logo\.png['"]/);
-    assert.match(src, /rel:\s*['"]apple-touch-icon['"],\s*url:\s*['"]\/logo\.png['"]/);
+    assert.match(src, /rel:\s*['"]icon['"],\s*url:\s*['"]\/icon\.svg['"]/);
+    assert.match(src, /rel:\s*['"]apple-touch-icon['"],\s*url:\s*['"]\/logo-mark\.png['"]/);
     assert.match(src, /manifest:\s*['"]\/manifest\.json['"]/);
-    assert.match(src, /openGraph:\s*\{[\s\S]*?images:\s*\[\s*['"]\/logo\.png['"]/);
-    assert.match(src, /twitter:\s*\{[\s\S]*?images:\s*\[\s*['"]\/logo\.png['"]/);
+    assert.match(src, /openGraph:\s*\{[\s\S]*?images:\s*\[['"]\/logo\.png['"]/);
+    assert.match(src, /twitter:\s*\{[\s\S]*?images:\s*\[['"]\/logo\.png['"]/);
   });
 
-  test('manifest.json exists and declares /logo.png as the app icon', () => {
+  test('manifest.json exists and declares the logo-mark icon', () => {
     assert.ok(existsSync(MANIFEST_FILE), 'public/manifest.json should exist');
     const manifest = JSON.parse(readFileSync(MANIFEST_FILE, 'utf8'));
     assert.deepEqual(manifest.icons, [
+      {
+        src: '/logo-mark.png',
+        sizes: '512x512',
+        type: 'image/png',
+      },
       {
         src: '/logo.png',
         sizes: 'any',

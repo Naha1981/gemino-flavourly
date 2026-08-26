@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
     if (!waAccount?.phoneNumber) continue;
 
     const text = [
-      `Good morning! Here's your Gemino brief for ${tenant.name}:`,
+      `Good morning! Here's your Flavourly brief for ${tenant.name}:`,
       `💬 ${msgCount.count} WhatsApp message(s) in the last 24h`,
       `📅 ${bookingCount.count} reservation(s) in the last 24h`,
       ...slowDayAlerts,
