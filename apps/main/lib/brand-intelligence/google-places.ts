@@ -90,7 +90,7 @@ export function mergePlaceData(summary: PlacesResult | null, detail: unknown): G
     reviewCount: d?.reviewCount ?? summary?.reviewCount ?? null,
     address: d?.address ?? summary?.address ?? null,
     hoursJson: d?.hoursJson ?? summary?.opens ?? null,
-    reviews: d?.reviews.length > 0 ? d.reviews : summary?.reviews ?? [],
+    reviews: d && d.reviews.length > 0 ? d.reviews : summary?.reviews ?? [],
   };
 }
 

@@ -86,7 +86,7 @@ function jitter(minDays: number, maxDays: number, now: Date, opts: { future?: bo
 
 /** Build 5–10 sample bookings using real reviewer names and future dates. */
 export function generateSeedBookings(places: GooglePlacesData, count = 8, now = new Date()): SeedBooking[] {
-  const names = [...new Set(places.reviews.map((r) => r.authorName).filter(Boolean))];
+  const names = Array.from(new Set(places.reviews.map((r) => r.authorName).filter(Boolean)));
   while (names.length < count) names.push(pick(FALLBACK_NAMES));
 
   const slots = ['12:30', '13:00', '18:00', '18:30', '19:00', '19:30', '20:00'];

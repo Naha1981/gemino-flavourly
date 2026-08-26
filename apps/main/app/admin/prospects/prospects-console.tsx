@@ -42,7 +42,7 @@ export function ProspectsConsole({
   counts,
 }: {
   initialProspects: ProspectView[];
-  counts: Record<string, number>;
+  counts: Partial<Record<ProspectStatus, number>>;
 }) {
   const router = useRouter();
   const [prospects, setProspects] = useState(initialProspects);
@@ -66,7 +66,7 @@ export function ProspectsConsole({
   }
 
   async function refresh() {
-    const data = await api<{ prospects: ProspectView[]; counts: Record<string, number> }>('/api/prospects', { cache: 'no-store' });
+    const data = await api<{ prospects: ProspectView[]; counts: Partial<Record<ProspectStatus, number>> }>('/api/prospects', { cache: 'no-store' });
     setProspects(data.prospects);
     setStatusCounts(data.counts || {});
     router.refresh();
@@ -184,7 +184,7 @@ export function ProspectsConsole({
         <div className="flex items-center gap-2 text-xs text-zinc-400">
           {Object.entries(statusCounts).map(([status, n]) => (
             <span key={status} className={`inline-flex items-center rounded-full px-2.5 py-0.5 ${STATUS_BADGES[status as ProspectStatus] ?? 'bg-zinc-800 text-zinc-300'}`}>
-              {status}: {n}
+              {status}: {n ?? 0}
             </span>
           ))}
         </div>

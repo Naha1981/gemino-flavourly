@@ -82,8 +82,14 @@ function isNeutral(hex: string): boolean {
   return avg < 40 || avg > 220;
 }
 
+export interface PickedColors {
+  primaryColor: string;
+  secondaryColor: string;
+  backgroundColor: string;
+}
+
 /** Pick the most "brand-defining" colours: an accent, a secondary and a background. */
-export function pickColors(candidates: string[]): BrandProfile['primaryColor' | 'secondaryColor' | 'backgroundColor'] {
+export function pickColors(candidates: string[]): PickedColors {
   // Normalise FIRST: isNeutral() and the #rrggbb regex expect lower-case hex,
   // and a candidate like rgb(176,141,87) must become '#b08d57' before we
   // classify it — otherwise the raw token slips through as a "colour" and can
@@ -261,7 +267,7 @@ function normalizeJsonLdMenu(menu: unknown): MenuItem[] {
 
 function extractMenuFromText(html: string): MenuItem[] {
   // Very rough heuristic: <h3> (dish) followed by a line containing R<amount>.
-  const blocks = [...html.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/gi)];
+  const blocks = Array.from(html.matchAll(/<h3[^>]*>([\s\S]*?)<\/h3>/gi));
   const items: MenuItem[] = [];
   for (const block of blocks) {
     // Strip tags AND any inline "(Rxxx)" price so the dish name is clean

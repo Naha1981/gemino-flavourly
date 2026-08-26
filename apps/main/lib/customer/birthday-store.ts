@@ -40,11 +40,13 @@ export async function runBirthdayRewards(now = new Date()): Promise<BirthdayCron
     if (rewards.length === 0) continue;
     result.candidates += rewards.length;
 
-    const sender = await db
+    const senderRows = await db
       .select({ id: waAccounts.id, phoneNumber: waAccounts.phoneNumber })
       .from(waAccounts)
       .where(and(eq(waAccounts.tenantId, tenant.id), eq(waAccounts.isConnected, true)))
       .limit(1);
+    // Drizzle .limit(1) returns an ARRAY — take the first row before reading .id.
+    const sender = senderRows[0];
     if (!sender?.id) {
       // No connected WhatsApp to send from — record but don't queue.
       result.skippedBlocked += rewards.length;

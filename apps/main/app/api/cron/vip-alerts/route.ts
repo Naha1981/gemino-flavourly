@@ -43,11 +43,13 @@ export async function GET(req: NextRequest) {
       continue;
     }
 
-    const sender = await db
+    const senderRows = await db
       .select({ id: waAccounts.id, phoneNumber: waAccounts.phoneNumber })
       .from(waAccounts)
       .where(eq(waAccounts.tenantId, tenant.id))
       .limit(1);
+    // Drizzle .limit(1) returns an ARRAY — take the first row before reading .id.
+    const sender = senderRows[0];
 
     if (!sender?.id) {
       summaries.push({ tenantId: tenant.id, line: brief.line, count: brief.count, sent: false });

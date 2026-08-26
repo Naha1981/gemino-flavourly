@@ -27,7 +27,7 @@ export function ApprovalActions({ requestId }: { requestId: string }) {
       const res = await fetch(`/api/operations/approval-requests/${requestId}?id=${requestId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, approved_by: approvedBy }),
+        body: JSON.stringify({ status, approved_by: approver }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || 'Action failed');

@@ -215,7 +215,9 @@ export default function ChatDetailClient({
                       CheckCheck. Messages predating delivery tracking have a
                       null status and show no indicator at all. */}
                   {!isInbound && m.deliveryStatus === 'sent' && (
-                    <Check className="w-3.5 h-3.5 text-emerald-500 ml-0.5" aria-label="Sent (dispatched, not confirmed delivered)" title="Sent to WhatsApp — not confirmed delivered" />
+                    <span title="Sent to WhatsApp — not confirmed delivered">
+                      <Check className="w-3.5 h-3.5 text-emerald-500 ml-0.5" aria-label="Sent (dispatched, not confirmed delivered)" />
+                    </span>
                   )}
                   {!isInbound && m.deliveryStatus === 'delivered' && (
                     <CheckCheck className="w-3.5 h-3.5 text-emerald-500 ml-0.5" aria-label="Delivered" />
