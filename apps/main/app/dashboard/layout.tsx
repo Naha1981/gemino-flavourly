@@ -1,9 +1,47 @@
 import { FileText, LayoutDashboard, MessageSquare, QrCode, Settings, Star, Swords, TrendingUp, Users, Radio, BarChart3, CreditCard } from 'lucide-react';
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
 import { UserButton } from '@clerk/nextjs';
 import { ReactNode } from 'react';
+import { eq } from 'drizzle-orm';
+import { db } from '@/lib/db';
+import { brandProfiles } from '@/lib/db/schema';
+import { getOrCreateTenant } from '@/lib/tenant';
+import { ThemeProvider } from '@/components/theme-provider';
 
-export default function DashboardLayout({ children }: { children: ReactNode }) {
+export const dynamic = 'force-dynamic';
+
+export default async function DashboardLayout({ children }: { children: ReactNode }) {
+  // Inject the tenant's own branding (logo, palette, font) when a Brand
+  // Intelligence profile exists; otherwise the default Flavourly theme stays.
+  const tenant = await getOrCreateTenant();
+  if (!tenant) redirect('/sign-in');
+
+  const brand = await db.query.brandProfiles
+    .findFirst({ where: eq(brandProfiles.tenantId, tenant.id) })
+    .catch(() => null);
+
+  // Pass only the plain serialisable branding fields to the client Provider.
+  const themeBrand = brand
+    ? {
+        brandName: brand.brandName,
+        logoUrl: brand.logoUrl,
+        logoPath: brand.logoPath,
+        primaryColor: brand.primaryColor,
+        secondaryColor: brand.secondaryColor,
+        backgroundColor: brand.backgroundColor,
+        fontFamily: brand.fontFamily,
+      }
+    : null;
+
+  return (
+    <ThemeProvider brand={themeBrand}>
+      <DashboardShell>{children}</DashboardShell>
+    </ThemeProvider>
+  );
+}
+
+function DashboardShell({ children }: { children: ReactNode }) {
   const links = [
     { href: '/dashboard', label: 'Overview', icon: LayoutDashboard },
     { href: '/dashboard/inbox', label: 'Inbox', icon: MessageSquare },

@@ -5,6 +5,7 @@ import {
   uuid,
   jsonb,
   integer,
+  real,
   boolean,
   decimal,
   numeric,
@@ -21,6 +22,12 @@ export const tenants = pgTable('tenants', {
   name: text('name').notNull(),
   slug: text('slug').unique().notNull(),
   ownerEmail: text('owner_email'),
+  // Clerk user id of the owner who claimed this tenant. Null for unclaimed
+  // demo tenants and platform-created rows.
+  ownerId: text('owner_id'),
+  // 'live' = a real paying/trialing customer; 'demo' = a pre-configured
+  // prospect tenant built for a magic-link sales pitch and not yet claimed.
+  tenantMode: text('tenant_mode', { enum: ['live', 'demo'] }).default('live').notNull(),
   description: text('description'),
   openingHours: text('opening_hours'),
   aiPersonality: text('ai_personality').default('friendly and professional'),
@@ -124,6 +131,10 @@ export const contacts = pgTable(
     blocklisted: boolean('blocklisted').default(false).notNull(),
     vip: boolean('vip').default(false).notNull(),
     loyaltyPoints: integer('loyalty_points').default(0).notNull(),
+    // MM-DD (e.g. "08-27") used for birthday-reward detection. Nullable so the
+    // column is additive and existing rows are unaffected; only populated when
+    // a customer shares a birthday (or a demo/seed writes one).
+    birthday: text('birthday'),
     metadata: jsonb('metadata').default({}),
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
@@ -202,10 +213,19 @@ export const messages = pgTable(
     //
     // Inbound messages leave this NULL — delivery state is meaningless
     // for a message the customer sent us.
-    //   queued  -> accepted into the outbox, not yet dispatched
-    //   sent    -> the operator confirmed dispatch to WhatsApp
-    //   failed  -> retries exhausted, or no dispatch route existed
-    deliveryStatus: text('delivery_status', { enum: ['queued', 'sent', 'failed'] }),
+    // Honest delivery states (see lib/messaging/dispatch.ts): a successful
+    // operator dispatch is 'sent' (single tick), NOT 'delivered'. Only a
+    // real receipt sets 'delivered', so a reply that never reaches the
+    // customer is never shown as a delivered double-tick. 'unknown' covers
+    // a dispatch whose delivery cannot be determined.
+    //   queued    -> accepted into the outbox, not yet dispatched
+    //   sent      -> the operator confirmed dispatch to WhatsApp
+    //   delivered -> a real delivery receipt was received
+    //   failed    -> retries exhausted, or no dispatch route existed
+    //   unknown   -> delivery cannot be determined
+    deliveryStatus: text('delivery_status', {
+      enum: ['queued', 'sent', 'delivered', 'failed', 'unknown'],
+    }),
     // Why a delivery failed, surfaced to staff so the failure is
     // actionable rather than just a red dot. Never contains a secret:
     // it is set from operator/job error strings only.
@@ -1146,6 +1166,117 @@ export const consentRecords = pgTable(
 export const consentRecordRelations = relations(consentRecords, ({ one }) => ({
   tenant: one(tenants, {
     fields: [consentRecords.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+// -----------------------------------------------------------------------------
+// 23. Brand Profiles (extracted from prospect restaurant websites)
+// -----------------------------------------------------------------------------
+// One row per tenant, populated by the Brand Intelligence Engine when a demo
+// tenant is built from a prospect. `logo_path` / `logo_url` are the Vercel
+// Blob URL and the tenant-scoped path used to render the owner's own branding
+// in the /claim page and the injected ThemeProvider.
+export const brandProfiles = pgTable(
+  'brand_profiles',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id').notNull().references(() => tenants.id, { onDelete: 'cascade' }),
+    sourceUrl: text('source_url'),
+    logoUrl: text('logo_url'),
+    logoPath: text('logo_path'),
+    primaryColor: text('primary_color'),
+    secondaryColor: text('secondary_color'),
+    backgroundColor: text('background_color'),
+    fontFamily: text('font_family'),
+    brandName: text('brand_name'),
+    tagline: text('tagline'),
+    menuJson: jsonb('menu_json'),
+    hoursJson: jsonb('hours_json'),
+    googlePlacesId: text('google_places_id'),
+    confidence: real('confidence'),
+    extractedAt: timestamp('extracted_at'),
+  },
+  (table) => ({
+    tenantUniq: uniqueIndex('brand_profiles_tenant_uniq').on(table.tenantId),
+  })
+);
+
+export const brandProfileRelations = relations(brandProfiles, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [brandProfiles.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+// -----------------------------------------------------------------------------
+// 24. Prospects (Super Admin bulk-imported sales leads)
+// -----------------------------------------------------------------------------
+// A restaurant a sales rep wants to pitch. Status drives the background
+// processor: queued -> enriching -> ready | failed; once the owner claims it
+// via magic link the prospect becomes 'claimed'.
+export const prospects = pgTable(
+  'prospects',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    name: text('name').notNull(),
+    website: text('website').notNull(),
+    ownerEmail: text('owner_email'),
+    ownerPhone: text('owner_phone'),
+    city: text('city'),
+    status: text('status', {
+      enum: ['queued', 'enriching', 'ready', 'failed', 'claimed'],
+    })
+      .default('queued')
+      .notNull(),
+    error: text('error'),
+    retries: integer('retries').default(0).notNull(),
+    tenantId: uuid('tenant_id').references(() => tenants.id, { onDelete: 'set null' }),
+    claimToken: text('claim_token').unique(),
+    claimedAt: timestamp('claimed_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    statusIdx: index('prospects_status_idx').on(table.status),
+    tenantIdx: index('prospects_tenant_idx').on(table.tenantId),
+  })
+);
+
+export const prospectRelations = relations(prospects, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [prospects.tenantId],
+    references: [tenants.id],
+  }),
+}));
+
+// -----------------------------------------------------------------------------
+// 25. Tenant Claim Tokens (magic links)
+// -----------------------------------------------------------------------------
+// An opaque, single-use token that lets a prospect's owner claim a demo
+// tenant. Expires 30 days from creation; one claim per token (idempotent).
+export const tenantClaimTokens = pgTable(
+  'tenant_claim_tokens',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    token: text('token').notNull().unique(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    claimedAt: timestamp('claimed_at'),
+    claimedByUserId: text('claimed_by_user_id'),
+    expiresAt: timestamp('expires_at').notNull(),
+  },
+  (table) => ({
+    tokenIdx: uniqueIndex('tenant_claim_tokens_token_uniq').on(table.token),
+    tenantIdx: index('tenant_claim_tokens_tenant_id_idx').on(table.tenantId),
+  })
+);
+
+export const tenantClaimTokenRelations = relations(tenantClaimTokens, ({ one }) => ({
+  tenant: one(tenants, {
+    fields: [tenantClaimTokens.tenantId],
     references: [tenants.id],
   }),
 }));

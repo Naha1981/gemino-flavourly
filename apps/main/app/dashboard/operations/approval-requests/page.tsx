@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getOrCreateTenant } from '@/lib/tenant';
 import { listApprovalRequests } from '@/lib/operations/approval-request-store';
+import { ApprovalActions } from './approval-actions';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +51,7 @@ export default async function ApprovalRequestsPage() {
                     {req.messageText}
                   </p>
                   <p className="mt-2 text-xs text-zinc-500">Conversation: {req.conversationId}</p>
+                  <ApprovalActions requestId={req.id} />
                 </div>
               ))}
             </div>

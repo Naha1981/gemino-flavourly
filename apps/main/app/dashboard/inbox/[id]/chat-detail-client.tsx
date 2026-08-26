@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Phone, Send, Bot, User, Sparkles, Loader2, CheckCheck, Clock, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Phone, Send, Bot, User, Sparkles, Loader2, Check, CheckCheck, Clock, AlertTriangle, HelpCircle } from 'lucide-react';
 
 interface MessageItem {
   id: string;
@@ -12,8 +12,9 @@ interface MessageItem {
   createdAt: Date | string;
   // Null for inbound messages and for anything written before delivery
   // tracking existed — both render without a delivery indicator rather
-  // than being shown as delivered.
-  deliveryStatus?: 'queued' | 'sent' | 'failed' | null;
+  // than being shown as delivered. `sent` means dispatched to WhatsApp
+  // (single tick), NOT delivered; only `delivered` gets a double-tick.
+  deliveryStatus?: 'queued' | 'sent' | 'delivered' | 'failed' | 'unknown' | null;
   deliveryError?: string | null;
 }
 
@@ -206,13 +207,26 @@ export default function ChatDetailClient({
                     </span>
                   )}
                   <span>{timeStr}</span>
-                  {/* Delivery state. Previously every outbound message got an
-                      unconditional green double-check, so a reply that never
-                      reached the customer looked identical to one that did.
-                      Messages predating delivery tracking have a null status
-                      and show no indicator at all. */}
+                  {/* Delivery state. Honest rendering per the PRD ("never fake
+                      green ticks"): a `sent` message is a single tick (the
+                      operator accepted dispatch to WhatsApp) — it is NOT a
+                      delivery confirmation, so it never gets the double-tick.
+                      Only a real delivery receipt (`delivered`) shows
+                      CheckCheck. Messages predating delivery tracking have a
+                      null status and show no indicator at all. */}
                   {!isInbound && m.deliveryStatus === 'sent' && (
+                    <span title="Sent to WhatsApp — not confirmed delivered">
+                      <Check className="w-3.5 h-3.5 text-emerald-500 ml-0.5" aria-label="Sent (dispatched, not confirmed delivered)" />
+                    </span>
+                  )}
+                  {!isInbound && m.deliveryStatus === 'delivered' && (
                     <CheckCheck className="w-3.5 h-3.5 text-emerald-500 ml-0.5" aria-label="Delivered" />
+                  )}
+                  {!isInbound && m.deliveryStatus === 'unknown' && (
+                    <span className="flex items-center gap-1 text-zinc-500 ml-0.5" title="Delivery status could not be determined">
+                      <HelpCircle className="w-3.5 h-3.5" />
+                      Unknown
+                    </span>
                   )}
                   {!isInbound && m.deliveryStatus === 'queued' && (
                     <span className="flex items-center gap-1 text-amber-400 ml-0.5" title="Waiting to send — will retry automatically">

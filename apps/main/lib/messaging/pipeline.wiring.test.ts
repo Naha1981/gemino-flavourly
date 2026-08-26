@@ -144,11 +144,17 @@ describe('seam 4: the UI surfaces delivery state', () => {
     assert.match(src, /deliveryStatus === 'queued'/);
   });
 
-  test('the delivered tick is conditional, not unconditional', () => {
-    // Regression guard: previously every outbound message rendered a green
-    // double-check regardless of whether it was ever delivered.
-    assert.match(src, /deliveryStatus === 'sent' &&[\s\S]{0,120}CheckCheck/);
+  test('the delivered double-tick is conditional on a real receipt, not on sent', () => {
+    // Regression guard (PRD: "never fake green ticks"): `sent` means the
+    // operator dispatched the message to WhatsApp — NOT that the customer's
+    // phone received it. Previously every outbound message rendered a green
+    // double-check regardless, so a reply that never reached the customer
+    // looked delivered. Now the double-tick (CheckCheck) is reserved for a
+    // real delivery receipt (`delivered`); `sent` is a single tick.
+    assert.match(src, /deliveryStatus === 'delivered' &&[\s\S]{0,120}CheckCheck/);
+    assert.match(src, /deliveryStatus === 'sent' &&[\s\S]{0,120}<Check\b/);
     assert.doesNotMatch(src, /\{!isInbound && <CheckCheck/);
+    assert.doesNotMatch(src, /deliveryStatus === 'sent' &&[\s\S]{0,120}CheckCheck/);
   });
 
   test('a non-ok response is not treated as a successful send', () => {

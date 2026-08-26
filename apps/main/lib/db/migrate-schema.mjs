@@ -56,6 +56,7 @@ async function migrate() {
     await sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS blocklisted boolean DEFAULT false;`;
     await sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS vip boolean DEFAULT false;`;
     await sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS loyalty_points integer DEFAULT 0;`;
+    await sql`ALTER TABLE contacts ADD COLUMN IF NOT EXISTS birthday text;`;
 
     // 4. Staff members table
     console.log('4. Syncing staff_members table...');
@@ -70,6 +71,66 @@ async function migrate() {
         created_at timestamp DEFAULT NOW()
       );
     `;
+
+    // 5. Magic Link feature (prospects, brand profiles, claim tokens)
+    console.log('5. Syncing magic-link tables and columns...');
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS owner_id text;`;
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS tenant_mode text DEFAULT 'live' NOT NULL;`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS brand_profiles (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        source_url text,
+        logo_url text,
+        logo_path text,
+        primary_color text,
+        secondary_color text,
+        background_color text,
+        font_family text,
+        brand_name text,
+        tagline text,
+        menu_json jsonb,
+        hours_json jsonb,
+        google_places_id text,
+        confidence real,
+        extracted_at timestamp
+      );
+    `;
+    await sql`CREATE UNIQUE INDEX IF NOT EXISTS brand_profiles_tenant_uniq ON brand_profiles (tenant_id);`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS prospects (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        name text NOT NULL,
+        website text NOT NULL,
+        owner_email text,
+        owner_phone text,
+        city text,
+        status text DEFAULT 'queued' NOT NULL,
+        error text,
+        retries integer DEFAULT 0 NOT NULL,
+        tenant_id uuid REFERENCES tenants(id) ON DELETE SET NULL,
+        claim_token text,
+        claimed_at timestamp,
+        created_at timestamp DEFAULT NOW() NOT NULL,
+        updated_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`CREATE INDEX IF NOT EXISTS prospects_status_idx ON prospects (status);`;
+    await sql`CREATE INDEX IF NOT EXISTS prospects_tenant_idx ON prospects (tenant_id);`;
+    await sql`CREATE UNIQUE INDEX IF NOT EXISTS prospects_claim_token_uniq ON prospects (claim_token);`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS tenant_claim_tokens (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        token text NOT NULL,
+        created_at timestamp DEFAULT NOW() NOT NULL,
+        claimed_at timestamp,
+        claimed_by_user_id text,
+        expires_at timestamp NOT NULL
+      );
+    `;
+    await sql`CREATE UNIQUE INDEX IF NOT EXISTS tenant_claim_tokens_token_uniq ON tenant_claim_tokens (token);`;
+    await sql`CREATE INDEX IF NOT EXISTS tenant_claim_tokens_tenant_id_idx ON tenant_claim_tokens (tenant_id);`;
 
     console.log('✅ ALL PRODUCTION SCHEMA COLUMNS & TABLES SYNCHRONIZED SUCCESSFULLY IN NEON POSTGRESQL!');
   } catch (err) {
