@@ -2,7 +2,10 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs';
+// Degradation-aware Clerk wrappers: when the publishable key is missing the
+// root layout skips <ClerkProvider>, and the raw Clerk components would then
+// throw on the client and blank the landing page. See components/clerk-shell.
+import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@/components/clerk-shell';
 import { ArrowRight, CalendarCheck, Timer, TrendingUp, Star, Megaphone, Swords, BarChart3, QrCode, ShieldCheck } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 

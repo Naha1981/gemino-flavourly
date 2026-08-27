@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { Check } from 'lucide-react';
-import { SignUpButton } from '@clerk/nextjs';
+// Degradation-aware wrapper: /pricing is prerendered at build time and is
+// public, so a missing Clerk key must not fail the build or 500 the page.
+import { SignUpButton } from '@/components/clerk-shell';
 
 interface Tier {
   id: string;

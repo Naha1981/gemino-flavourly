@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import { isPublicPath, guardRequest } from '../auth/route-guard-core.ts';
 
 /**
  * Seam/source-contract tests for the magic-link feature (Gate 3).
@@ -54,8 +55,21 @@ describe('security: super admin console + APIs fail closed', () => {
   });
 
   test('magic link /claim page is PUBLIC in middleware', () => {
+    // The public-route list moved out of middleware.ts into the pure guard
+    // (lib/auth/route-guard-core.ts) when the middleware was rewritten to
+    // decide "public?" before touching Clerk. Assert the behaviour directly
+    // against that guard rather than a regex over middleware source, which
+    // is a stronger check of the same intent.
+    assert.ok(isPublicPath('/claim/deadbeef-token'), '/claim/<token> must be public');
+    assert.ok(isPublicPath('/claim/redeem'), '/claim/redeem must be public');
+    assert.deepEqual(guardRequest({ rawPath: '/claim/deadbeef-token', clerkConfigured: false }), {
+      action: 'pass',
+    });
+
+    // And the middleware must actually consult that guard.
     const src = code(MIDDLEWARE);
-    assert.match(src, /'\/claim\/\(\.\*\)'/);
+    assert.match(src, /from '@\/lib\/auth\/route-guard-core'/);
+    assert.match(src, /guardRequest\(/);
   });
 
   test('the claim redeem route enforces auth itself and clears the cookie', () => {
