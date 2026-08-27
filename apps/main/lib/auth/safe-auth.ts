@@ -1,5 +1,6 @@
 import { auth } from '@clerk/nextjs/server';
 import { clerkIsConfigured } from './route-guard-core';
+import { isControlFlowError } from './safe-auth-core';
 
 export interface SafeAuthResult {
   /** The signed-in Clerk user id, or null when nobody is signed in. */
@@ -33,6 +34,14 @@ export async function safeAuth(): Promise<SafeAuthResult> {
     const { userId } = await auth();
     return { userId: userId ?? null, degraded: false };
   } catch (err) {
+    // Next signals "this route must be dynamic" (and redirect()/notFound())
+    // by THROWING. `auth()` reads headers, so it trips DYNAMIC_SERVER_USAGE
+    // during static prerender. Swallowing that logs a false error on every
+    // build and, worse, lets a route be prerendered with signed-out content
+    // baked in — silently breaking the signed-in redirect to /dashboard.
+    // Control flow must propagate untouched.
+    if (isControlFlowError(err)) throw err;
+
     console.error(
       '[safe-auth] auth() failed, treating visitor as signed out:',
       (err as Error)?.message,
