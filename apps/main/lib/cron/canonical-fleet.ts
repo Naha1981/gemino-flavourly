@@ -145,6 +145,19 @@ export interface ResolvedCronJob {
 }
 
 /**
+ * Render a cron-job.org schedule as a classic 5-field cron expression
+ * (minute hour dom month dow). `-1` means "every" and renders as `*`.
+ * Used for the Cron Fleet Manager UI so operators see familiar syntax.
+ */
+export function cronExpression(schedule: CronScheduleSpec): string {
+  const part = (values: number[]) =>
+    Array.isArray(values) && values.length > 0 && !(values.length === 1 && values[0] === -1)
+      ? values.join(',')
+      : '*';
+  return `${part(schedule.minutes)} ${part(schedule.hours)} ${part(schedule.mdays)} ${part(schedule.months)} ${part(schedule.wdays)}`;
+}
+
+/**
  * The full fleet — 20 canonical jobs + watchdog — with URLs resolved
  * against the configured base/operator URLs.
  */
