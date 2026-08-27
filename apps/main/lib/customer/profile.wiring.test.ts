@@ -120,9 +120,13 @@ describe('API routes require a tenant and stay scoped', () => {
 
 describe('dashboard UI wiring', () => {
   test('Customers nav link exists', () => {
-    const src = code(LAYOUT);
-    assert.match(src, /href:\s*'\/dashboard\/customers'/);
-    assert.match(src, /label:\s*'Customers'/);
+    // Stitch redesign moved the nav definitions into the DashboardChrome
+    // shell component; the layout renders that shell.
+    const layout = code(LAYOUT);
+    assert.match(layout, /<DashboardChrome/);
+    const chrome = readFileSync(LAYOUT.replace('layout.tsx', 'dashboard-chrome.tsx'), 'utf8');
+    assert.match(chrome, /href:\s*'\/dashboard\/customers'/);
+    assert.match(chrome, /label:\s*'Customers'/);
   });
 
   test('list page is tenant-scoped', () => {

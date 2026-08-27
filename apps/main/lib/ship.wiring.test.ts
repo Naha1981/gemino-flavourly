@@ -169,7 +169,9 @@ describe('S4 — tenant resolver, switcher, switch endpoint', () => {
   test('the dashboard layout resolves via the resolver and renders the switcher', () => {
     const layout = stripComments(src('app/dashboard/layout.tsx'));
     assert.match(layout, /resolveActiveTenant\(/);
-    assert.match(layout, /<TenantSwitcher/);
+    assert.match(layout, /<DashboardChrome/);
+    const chrome = stripComments(src('app/dashboard/dashboard-chrome.tsx'));
+    assert.match(chrome, /<TenantSwitcher/);
   });
 
   test('sidebar TenantSwitcher posts to /api/tenant/switch', () => {
@@ -225,15 +227,28 @@ describe('S5 — canonical cron fleet', () => {
     assert.doesNotMatch(loader, /import fleet from/);
   });
 
-  test('sync-crons is super-admin gated and keyed on CRONJOB_API_KEY', () => {
+  test('sync-crons is super-admin gated and resolves the key DATABASE-FIRST', () => {
     const route = stripComments(src('app/api/admin/sync-crons/route.ts'));
     assert.match(route, /isSuperAdmin\(\)/);
     assert.match(route, /status:\s*403/);
-    assert.match(route, /process\.env\.CRONJOB_API_KEY/);
+    assert.match(route, /resolveStoredCronJobApiKey\(/);
     assert.match(route, /loadCanonicalFleet\(/);
+    // The env fallback is named explicitly (it lives in the key store).
+    assert.match(route, /CRONJOB_API_KEY/);
   });
 
-  test('sync-crons creates, updates/enables, and deletes dupes/stale', () => {
+  test('the key store resolves database first, environment fallback', () => {
+    const store = stripComments(src('lib/cron/key-store-server.ts'));
+    assert.match(store, /resolveCronJobApiKey\(/);
+    assert.match(store, /process\.env\.CRONJOB_API_KEY/);
+    assert.match(store, /process\.env\.CRON_SECRET/);
+    const core = stripComments(src('lib/cron/key-store.ts'));
+    assert.match(core, /aes-256-gcm/);
+    assert.match(core, /source:\s*'database'/);
+    assert.match(core, /source:\s*'environment'/);
+  });
+
+  test('sync-crons creates, updates/enables, and deletes dupes/stale within a 30s deadline', () => {
     const route = stripComments(src('app/api/admin/sync-crons/route.ts'));
     assert.match(route, /'created'/);
     assert.match(route, /'updated'/);
@@ -241,12 +256,24 @@ describe('S5 — canonical cron fleet', () => {
     assert.match(route, /reason:\s*'duplicate'/);
     assert.match(route, /reason:\s*'stale'/);
     assert.match(route, /method:\s*'DELETE'/);
+    assert.match(route, /SYNC_DEADLINE_MS\s*=\s*30_000/);
   });
 
-  test('sync-crons returns a table of the resulting fleet', () => {
+  test('sync-crons returns the UI-friendly payload plus the legacy table', () => {
     const route = stripComments(src('app/api/admin/sync-crons/route.ts'));
+    assert.match(route, /success:/);
+    assert.match(route, /message:/);
+    assert.match(route, /jobs:\s*jobsUi/);
     assert.match(route, /table/);
     assert.match(route, /watchdog/);
+    assert.match(route, /cronExpression\(/);
+  });
+
+  test('POST /api/admin/settings/cron-key is super-admin gated and encrypts', () => {
+    const route = stripComments(src('app/api/admin/settings/cron-key/route.ts'));
+    assert.match(route, /isSuperAdmin\(\)/);
+    assert.match(route, /status:\s*403/);
+    assert.match(route, /saveCronJobApiKey\(/);
   });
 
   test('setup-cronjobs.mjs reads the SAME json (no duplicate fleet list)', () => {

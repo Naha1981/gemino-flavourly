@@ -180,16 +180,21 @@ describe('Market Intelligence schema wiring (Gates #15-#18)', () => {
     assert.ok(entry, 'journal has no 0016_billing_onboarding_consent entry');
   });
 
-  test('migration journal is current through 0019_tenant_memberships (S4)', () => {
+  test('migration journal is current through 0020_cron_key_demo_mode', () => {
     const journal = JSON.parse(source(JOURNAL));
-    for (const tag of ['0017_magic_link', '0018_missing_engines', '0019_tenant_memberships']) {
+    for (const tag of [
+      '0017_magic_link',
+      '0018_missing_engines',
+      '0019_tenant_memberships',
+      '0020_cron_key_demo_mode',
+    ]) {
       assert.ok(
         journal.entries.find((e: { tag: string }) => e.tag === tag),
         `journal has no ${tag} entry`
       );
     }
     const latest = journal.entries[journal.entries.length - 1];
-    assert.equal(latest.tag, '0019_tenant_memberships');
+    assert.equal(latest.tag, '0020_cron_key_demo_mode');
   });
 
   test('/api/migrate carries the same Gate #15-#18 DDL', () => {
