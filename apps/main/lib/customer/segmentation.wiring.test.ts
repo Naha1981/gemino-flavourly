@@ -128,11 +128,14 @@ describe('customer segmentation route and dashboard wiring', () => {
       assert.match(src, new RegExp(label));
     }
     for (const text of ['VIP:', 'Regular:', 'At-risk:', 'Dormant:', 'New:']) assert.match(src, new RegExp(text));
-    assert.match(src, /bg-amber/);
-    assert.match(src, /bg-blue/);
-    assert.match(src, /bg-orange/);
+    // Stitch redesign: segment identity colours live in SEGMENT_META (gold VIP,
+    // tertiary Regular, error At-risk, surface Dormant, secondary New) with the
+    // legacy palette retained as the dark-mode fallback.
+    assert.match(src, /stitch-gold/);
+    assert.match(src, /bg-blue|tertiary/);
+    assert.match(src, /app-error|orange/);
     assert.match(src, /bg-zinc/);
-    assert.match(src, /bg-emerald/);
+    assert.match(src, /bg-emerald|secondary/);
     assert.match(src, /SegmentBadge/);
   });
 

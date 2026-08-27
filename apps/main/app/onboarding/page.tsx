@@ -114,22 +114,22 @@ export default function OnboardingWizard() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-950">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-400" />
+      <div className="flex min-h-screen items-center justify-center bg-app-bg dark:bg-zinc-950">
+        <Loader2 className="h-8 w-8 animate-spin text-stitch-gold dark:text-emerald-400" />
       </div>
     );
   }
 
   if (complete) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4">
-        <div className="w-full max-w-lg space-y-6 rounded-lg border border-zinc-800 bg-zinc-900 p-8 text-center shadow-xl">
-          <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-400" />
-          <h1 className="text-2xl font-bold">You are all set!</h1>
-          <p className="text-sm text-zinc-400">Your restaurant is connected and ready to go live.</p>
+      <div className="flex min-h-screen items-center justify-center bg-app-bg p-4 dark:bg-zinc-950">
+        <div className="glass-card w-full max-w-lg space-y-6 p-8 text-center">
+          <CheckCircle2 className="mx-auto h-12 w-12 text-app-secondary dark:text-emerald-400" />
+          <h1 className="headline-md text-app-fg dark:text-zinc-50">You are all set!</h1>
+          <p className="body-md text-app-muted dark:text-zinc-400">Your restaurant is connected and ready to go live.</p>
           <a
             href="/dashboard"
-            className="inline-flex items-center gap-2 rounded-md bg-emerald-500 px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:bg-emerald-400"
+            className="inline-flex items-center gap-2 rounded-xl bg-stitch-gold px-4 py-2.5 text-sm font-semibold text-zinc-950 hover:opacity-90 dark:bg-emerald-500 dark:hover:bg-emerald-400"
           >
             Go to Dashboard <ArrowRight className="h-4 w-4" />
           </a>
@@ -139,28 +139,39 @@ export default function OnboardingWizard() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4">
-      <div className="w-full max-w-2xl space-y-6 rounded-lg border border-zinc-800 bg-zinc-900 p-8 shadow-xl">
+    <div className="min-h-screen bg-app-bg dark:bg-zinc-950">
+      {/* Stitch: gold progress bar across the top */}
+      <div className="h-1.5 w-full bg-app-surface-3 dark:bg-zinc-800">
+        <div
+          className="h-full rounded-r-full bg-gradient-to-r from-stitch-brass to-stitch-gold transition-all duration-500 dark:from-emerald-600 dark:to-emerald-400"
+          style={{ width: `${((step + 1) / STEPS.length) * 100}%` }}
+        />
+      </div>
+
+      <div className="flex min-h-[calc(100vh-6px)] items-center justify-center p-4">
+        <div className="glass-card w-full max-w-2xl space-y-6 p-8">
         <div>
-          <h1 className="text-2xl font-bold">Welcome to Flavourly</h1>
-          <p className="mt-1 text-sm text-zinc-400">Let&apos;s get your restaurant set up in a few minutes.</p>
+          <h1 className="headline-lg text-app-fg dark:text-zinc-50">Welcome to Flavourly</h1>
+          <p className="body-md mt-1 text-app-muted dark:text-zinc-400">
+            Let&apos;s get your restaurant set up in a few minutes.
+          </p>
         </div>
 
         <div className="flex gap-2">
           {STEPS.map((label, i) => (
             <div key={label} className="flex-1">
-              <div className={`h-1.5 rounded-full ${i <= step ? 'bg-emerald-500' : 'bg-zinc-800'}`} />
-              <p className="mt-1 truncate text-xs text-zinc-500">{label}</p>
+              <div className={`h-1.5 rounded-full ${i <= step ? 'bg-stitch-gold dark:bg-emerald-500' : 'bg-app-surface-3 dark:bg-zinc-800'}`} />
+              <p className="label-sm mt-1 truncate text-app-faint dark:text-zinc-500">{label}</p>
             </div>
           ))}
         </div>
 
-        {error && <p className="text-sm text-red-400">{error}</p>}
+        {error && <p className="text-sm text-app-error dark:text-red-400">{error}</p>}
 
         <div className="min-h-[260px]">
           {step === 0 && (
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold">Restaurant profile</h2>
+              <h2 className="headline-md text-app-fg dark:text-zinc-50">Restaurant profile</h2>
               <Field label="Restaurant name" value={profile.name} onChange={(v) => setProfile({ ...profile, name: v })} placeholder="Flavourly Kitchen" />
               <Field label="Description" value={profile.description} onChange={(v) => setProfile({ ...profile, description: v })} placeholder="A vibrant local bistro serving..." />
               <Field label="Trading hours" value={profile.openingHours} onChange={(v) => setProfile({ ...profile, openingHours: v })} />
@@ -171,25 +182,44 @@ export default function OnboardingWizard() {
 
           {step === 1 && (
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold">Connect WhatsApp</h2>
-              <p className="text-sm text-zinc-400">Scan the QR code with your restaurant&apos;s WhatsApp to link it.</p>
-              <div className="flex items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950 p-8">
-                <QrCode className="h-32 w-32 text-zinc-500" />
+              <h2 className="headline-md text-app-fg dark:text-zinc-50">Connect WhatsApp</h2>
+              <p className="body-md text-app-muted dark:text-zinc-400">
+                Scan the QR code with your restaurant&apos;s WhatsApp to link it.
+              </p>
+              <div className="flex flex-col items-center justify-center gap-4 rounded-2xl border border-app-border bg-app-surface-1 p-8 dark:border-zinc-800 dark:bg-zinc-950">
+                <QrCode className="h-32 w-32 text-app-faint dark:text-zinc-500" />
+                {/* Gold pulsing waiting pill */}
+                <span className="gold-pulse label-md inline-flex items-center gap-2 rounded-full bg-stitch-gold/15 px-4 py-1.5 text-stitch-brass ring-1 ring-stitch-gold/60 dark:text-stitch-gold">
+                  <span className="h-2 w-2 animate-pulse rounded-full bg-stitch-gold" />
+                  Waiting for connection…
+                </span>
               </div>
-              <p className="text-center text-xs text-zinc-500">QR code is generated from the WhatsApp page after setup.</p>
+              {/* Instant Response Protocol highlight */}
+              <div className="flex items-start gap-3 rounded-2xl border border-app-secondary-container bg-app-secondary-container/40 p-4 dark:border-emerald-800 dark:bg-emerald-950/40">
+                <MessageSquare className="mt-0.5 h-5 w-5 shrink-0 text-app-secondary dark:text-emerald-400" />
+                <div className="text-sm">
+                  <p className="font-semibold text-app-on-secondary-container dark:text-emerald-200">Instant Response Protocol</p>
+                  <p className="mt-1 text-app-on-secondary-container/85 dark:text-emerald-300/85">
+                    Once linked, Flavourly answers every guest within seconds — bookings, menus and FAQs, 24/7.
+                  </p>
+                </div>
+              </div>
+              <p className="text-center text-xs text-app-faint dark:text-zinc-500">
+                QR code is generated from the WhatsApp page after setup.
+              </p>
             </div>
           )}
 
           {step === 2 && (
             <div className="space-y-4">
-              <h2 className="text-lg font-semibold">Send a test message</h2>
+              <h2 className="headline-md text-app-fg dark:text-zinc-50">Send a test message</h2>
               <p className="text-sm text-zinc-400">Enter your own number and we&apos;ll send a test WhatsApp message.</p>
               <div className="flex gap-2">
                 <input
                   value={testPhone}
                   onChange={(e) => setTestPhone(e.target.value)}
                   placeholder="+27 82 123 4567"
-                  className="flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-emerald-500"
+                  className="flex-1 rounded-lg border border-app-border bg-app-surface-1 px-3 py-2 text-sm text-app-fg outline-none focus:border-stitch-gold dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-emerald-500"
                 />
                 <button
                   onClick={sendTest}
@@ -245,7 +275,7 @@ export default function OnboardingWizard() {
           <button
             onClick={back}
             disabled={step === 0}
-            className="inline-flex items-center gap-1 rounded-md px-3 py-2 text-sm text-zinc-400 hover:text-zinc-200 disabled:opacity-30"
+            className="inline-flex items-center gap-1 rounded-lg px-3 py-2 text-sm text-app-muted hover:text-app-fg disabled:opacity-30 dark:text-zinc-400 dark:hover:text-zinc-200"
           >
             <ArrowLeft className="h-4 w-4" /> Back
           </button>
@@ -253,7 +283,7 @@ export default function OnboardingWizard() {
             <button
               onClick={next}
               disabled={saving}
-              className="inline-flex items-center gap-1 rounded-md bg-emerald-500 px-4 py-2 text-sm font-medium text-zinc-950 hover:bg-emerald-400 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-xl bg-stitch-gold px-5 py-2.5 text-sm font-semibold text-zinc-950 hover:opacity-90 disabled:opacity-50 dark:bg-emerald-500 dark:hover:bg-emerald-400"
             >
               Next <ArrowRight className="h-4 w-4" />
             </button>
@@ -261,12 +291,13 @@ export default function OnboardingWizard() {
             <button
               onClick={finish}
               disabled={saving}
-              className="inline-flex items-center gap-1 rounded-md bg-emerald-500 px-4 py-2 text-sm font-medium text-zinc-950 hover:bg-emerald-400 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-xl bg-stitch-gold px-5 py-2.5 text-sm font-semibold text-zinc-950 hover:opacity-90 disabled:opacity-50 dark:bg-emerald-500 dark:hover:bg-emerald-400"
             >
               {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
               Finish setup
             </button>
           )}
+        </div>
         </div>
       </div>
     </div>
@@ -286,10 +317,11 @@ function Field({
   placeholder?: string;
   multiline?: boolean;
 }) {
-  const cls = 'w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-emerald-500';
+  const cls =
+    'w-full rounded-lg border border-app-border bg-app-surface-1 px-3 py-2 text-sm text-app-fg outline-none focus:border-stitch-gold dark:border-zinc-800 dark:bg-zinc-950 dark:text-zinc-100 dark:focus:border-emerald-500';
   return (
     <label className="block">
-      <span className="mb-1 block text-sm text-zinc-300">{label}</span>
+      <span className="mb-1 block text-sm text-app-muted dark:text-zinc-300">{label}</span>
       {multiline ? (
         <textarea rows={4} className={cls} value={value} onChange={(e) => onChange(e.target.value)} placeholder={placeholder} />
       ) : (

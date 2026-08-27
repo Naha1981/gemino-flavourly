@@ -1,6 +1,6 @@
 import { auth, clerkClient } from '@clerk/nextjs/server';
 import { db } from '@/lib/db';
-import { tenants, waAccounts } from '@/lib/db/schema';
+import { tenants, waAccounts, memberships } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 
 /**
@@ -18,6 +18,22 @@ import { eq } from 'drizzle-orm';
  * instead of throwing, so callers can render a real fallback instead of
  * a blank crash.
  */
+/**
+ * S4 — make sure a user has an 'owner' membership row for a tenant they
+ * own. Idempotent (unique (user_id, tenant_id) + onConflictDoNothing); used
+ * to backfill memberships for tenants created before the memberships model
+ * existed, so the resolver and switcher agree everywhere.
+ */
+export async function ensureOwnerMembership(userId: string, tenantId: string): Promise<void> {
+  await db
+    .insert(memberships)
+    .values({ userId, tenantId, role: 'owner' })
+    .onConflictDoNothing()
+    .catch((err: unknown) => {
+      console.error('[getOrCreateTenant] Failed to backfill owner membership.', err);
+    });
+}
+
 export async function getOrCreateTenant() {
   const { userId } = await auth();
   if (!userId) return null;
@@ -36,7 +52,10 @@ export async function getOrCreateTenant() {
         console.error('[getOrCreateTenant] Failed to look up tenant by id — is the DB schema in sync? Run GET /api/migrate while signed in as admin.', err);
         return [];
       });
-    if (t) return t;
+    if (t) {
+      await ensureOwnerMembership(userId, t.id);
+      return t;
+    }
   }
 
   const email = user?.emailAddresses?.[0]?.emailAddress || 'unknown';
@@ -57,6 +76,7 @@ export async function getOrCreateTenant() {
       return [];
     });
   if (existingTenant) {
+    await ensureOwnerMembership(userId, existingTenant.id);
     return existingTenant;
   }
 
@@ -75,6 +95,22 @@ export async function getOrCreateTenant() {
     await db.insert(waAccounts).values({ tenantId: tenant.id }).catch((err: unknown) => {
       console.error('[getOrCreateTenant] Tenant created, but failed to create its WhatsApp account row.', err);
     });
+    // S4 — stamp ownership + the owner membership so the tenant resolver and
+    // the switcher treat self-signed-up tenants exactly like claimed ones.
+    await db
+      .update(tenants)
+      .set({ ownerUserId: userId })
+      .where(eq(tenants.id, tenant.id))
+      .catch((err: unknown) => {
+        console.error('[getOrCreateTenant] Failed to stamp owner_user_id.', err);
+      });
+    await db
+      .insert(memberships)
+      .values({ userId, tenantId: tenant.id, role: 'owner' })
+      .onConflictDoNothing()
+      .catch((err: unknown) => {
+        console.error('[getOrCreateTenant] Failed to insert owner membership.', err);
+      });
     if (client?.users?.updateUserMetadata) {
       await client.users
         .updateUserMetadata(userId, { publicMetadata: { tenantId: tenant.id } })

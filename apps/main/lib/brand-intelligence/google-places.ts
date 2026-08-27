@@ -140,6 +140,8 @@ export async function fetchGooglePlacesData(
   const query = city && city.trim() ? `${restaurantName} ${city}` : restaurantName;
 
   try {
+    // S1 — every enrichment source gets a hard 10s timeout so a hung Places
+    // call can never stall the inline build.
     const searchRes = await fetchImpl(SEARCH_URL, {
       method: 'POST',
       headers: {
@@ -149,6 +151,7 @@ export async function fetchGooglePlacesData(
           'places.id,places.displayName,places.formattedAddress,places.rating,places.userRatingCount,places.websiteUri,places.regularOpeningHours,places.photos,places.reviews',
       },
       body: JSON.stringify({ textQuery: query, pageSize: 1 }),
+      signal: AbortSignal.timeout(10_000),
     });
     if (!searchRes.ok) return emptyPlace();
     const searchData = await searchRes.json();
@@ -161,6 +164,7 @@ export async function fetchGooglePlacesData(
         'X-Goog-FieldMask':
           'id,displayName,formattedAddress,rating,userRatingCount,regularOpeningHours.weekdayDescriptions,reviews,reviews.authorAttribution,reviews.rating,reviews.text,reviews.relativePublishTimeDescription',
       },
+      signal: AbortSignal.timeout(10_000),
     });
     const detail = detailRes.ok ? await detailRes.json() : null;
     return mergePlaceData(summary, detail);

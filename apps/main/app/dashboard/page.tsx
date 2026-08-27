@@ -2,9 +2,18 @@ import { auth, clerkClient } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { getOrCreateTenant } from '@/lib/tenant';
 import { db } from '@/lib/db';
-import { waAccounts, conversations, messages } from '@/lib/db/schema';
-import { eq, count } from 'drizzle-orm';
-import { Activity, MessageSquare, Users, QrCode, AlertTriangle, CheckSquare } from 'lucide-react';
+import {
+  waAccounts,
+  conversations,
+  messages,
+  revenueEvents,
+  reservations,
+  googleReviews,
+  vipAlerts,
+  marketingCampaigns,
+} from '@/lib/db/schema';
+import { eq, count, sql, and, gte, desc } from 'drizzle-orm';
+import { Activity, MessageSquare, Users, QrCode, AlertTriangle, CheckSquare, ArrowUpRight, ArrowDownRight, Star, Sparkles, TrendingUp } from 'lucide-react';
 import Link from 'next/link';
 import { countPendingApprovals } from '@/lib/operations/approval-request-store';
 
@@ -76,23 +85,112 @@ export default async function DashboardOverview() {
   // owner knows a YELLOW/RED AI reply is waiting for their sign-off.
   const pendingApprovals = await countPendingApprovals(tenant.id).catch(() => 0);
 
+  // ── Executive bento reads (guarded; empty states render, never crash) ──
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfWeekAgo = new Date(startOfToday.getTime() - 7 * 24 * 3600 * 1000);
+  const startOfYesterdayWeekAgo = new Date(startOfToday.getTime() - 8 * 24 * 3600 * 1000);
+
+  const [revenueToday] = await db
+    .select({ value: sql<number>`COALESCE(SUM(${revenueEvents.realizedCents}), 0)` })
+    .from(revenueEvents)
+    .where(and(eq(revenueEvents.tenantId, tenant.id), gte(revenueEvents.occurredAt, startOfToday)))
+    .catch(() => [{ value: 0 }]);
+  const [revenueThisWeek] = await db
+    .select({ value: sql<number>`COALESCE(SUM(${revenueEvents.realizedCents}), 0)` })
+    .from(revenueEvents)
+    .where(and(eq(revenueEvents.tenantId, tenant.id), gte(revenueEvents.occurredAt, startOfWeekAgo)))
+    .catch(() => [{ value: 0 }]);
+  const [revenueLastWeek] = await db
+    .select({ value: sql<number>`COALESCE(SUM(${revenueEvents.realizedCents}), 0)` })
+    .from(revenueEvents)
+    .where(
+      and(
+        eq(revenueEvents.tenantId, tenant.id),
+        gte(revenueEvents.occurredAt, startOfYesterdayWeekAgo),
+        sql`${revenueEvents.occurredAt} < ${startOfWeekAgo}`
+      )
+    )
+    .catch(() => [{ value: 0 }]);
+
+  const wowUp = (revenueThisWeek?.value ?? 0) >= (revenueLastWeek?.value ?? 0);
+
+  const aiBookingRows = await db
+    .select({ count: count() })
+    .from(conversations)
+    .where(and(eq(conversations.tenantId, tenant.id), eq(conversations.outcome, 'converted')))
+    .catch(() => [{ count: 0 }]);
+  const aiBookings = (Array.isArray(aiBookingRows) ? aiBookingRows : [])[0]?.count ?? 0;
+
+  const reviews = await db
+    .select({ rating: googleReviews.rating, responseSentAt: googleReviews.responseSentAt })
+    .from(googleReviews)
+    .where(eq(googleReviews.tenantId, tenant.id))
+    .catch(() => [] as { rating: number; responseSentAt: Date | null }[]);
+  const avgRating = reviews.length ? reviews.reduce((a, r) => a + r.rating, 0) / reviews.length : 0;
+  const unansweredReviews = reviews.filter((r) => !r.responseSentAt).length;
+
+  const vipsToday = await db
+    .select({ customerName: vipAlerts.customerName, totalVisits: vipAlerts.totalVisits, preferences: vipAlerts.preferences })
+    .from(vipAlerts)
+    .where(and(eq(vipAlerts.tenantId, tenant.id), gte(vipAlerts.sentAt, startOfToday)))
+    .orderBy(desc(vipAlerts.totalVisits))
+    .limit(4)
+    .catch(() => [] as { customerName: string | null; totalVisits: number; preferences: unknown }[]);
+
+  const bookingsTodayRows = await db
+    .select({ count: count() })
+    .from(reservations)
+    .where(and(eq(reservations.tenantId, tenant.id), gte(reservations.date, startOfToday)))
+    .catch(() => [{ count: 0 }]);
+  const bookingsToday = (Array.isArray(bookingsTodayRows) ? bookingsTodayRows : [])[0]?.count ?? 0;
+
+  // 7-day revenue bars for the forecast strip.
+  const bars: { label: string; value: number }[] = [];
+  for (let d = 6; d >= 0; d--) {
+    const dayStart = new Date(startOfToday.getTime() - d * 24 * 3600 * 1000);
+    const dayEnd = new Date(dayStart.getTime() + 24 * 3600 * 1000);
+    const [row] = await db
+      .select({ value: sql<number>`COALESCE(SUM(${revenueEvents.realizedCents}), 0)` })
+      .from(revenueEvents)
+      .where(
+        and(
+          eq(revenueEvents.tenantId, tenant.id),
+          gte(revenueEvents.occurredAt, dayStart),
+          sql`${revenueEvents.occurredAt} < ${dayEnd}`
+        )
+      )
+      .catch(() => [{ value: 0 }]);
+    bars.push({ label: dayStart.toLocaleDateString('en-ZA', { weekday: 'short' }), value: row?.value ?? 0 });
+  }
+  const barMax = Math.max(...bars.map((b) => b.value), 1);
+
+  const latestCampaign = await db.query.marketingCampaigns.findFirst({
+    where: and(eq(marketingCampaigns.tenantId, tenant.id), eq(marketingCampaigns.status, 'sent')),
+    orderBy: desc(marketingCampaigns.launchedAt),
+  }).catch(() => null);
+
   return (
-    <div className="space-y-8 max-w-5xl">
+    <div className="max-w-6xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-zinc-50">Welcome back, {user?.firstName || 'Owner'}</h1>
-        <p className="mt-1 text-sm text-zinc-400">Here&apos;s what&apos;s happening with your restaurant today.</p>
+        <h1 className="headline-lg text-app-fg dark:text-zinc-50">Welcome back, {user?.firstName || 'Owner'}</h1>
+        <p className="body-md mt-1 text-app-muted dark:text-zinc-400">
+          Here&apos;s what&apos;s happening with your restaurant today.
+        </p>
       </div>
 
       {!waAccount?.isConnected && (
-        <div className="rounded-lg border border-amber-900/60 bg-amber-950/40 p-5 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="glass-card border-l-4 !border-l-stitch-gold p-5">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
-              <h3 className="font-semibold text-amber-300">Action Required: WhatsApp Not Connected</h3>
-              <p className="text-sm text-zinc-400 mt-0.5">Your WhatsApp number is not connected. Connect it to start answering customer inquiries automatically.</p>
+              <h3 className="label-md text-stitch-brass dark:text-stitch-gold">Action Required: WhatsApp Not Connected</h3>
+              <p className="body-md mt-0.5 text-app-muted dark:text-zinc-400">
+                Your WhatsApp number is not connected. Connect it to start answering customer inquiries automatically.
+              </p>
             </div>
             <Link
               href="/dashboard/whatsapp"
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-amber-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-amber-400 transition-colors shadow-sm"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-stitch-gold px-4 py-2 text-sm font-semibold text-zinc-950 shadow-sm transition-colors hover:opacity-90"
             >
               <QrCode className="h-4 w-4" />
               Connect Now
@@ -102,20 +200,20 @@ export default async function DashboardOverview() {
       )}
 
       {pendingApprovals > 0 && (
-        <div className="rounded-lg border border-blue-900/60 bg-blue-950/40 p-5 shadow-sm">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="glass-card border-l-4 !border-l-app-tertiary p-5">
+          <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
             <div>
-              <h3 className="flex items-center gap-2 font-semibold text-blue-300">
+              <h3 className="label-md flex items-center gap-2 text-app-tertiary dark:text-blue-300">
                 <CheckSquare className="h-4 w-4" />
                 {pendingApprovals} message{pendingApprovals === 1 ? '' : 's'} awaiting approval
               </h3>
-              <p className="text-sm text-zinc-400 mt-0.5">
+              <p className="body-md mt-0.5 text-app-muted dark:text-zinc-400">
                 An AI reply was held for your sign-off before sending. Review it to keep the conversation moving.
               </p>
             </div>
             <Link
               href="/dashboard/operations/approval-requests"
-              className="inline-flex items-center justify-center gap-2 rounded-md bg-blue-500 px-4 py-2 text-sm font-semibold text-zinc-950 hover:bg-blue-400 transition-colors shadow-sm"
+              className="inline-flex items-center justify-center gap-2 rounded-lg bg-app-tertiary px-4 py-2 text-sm font-semibold text-white shadow-sm transition-colors hover:opacity-90 dark:bg-blue-600"
             >
               Review Approvals
             </Link>
@@ -123,10 +221,160 @@ export default async function DashboardOverview() {
         </div>
       )}
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <StatCard title="Active Conversations" value={activeConversations[0]?.count.toString() || '0'} icon={MessageSquare} />
-        <StatCard title="Total Messages" value={totalMessages[0]?.count.toString() || '0'} icon={Activity} />
-        <StatCard title="Waitlist Guests" value="0" icon={Users} />
+      {/* Executive bento */}
+      <div className="grid gap-4 md:grid-cols-3">
+        {/* KPI trio */}
+        <div className="glass-card p-6">
+          <span className="label-sm uppercase tracking-wide text-app-faint dark:text-zinc-500">Verified Revenue Today</span>
+          <div className="mt-2 flex items-end gap-2">
+            <p className="display-lg !text-[34px] !leading-[42px] text-app-fg dark:text-zinc-50">
+              R{(revenueToday?.value ?? 0) >= 100000
+                ? ((revenueToday?.value ?? 0) / 100).toLocaleString('en-ZA', { maximumFractionDigits: 0 })
+                : ((revenueToday?.value ?? 0) / 100).toFixed(0)}
+            </p>
+            <span
+              className={`mb-1 inline-flex items-center gap-0.5 rounded-full px-2 py-0.5 text-xs font-semibold ${
+                wowUp
+                  ? 'bg-app-secondary-container text-app-on-secondary-container dark:bg-emerald-950 dark:text-emerald-300'
+                  : 'bg-app-error-container text-app-error dark:bg-red-950 dark:text-red-300'
+              }`}
+            >
+              {wowUp ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
+              week on week
+            </span>
+          </div>
+          <p className="label-sm mt-2 text-app-faint dark:text-zinc-500">Realized from verified bookings</p>
+        </div>
+
+        <div className="glass-card p-6">
+          <span className="label-sm uppercase tracking-wide text-app-faint dark:text-zinc-500">AI Bookings</span>
+          <p className="display-lg !text-[34px] !leading-[42px] mt-2 text-app-fg dark:text-zinc-50">{aiBookings}</p>
+          <p className="label-sm mt-2 text-app-faint dark:text-zinc-500">
+            {bookingsToday} tables booked today
+          </p>
+        </div>
+
+        <div className="glass-card p-6">
+          <span className="label-sm uppercase tracking-wide text-app-faint dark:text-zinc-500">Reputation</span>
+          <div className="mt-2 flex items-end gap-2">
+            <p className="display-lg !text-[34px] !leading-[42px] text-app-fg dark:text-zinc-50">
+              {avgRating ? avgRating.toFixed(1) : '—'}
+              <span className="ml-1 text-lg text-stitch-gold">★</span>
+            </p>
+          </div>
+          {unansweredReviews > 0 ? (
+            <span className="label-sm mt-2 inline-flex items-center gap-1 rounded-full bg-app-error-container px-2 py-0.5 text-app-error dark:bg-red-950 dark:text-red-300">
+              <AlertTriangle className="h-3 w-3" /> {unansweredReviews} need{unansweredReviews === 1 ? 's' : ''} attention
+            </span>
+          ) : (
+            <span className="label-sm mt-2 inline-flex items-center gap-1 rounded-full bg-app-secondary-container px-2 py-0.5 text-app-on-secondary-container dark:bg-emerald-950 dark:text-emerald-300">
+              all reviews answered
+            </span>
+          )}
+        </div>
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-3">
+        {/* VIPs visiting today */}
+        <div className="glass-card p-6 lg:col-span-1">
+          <div className="flex items-center gap-2">
+            <Star className="h-4 w-4 text-stitch-gold" />
+            <h2 className="label-md text-app-fg dark:text-zinc-50">VIPs Visiting Today</h2>
+          </div>
+          {vipsToday.length === 0 ? (
+            <p className="body-md mt-4 text-app-muted dark:text-zinc-400">No VIP alerts yet today.</p>
+          ) : (
+            <ul className="mt-4 space-y-3">
+              {vipsToday.map((v, i) => (
+                <li key={i} className="rounded-xl border border-app-border bg-app-surface-1 p-3 dark:border-zinc-800 dark:bg-zinc-900">
+                  <div className="flex items-center justify-between">
+                    <span className="label-md text-app-fg dark:text-zinc-100">{v.customerName || 'VIP guest'}</span>
+                    <span className="label-sm text-stitch-brass dark:text-stitch-gold">{v.totalVisits} visits</span>
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    <Link
+                      href="/dashboard/customers/vip-today"
+                      className="label-sm rounded-lg bg-stitch-gold px-3 py-1.5 font-semibold text-zinc-950 hover:opacity-90"
+                    >
+                      Send Welcome
+                    </Link>
+                    <Link
+                      href="/dashboard/customers/vip-today"
+                      className="label-sm rounded-lg border border-app-secondary px-3 py-1.5 font-semibold text-app-secondary hover:bg-app-secondary-container/40 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-950/40"
+                    >
+                      Comp Dessert
+                    </Link>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Revenue forecast bars */}
+        <div className="glass-card p-6 lg:col-span-1">
+          <div className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4 text-app-secondary dark:text-emerald-400" />
+            <h2 className="label-md text-app-fg dark:text-zinc-50">Revenue — last 7 days</h2>
+          </div>
+          <div className="mt-5 flex h-36 items-end gap-2">
+            {bars.map((b, i) => (
+              <div key={i} className="flex flex-1 flex-col items-center gap-1">
+                <div
+                  className="w-full rounded-t-md bg-app-secondary/80 dark:bg-emerald-600/80"
+                  style={{ height: `${Math.max(4, Math.round((b.value / barMax) * 100))}%` }}
+                  title={`R${(b.value / 100).toLocaleString('en-ZA', { maximumFractionDigits: 0 })}`}
+                />
+                <span className="label-sm text-app-faint dark:text-zinc-500">{b.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Action center + alert mini-card */}
+        <div className="space-y-4">
+          <div className="glass-card !bg-app-secondary-container/60 p-6 dark:!bg-emerald-950/40">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-app-on-secondary-container dark:text-emerald-300" />
+              <h2 className="label-md text-app-on-secondary-container dark:text-emerald-200">Action Center</h2>
+            </div>
+            {latestCampaign ? (
+              <>
+                <p className="body-md mt-3 font-medium text-app-on-secondary-container dark:text-emerald-100">
+                  {latestCampaign.name}
+                </p>
+                <p className="label-sm mt-1 text-app-on-secondary-container/80 dark:text-emerald-300/80">
+                  {latestCampaign.offer || 'Live campaign'} · est. R
+                  {((latestCampaign.estimatedRevenueCents ?? 0) / 100).toLocaleString('en-ZA', { maximumFractionDigits: 0 })}
+                </p>
+              </>
+            ) : (
+              <p className="body-md mt-3 text-app-on-secondary-container/90 dark:text-emerald-200/90">
+                No live campaign yet — generate one in Marketing.
+              </p>
+            )}
+            <Link
+              href="/dashboard/marketing"
+              className="label-md mt-4 inline-flex rounded-lg bg-app-secondary px-4 py-2 font-semibold text-white hover:opacity-90 dark:bg-emerald-600"
+            >
+              Open Marketing
+            </Link>
+          </div>
+
+          <div className="glass-card p-5">
+            <h3 className="label-md text-app-fg dark:text-zinc-50">Pulse</h3>
+            <div className="mt-3 grid grid-cols-2 gap-3 text-center">
+              <div className="rounded-xl bg-app-surface-1 p-3 dark:bg-zinc-900">
+                <p className="text-xl font-semibold text-app-fg dark:text-zinc-50">{(Array.isArray(activeConversations) ? activeConversations : [])[0]?.count ?? 0}</p>
+                <span className="label-sm text-app-faint dark:text-zinc-500">conversations</span>
+              </div>
+              <div className="rounded-xl bg-app-surface-1 p-3 dark:bg-zinc-900">
+                <p className="text-xl font-semibold text-app-fg dark:text-zinc-50">{(Array.isArray(totalMessages) ? totalMessages : [])[0]?.count ?? 0}</p>
+                <span className="label-sm text-app-faint dark:text-zinc-500">messages</span>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -140,29 +388,17 @@ export default async function DashboardOverview() {
  */
 function SetupNeededFallback() {
   return (
-    <div className="max-w-lg mx-auto mt-16 rounded-lg border border-amber-900/60 bg-amber-950/40 p-6 text-center shadow-sm">
-      <AlertTriangle className="mx-auto h-8 w-8 text-amber-400" />
-      <h2 className="mt-4 text-lg font-semibold text-amber-200">We couldn&apos;t set up your workspace</h2>
-      <p className="mt-2 text-sm text-zinc-400">
+    <div className="glass-card mx-auto mt-16 max-w-lg p-6 text-center">
+      <AlertTriangle className="mx-auto h-8 w-8 text-stitch-gold dark:text-amber-400" />
+      <h2 className="headline-md mt-4 text-app-fg dark:text-amber-200">We couldn&apos;t set up your workspace</h2>
+      <p className="body-md mt-2 text-app-muted dark:text-zinc-400">
         This usually means the database schema is out of date. If you&apos;re the site admin, sign in and open{' '}
-        <code className="rounded bg-zinc-900 px-1.5 py-0.5 text-amber-300">/api/migrate</code> once to sync it, then
-        reload this page.
+        <code className="rounded bg-app-surface-2 px-1.5 py-0.5 text-stitch-brass dark:bg-zinc-900 dark:text-amber-300">/api/migrate</code>{' '}
+        once to sync it, then reload this page.
       </p>
-      <p className="mt-4 text-xs text-zinc-500">If this keeps happening, check the Vercel function logs for the exact error.</p>
-    </div>
-  );
-}
-
-function StatCard({ title, value, icon: Icon }: { title: string; value: string; icon: any }) {
-  return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6 shadow-sm">
-      <div className="flex items-center gap-3">
-        <div className="rounded-md bg-zinc-800 p-2.5">
-          <Icon className="h-4 w-4 text-emerald-400" />
-        </div>
-        <span className="text-sm font-medium text-zinc-400">{title}</span>
-      </div>
-      <p className="mt-4 text-3xl font-semibold text-zinc-50">{value}</p>
+      <p className="label-sm mt-4 text-app-faint dark:text-zinc-500">
+        If this keeps happening, check the Vercel function logs for the exact error.
+      </p>
     </div>
   );
 }

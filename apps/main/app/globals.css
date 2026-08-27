@@ -111,3 +111,105 @@ body {
 @keyframes motion-icon { from { transform: scale(.75); opacity:.35 } to { transform:scale(1); opacity:1 } }
 @keyframes premium-float { 50% { transform:translateY(-4px) } }
 @media (prefers-reduced-motion: reduce) { .motion-icon-play,.motion-premium { animation:none } }
+
+/* ============================================================================
+   STITCH DESIGN SYSTEM (owner's Google Stitch files)
+   Light mode is the DEFAULT; dark mode is opt-in via the `dark` class on
+   <html> (ThemeModeProvider). Dark mode keeps the existing dark palette so
+   every screen that shipped dark stays consistent.
+   ========================================================================== */
+:root {
+  --app-bg: #fff8f0;
+  --app-surface: #fff8f0;
+  --app-surface-0: #ffffff;   /* surface-container-lowest */
+  --app-surface-1: #fbf3e5;   /* surface-container-low */
+  --app-surface-2: #f5eddf;   /* surface-container */
+  --app-surface-3: #efe7da;   /* surface-container-high */
+  --app-surface-4: #eae1d4;   /* surface-container-highest / variant */
+  --app-fg: #1f1b13;          /* on-surface */
+  --app-muted: #4d4635;       /* on-surface-variant */
+  --app-faint: #7f7663;       /* outline */
+  --app-border: #d0c5af;      /* outline-variant */
+  --app-border-strong: #7f7663;
+  --app-primary: #735c00;
+  --app-on-primary: #ffffff;
+  --app-primary-container: #d4af37;
+  --app-on-primary-container: #554300;
+  --app-secondary: #316948;
+  --app-secondary-container: #b1edc4;
+  --app-on-secondary-container: #356e4c;
+  --app-tertiary: #415ba4;
+  --app-tertiary-container: #97b0ff;
+  --app-error: #ba1a1a;
+  --app-error-container: #ffdad6;
+  --brand-green: #004225;
+  --brand-gold: #D4AF37;
+}
+
+.dark {
+  --app-bg: #09090b;
+  --app-surface: #09090b;
+  --app-surface-0: #18181b;
+  --app-surface-1: #1f1f23;
+  --app-surface-2: #27272a;
+  --app-surface-3: #303034;
+  --app-surface-4: #3f3f46;
+  --app-fg: #fafafa;
+  --app-muted: #a1a1aa;
+  --app-faint: #71717a;
+  --app-border: #27272a;
+  --app-border-strong: #3f3f46;
+  --app-primary: #D4AF37;
+  --app-on-primary: #101915;
+  --app-primary-container: #C9A25A;
+  --app-on-primary-container: #fff8f0;
+  --app-secondary: #34d399;
+  --app-secondary-container: #064e3b;
+  --app-on-secondary-container: #d1fae5;
+  --app-tertiary: #93c5fd;
+  --app-tertiary-container: #1e3a8a;
+  --app-error: #f87171;
+  --app-error-container: #7f1d1d;
+  --brand-green: #0A2E28;
+  --brand-gold: #D4AF37;
+}
+
+/* Glass card (Stitch component spec) */
+.glass-card {
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid #E5E5E5;
+  border-radius: 1rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+}
+.dark .glass-card {
+  background: rgba(24, 24, 27, 0.82);
+  border-color: #27272a;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.35);
+}
+
+/* Stitch typography scale (Playfair Display headings, Inter body) */
+.display-lg  { font-family: 'Playfair Display', 'Fraunces Variable', Georgia, serif; font-size: 48px; line-height: 60px; font-weight: 700; }
+.headline-lg { font-family: 'Playfair Display', 'Fraunces Variable', Georgia, serif; font-size: 32px; line-height: 40px; font-weight: 600; }
+.headline-md { font-family: 'Playfair Display', 'Fraunces Variable', Georgia, serif; font-size: 24px; line-height: 32px; font-weight: 600; }
+.body-lg   { font-size: 18px; line-height: 28px; }
+.body-md   { font-size: 16px; line-height: 24px; }
+.label-md  { font-size: 14px; line-height: 20px; font-weight: 600; }
+.label-sm  { font-size: 12px; line-height: 16px; font-weight: 500; }
+
+/* Material Symbols Outlined — thin weight (200-300); FILL 1 for active nav */
+.material-symbols-outlined {
+  font-variation-settings: 'FILL' 0, 'wght' 250, 'GRAD' 0, 'opsz' 24;
+}
+.material-symbols-outlined.ms-active {
+  font-variation-settings: 'FILL' 1, 'wght' 250, 'GRAD' 0, 'opsz' 24;
+}
+
+/* Gold pulse for the onboarding "Waiting for connection" pill */
+@keyframes gold-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.45); }
+  50% { box-shadow: 0 0 0 8px rgba(212, 175, 55, 0); }
+}
+.gold-pulse { animation: gold-pulse 1.8s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .gold-pulse { animation: none } }

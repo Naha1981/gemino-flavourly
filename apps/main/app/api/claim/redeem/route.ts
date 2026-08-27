@@ -3,6 +3,7 @@ import { auth } from '@clerk/nextjs/server';
 import { cookies } from 'next/headers';
 import { redeemClaimToken } from '@/lib/brand-intelligence/claim';
 import { CLAIM_COOKIE } from '@/lib/brand-intelligence/magic-link';
+import { ACTIVE_TENANT_COOKIE } from '@/lib/tenant-resolver';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -43,10 +44,26 @@ export async function POST(req: NextRequest) {
   const result = await redeemClaimToken(token, userId);
 
   // Always clear the cookie, whether or not the claim succeeded.
-  const response = NextResponse.json({ ok: result.ok, outcome: result.outcome, redirect: result.redirect, error: result.error });
+  const response = NextResponse.json({
+    ok: result.ok,
+    outcome: result.outcome,
+    tenantId: result.tenantId ?? null,
+    redirect: result.redirect,
+    error: result.error,
+  });
 
   if (result.ok) {
     cookies().set(CLAIM_COOKIE, '', { maxAge: 0, path: '/' });
+    // S2 — pin the browser to the CLAIMED tenant so the very next dashboard
+    // load resolves to it even before the ?tenant= deep-link is followed.
+    if (result.tenantId) {
+      cookies().set(ACTIVE_TENANT_COOKIE, result.tenantId, {
+        path: '/',
+        sameSite: 'lax',
+        httpOnly: true,
+        maxAge: 60 * 60 * 24 * 30,
+      });
+    }
   }
   return response;
 }

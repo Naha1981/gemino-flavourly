@@ -74,7 +74,7 @@ export default async function ClaimPage({ params }: Props) {
   if (assessment.kind === 'claimed') {
     return (
       <ClaimShell>
-        <ClaimAlreadyClaimed tenantName={tenant.name} />
+        <ClaimAlreadyClaimed tenantName={tenant.name} tenantId={tenant.id} />
       </ClaimShell>
     );
   }
@@ -153,7 +153,14 @@ export default async function ClaimPage({ params }: Props) {
 
           <div className="mt-8 grid gap-6 lg:grid-cols-3">
             <section className="rounded-xl border border-white/10 bg-white/5 p-5">
-              <h2 className="text-sm font-medium text-white/70">Sample bookings</h2>
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-medium text-white/70">Bookings</h2>
+                {/* S1 — bookings on the demo are seeded sample data; badge them
+                    honestly instead of passing them off as real reservations. */}
+                <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
+                  Sample
+                </span>
+              </div>
               <ul className="mt-3 space-y-2 text-sm">
                 {(bookings.length > 0 ? bookings : []).slice(0, 5).map((b) => (
                   <li key={b.id} className="flex items-center justify-between text-white/80">
@@ -161,6 +168,7 @@ export default async function ClaimPage({ params }: Props) {
                     <span className="text-white/50">{formatDate(b.date)} · {b.partySize}pax</span>
                   </li>
                 ))}
+                {bookings.length === 0 && <li className="text-white/50">Not confirmed yet</li>}
               </ul>
             </section>
 
@@ -176,6 +184,7 @@ export default async function ClaimPage({ params }: Props) {
                     {r.text ? <p className="mt-1 text-white/60 line-clamp-2">{r.text}</p> : null}
                   </li>
                 ))}
+                {reviews.length === 0 && <li className="text-white/50">Not confirmed yet</li>}
               </ul>
             </section>
 
@@ -188,13 +197,17 @@ export default async function ClaimPage({ params }: Props) {
                     <span className="block text-white/50">{c.offer}</span>
                   </li>
                 ))}
+                {campaigns.length === 0 && <li className="text-white/50">Not confirmed yet</li>}
               </ul>
             </section>
           </div>
 
-          {menu.length > 0 && (
-            <section className="mt-8 rounded-xl border border-white/10 bg-white/5 p-5">
-              <h2 className="text-sm font-medium text-white/70">Menu</h2>
+          {/* S1 — menu & hours always render. When the brand profile has no
+              real data we say "Not confirmed yet" — empty state, never
+              invented data. */}
+          <section className="mt-8 rounded-xl border border-white/10 bg-white/5 p-5" data-testid="claim-menu">
+            <h2 className="text-sm font-medium text-white/70">Menu</h2>
+            {menu.length > 0 ? (
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {menu.slice(0, 8).map((item, i) => (
                   <div key={i} className="flex items-center justify-between text-sm text-white/80">
@@ -203,19 +216,23 @@ export default async function ClaimPage({ params }: Props) {
                   </div>
                 ))}
               </div>
-            </section>
-          )}
+            ) : (
+              <p className="mt-3 text-sm text-white/50">Not confirmed yet</p>
+            )}
+          </section>
 
-          {hours.length > 0 && (
-            <section className="mt-8 rounded-xl border border-white/10 bg-white/5 p-5">
-              <h2 className="text-sm font-medium text-white/70">Hours</h2>
+          <section className="mt-8 rounded-xl border border-white/10 bg-white/5 p-5" data-testid="claim-hours">
+            <h2 className="text-sm font-medium text-white/70">Hours</h2>
+            {hours.length > 0 ? (
               <div className="mt-3 grid gap-1 text-sm text-white/70 sm:grid-cols-2">
                 {hours.slice(0, 7).map((h, i) => (
                   <span key={i}>{h.day}: {h.opens ?? '—'}–{h.closes ?? '—'}</span>
                 ))}
               </div>
-            </section>
-          )}
+            ) : (
+              <p className="mt-3 text-sm text-white/50">Not confirmed yet</p>
+            )}
+          </section>
         </main>
       </div>
     </ThemeProvider>

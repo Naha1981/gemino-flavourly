@@ -1,197 +1,197 @@
-// API_KEY="..." CRON_SECRET="..." node scripts/setup-cronjobs.mjs
+#!/usr/bin/env node
+// S5 — CLI cron fleet sync (the script twin of GET /api/admin/sync-crons).
 //
-// One-shot dev tool: syncs cron-job.org jobs for the Gemino Flavourly platform.
-// Reads API_KEY and CRON_SECRET from environment.
-// Fetches existing jobs, uses one as a shape template, then creates/updates/skips.
-// Never touches non-app-domain jobs (e.g. Render /health keep-awake).
-// DO NOT commit this script with real keys. It is gitignored by design.
+// Usage:
+//   API_KEY="..." CRON_SECRET="..." node scripts/setup-cronjobs.mjs
+//
+// Reads the CANONICAL fleet from scripts/cron-fleet.json (the same file the
+// app's lib/cron/canonical-fleet.ts reads via fs) — 20 canonical jobs plus
+// the hourly system watchdog — and reconciles cron-job.org with it:
+//   * creates missing jobs
+//   * updates drifted jobs (title / schedule / Authorization header)
+//   * enables every canonical job (disabled ones are re-enabled)
+//   * never touches jobs outside the app/operator domains
+//
+// The API key is read from the environment only; it must never be committed.
 
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const BASE_URL = 'https://api.cron-job.org';
-const APP_URL = 'https://gemino-flavourly-whatsapp.vercel.app';
-const OPERATOR_URL = process.env.OPERATOR_URL || 'https://gemino-flavourly-operator.onrender.com';
 
-const API_KEY = process.env.API_KEY;
+const API_KEY = process.env.API_KEY || process.env.CRONJOB_API_KEY;
 const CRON_SECRET = process.env.CRON_SECRET;
 
 if (!API_KEY) {
-  console.error('ERROR: API_KEY environment variable is required.');
+  console.error('ERROR: API_KEY (or CRONJOB_API_KEY) environment variable is required.');
   console.error('Usage: API_KEY="..." CRON_SECRET="..." node scripts/setup-cronjobs.mjs');
   process.exit(1);
 }
-
 if (!CRON_SECRET) {
   console.error('ERROR: CRON_SECRET environment variable is required.');
-  console.error('Usage: API_KEY="..." CRON_SECRET="..." node scripts/setup-cronjobs.mjs');
   process.exit(1);
 }
 
-const headers = {
-  'Authorization': `Bearer ${API_KEY}`,
-  'Content-Type': 'application/json',
-  'Accept': 'application/json',
-};
+// ---------------------------------------------------------------------------
+// Load the canonical fleet (shared JSON, resolved like canonical-fleet.ts).
+// ---------------------------------------------------------------------------
+const fleet = JSON.parse(readFileSync(join(ROOT, 'scripts/cron-fleet.json'), 'utf8'));
+const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || fleet.baseUrl).replace(/\/$/, '');
+const OPERATOR_URL = (process.env.OPERATOR_URL || fleet.operatorUrl).replace(/\/$/, '');
 
-function schedule({ hours = [-1], minutes = [0], mdays = [-1], months = [-1], wdays = [-1] }) {
-  return { hours, minutes, mdays, months, wdays, timezone: 'Africa/Johannesburg', expiresAt: 0 };
+function resolveUrl(url) {
+  return url.replace(/\{baseUrl\}/g, APP_URL).replace(/\{operatorUrl\}/g, OPERATOR_URL);
 }
 
-const jobs = [
-  { title: 'Outbox Worker', url: `${APP_URL}/api/cron/outbox`, schedule: schedule({ minutes: Array.from({ length: 60 }, (_, i) => i) }) },
-  { title: 'Process Prospects', url: `${APP_URL}/api/cron/process-prospects`, schedule: schedule({ minutes: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] }) },
-  { title: 'Birthday Rewards', url: `${APP_URL}/api/cron/birthday-rewards`, schedule: schedule({ hours: [7], minutes: [0] }) },
-  { title: 'VIP Daily Brief', url: `${APP_URL}/api/cron/vip-alerts`, schedule: schedule({ hours: [7], minutes: [0] }) },
-  { title: 'Keep Operator Awake', url: `${OPERATOR_URL}/health`, schedule: schedule({ minutes: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] }) },
-  { title: 'Aggregate Messages', url: `${APP_URL}/api/cron/aggregate-messages`, schedule: schedule({ minutes: [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55] }) },
-  { title: 'Revenue Classifier', url: `${APP_URL}/api/cron/revenue-classify`, schedule: schedule({ minutes: [0, 15, 30, 45] }) },
-  { title: 'Waitlist Expiration', url: `${APP_URL}/api/cron/waitlist`, schedule: schedule({ minutes: [0, 15, 30, 45] }) },
-  { title: 'No-Show Detection', url: `${APP_URL}/api/cron/no-show-detect`, schedule: schedule({ minutes: [0, 30] }) },
-  { title: 'Review Requests', url: `${APP_URL}/api/cron/review-requests`, schedule: schedule({ minutes: [0] }) },
-  { title: 'Daily Brief', url: `${APP_URL}/api/cron/daily-brief`, schedule: schedule({ hours: [7], minutes: [0] }) },
-  { title: 'Fetch Google Reviews', url: `${APP_URL}/api/cron/fetch-google-reviews`, schedule: schedule({ hours: [6], minutes: [0] }) },
-  { title: 'Fetch Competitor Ratings', url: `${APP_URL}/api/cron/fetch-competitor-ratings`, schedule: schedule({ hours: [7], minutes: [0] }) },
-  { title: 'Track Competitors', url: `${APP_URL}/api/cron/track-competitors`, schedule: schedule({ hours: [8], minutes: [0] }) },
-  { title: 'Detect Events', url: `${APP_URL}/api/cron/detect-events`, schedule: schedule({ hours: [8], minutes: [0], wdays: [1] }) },
-  { title: 'Reactivation Campaigns', url: `${APP_URL}/api/cron/reactivation-campaigns`, schedule: schedule({ hours: [10], minutes: [0] }) },
-  { title: 'Cancellation Follow-Up', url: `${APP_URL}/api/cron/cancellation-followup`, schedule: schedule({ hours: [0, 6, 12, 18], minutes: [0] }) },
-  { title: 'Customer Segmentation', url: `${APP_URL}/api/cron/customer-segmentation`, schedule: schedule({ hours: [0, 6, 12, 18], minutes: [0] }) },
-  { title: 'Generate Briefs', url: `${APP_URL}/api/cron/generate-briefs`, schedule: schedule({ hours: [7], minutes: [0] }) },
-  { title: 'Generate Calendars', url: `${APP_URL}/api/cron/generate-calendars`, schedule: schedule({ hours: [18], minutes: [0], wdays: [0] }) },
-];
+const jobs = [...fleet.jobs, fleet.watchdog].map((j) => ({ ...j, url: resolveUrl(j.url) }));
+console.log(`Loaded canonical fleet: ${fleet.jobs.length} jobs + watchdog '${fleet.watchdog.title}' (source: scripts/cron-fleet.json)\n`);
 
-let created = 0;
-let updated = 0;
-let skipped = 0;
-let failed = 0;
+const headers = {
+  Authorization: `Bearer ${API_KEY}`,
+  'Content-Type': 'application/json',
+  Accept: 'application/json',
+};
 
 async function api(path, options = {}) {
-  const res = await fetch(`${BASE_URL}${path}`, {
-    ...options,
-    headers: {
-      ...headers,
-      ...(options.headers || {}),
-    },
-  });
+  const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
   const text = await res.text();
   let data;
-  try { data = JSON.parse(text); } catch { data = text; }
+  try {
+    data = JSON.parse(text);
+  } catch {
+    data = text;
+  }
   return { res, data, text };
 }
 
-async function fetchExistingJobs() {
-  console.log('Fetching existing jobs from cron-job.org...\n');
-  const { res, data, text } = await api('/jobs');
-  if (!res.ok) {
-    console.error(`ERROR: Failed to fetch jobs — ${res.status}`);
-    console.error(`Body: ${text}`);
-    process.exit(1);
-  }
-  if (!data || !Array.isArray(data.jobs)) {
-    console.error('ERROR: Unexpected response shape from /jobs');
-    console.error(`Body: ${JSON.stringify(data)}`);
-    process.exit(1);
-  }
-  return data.jobs;
+function authHeaders(job) {
+  return job.auth === 'cron-secret' ? [{ name: 'Authorization', value: `Bearer ${CRON_SECRET}` }] : [];
 }
 
-function findExisting(jobs, url) {
-  return jobs.find((j) => j.url === url);
-}
-
-async function createJob(jobDef, shapeTemplate) {
-  const body = {
+function payload(job, requestMethod) {
+  return {
     job: {
-      title: jobDef.title,
-      url: jobDef.url,
+      title: job.title,
+      url: job.url,
       enabled: true,
       saveResponses: true,
-      requestMethod: shapeTemplate.requestMethod ?? 1,
-      ...(shapeTemplate.requestHeaders ? { requestHeaders: shapeTemplate.requestHeaders } : {}),
-      ...(shapeTemplate.requestBody ? { requestBody: shapeTemplate.requestBody } : {}),
-      schedule: jobDef.schedule,
+      requestMethod,
+      requestHeaders: authHeaders(job),
+      schedule: job.schedule,
     },
   };
-
-  const { res, data, text } = await api('/jobs', {
-    method: 'PUT',
-    body: JSON.stringify(body),
-  });
-
-  if (res.ok || res.status === 201 || res.status === 200) {
-    console.log(`CREATE: ${jobDef.title}`);
-    created += 1;
-    return;
-  }
-
-  if (res.status === 400 && typeof data === 'object' && (data?.error?.code === 'title_already_exists' || data?.error?.code === 'ALREADY_EXISTS')) {
-    console.log(`SKIP (exists): ${jobDef.title}`);
-    skipped += 1;
-    return;
-  }
-
-  if (res.status === 429) {
-    console.error(`FAILED: ${jobDef.title} — rate limited (${res.status})`);
-    failed += 1;
-    return;
-  }
-
-  console.error(`FAILED: ${jobDef.title} — ${res.status} ${text}`);
-  failed += 1;
 }
 
-async function updateJob(jobDef, existing, authHeader) {
-  const body = {
-    job: {
-      title: jobDef.title,
-      url: jobDef.url,
-      enabled: true,
-      saveResponses: true,
-      requestMethod: existing.requestMethod ?? 1,
-      requestHeaders: [{ name: 'Authorization', value: authHeader }],
-      schedule: jobDef.schedule,
-    },
-  };
-
-  const { res, text } = await api(`/jobs/${existing.jobId}`, {
-    method: 'PUT',
-    body: JSON.stringify(body),
+function scheduleKey(schedule) {
+  return JSON.stringify({
+    mdays: schedule?.mdays ?? [-1],
+    months: schedule?.months ?? [-1],
+    wdays: schedule?.wdays ?? [-1],
+    hours: schedule?.hours ?? [-1],
+    minutes: schedule?.minutes ?? [0],
+    timezone: schedule?.timezone ?? fleet.timezone,
+    expiresAt: schedule?.expiresAt ?? 0,
   });
-
-  if (res.ok || res.status === 200 || res.status === 201) {
-    console.log(`UPDATE: ${jobDef.title}`);
-    updated += 1;
-    return;
-  }
-
-  console.error(`FAILED to update ${jobDef.title} — ${res.status} ${text}`);
-  failed += 1;
 }
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 async function main() {
-  const existingJobs = await fetchExistingJobs();
+  const { res, data, text } = await api('/jobs');
+  if (!res.ok) {
+    console.error(`ERROR: Failed to fetch jobs — ${res.status}\n${text}`);
+    process.exit(1);
+  }
+  const existing = data?.jobs ?? data?.cronjobs ?? [];
 
-  const appJobs = jobs.filter((j) => j.url.includes(APP_URL));
-  const template = existingJobs.find((j) => j.url.includes(APP_URL)) || existingJobs[0] || null;
+  let created = 0;
+  let updated = 0;
+  let enabled = 0;
+  let unchanged = 0;
+  let deletedDupes = 0;
+  let deletedStale = 0;
+  let failed = 0;
+  const table = [];
 
-  console.log(`Managing ${appJobs.length} app-domain jobs (template: ${template ? template.title + ' (' + template.requestMethod + ')' : 'none'})\n`);
-
-  for (const jobDef of appJobs) {
-    const existing = findExisting(existingJobs, jobDef.url);
-    const authHeader = `Bearer ${CRON_SECRET}`;
-    if (!existing) {
-      await createJob(jobDef, template || { requestMethod: 1, requestHeaders: [{ name: 'Authorization', value: authHeader }] });
-    } else {
-      const currentAuth = existing.requestHeaders?.find((h) => h.name === 'Authorization')?.value || '';
-      if (currentAuth !== authHeader) {
-        await updateJob(jobDef, existing, authHeader);
+  for (const job of jobs) {
+    const matches = existing.filter((j) => j.url === job.url);
+    const match = matches[0];
+    if (!match) {
+      const create = await api('/jobs', { method: 'PUT', body: JSON.stringify(payload(job, 1)) });
+      if (create.res.ok || create.res.status === 201) {
+        console.log(`CREATE: ${job.title}${job.key === fleet.watchdog.key ? ' (hourly watchdog)' : ''}`);
+        created += 1;
+        table.push({ title: job.title, url: job.url, action: 'created', enabled: true });
       } else {
-        console.log(`SKIP (exists): ${jobDef.title}`);
-        skipped += 1;
+        console.error(`FAILED: ${job.title} — ${create.res.status} ${create.text}`);
+        failed += 1;
+        table.push({ title: job.title, url: job.url, action: 'failed', enabled: false });
+      }
+    } else {
+      const currentAuth = match.requestHeaders?.find((h) => h.name === 'Authorization')?.value ?? '';
+      const expectedAuth = job.auth === 'cron-secret' ? `Bearer ${CRON_SECRET}` : '';
+      const drifted =
+        match.title !== job.title ||
+        scheduleKey(match.schedule) !== scheduleKey(job.schedule) ||
+        currentAuth !== expectedAuth;
+
+      if (drifted || !match.enabled) {
+        const update = await api(`/jobs/${match.jobId}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload(job, match.requestMethod ?? 1)),
+        });
+        if (update.res.ok || update.res.status === 201) {
+          console.log(`${drifted ? 'UPDATE' : 'ENABLE'}: ${job.title}`);
+          if (drifted) updated += 1;
+          if (!match.enabled) enabled += 1;
+          table.push({ title: job.title, url: job.url, action: drifted ? 'updated' : 'enabled', enabled: true });
+        } else {
+          console.error(`FAILED to update ${job.title} — ${update.res.status} ${update.text}`);
+          failed += 1;
+          table.push({ title: job.title, url: job.url, action: 'failed', enabled: false });
+        }
+      } else {
+        console.log(`UNCHANGED: ${job.title}`);
+        unchanged += 1;
+        table.push({ title: job.title, url: job.url, action: 'unchanged', enabled: true });
+      }
+
+      // PHASE 3 — delete duplicates: extra jobs sharing this canonical URL.
+      for (const dupe of matches.slice(1)) {
+        const del = await api(`/jobs/${dupe.jobId}`, { method: 'DELETE' });
+        if (del.res.ok || del.res.status === 204) {
+          console.log(`DELETE DUPLICATE: ${dupe.title} (jobId ${dupe.jobId})`);
+          deletedDupes += 1;
+        }
+        await sleep(500);
       }
     }
-    await new Promise((r) => setTimeout(r, 2000));
+    await sleep(1000); // stay well inside cron-job.org rate limits
   }
 
-  console.log(`\nSummary: created=${created}, updated=${updated}, skipped=${skipped}, failed=${failed}`);
+  // PHASE 3 — delete stale jobs: on a fleet domain but no longer canonical.
+  const canonicalUrls = new Set(jobs.map((j) => j.url));
+  const domains = [APP_URL, OPERATOR_URL].map((d) => d.replace(/\/$/, ''));
+  for (const remote of existing) {
+    if (!domains.some((d) => remote.url.startsWith(d))) continue; // never touch foreign jobs
+    if (canonicalUrls.has(remote.url)) continue;
+    const del = await api(`/jobs/${remote.jobId}`, { method: 'DELETE' });
+    if (del.res.ok || del.res.status === 204) {
+      console.log(`DELETE STALE: ${remote.title} -> ${remote.url} (jobId ${remote.jobId})`);
+      deletedStale += 1;
+    }
+    await sleep(500);
+  }
+
+  console.log(`\nSummary: created=${created}, updated=${updated}, enabled=${enabled}, unchanged=${unchanged}, failed=${failed}, dupes_deleted=${deletedDupes}, stale_deleted=${deletedStale}`);
+  console.log(`Total canonical jobs: ${jobs.length} (20 + watchdog), disabled: 0`);
+  console.log(`system-watchdog registered (hourly): ${jobs.some((j) => j.key === fleet.watchdog.key)}`);
+  console.log('\nFleet table:');
+  for (const row of table) {
+    console.log(`  [${row.action.padEnd(9)}] ${row.enabled ? 'enabled ' : 'DISABLED'} ${row.title} -> ${row.url}`);
+  }
   if (failed > 0) process.exit(1);
 }
 

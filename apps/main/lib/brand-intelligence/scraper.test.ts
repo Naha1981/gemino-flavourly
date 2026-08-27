@@ -7,6 +7,7 @@ import {
   extractFontFamily,
   extractMenu,
   extractHours,
+  scrapeUrl,
   type MenuItem,
   type HoursDay,
 } from './scraper.ts';
@@ -145,5 +146,75 @@ describe('Brand Intelligence Engine — name, tagline, logo, menu, hours', () =>
     assert.equal(profile.brandName, 'Flavourly');
     assert.ok(profile.confidence <= 0.34);
     assert.match(profile.primaryColor, /^#/);
+  });
+});
+
+// ── PHASE 2: scrapeUrl fetch strategy (Firecrawl vs direct) ────────────────
+
+function fakeResponse(body: string, ok = true, status = 200): Response {
+  return {
+    ok,
+    status,
+    text: async () => body,
+    json: async () => JSON.parse(body),
+  } as unknown as Response;
+}
+
+describe('scrapeUrl — source selection', () => {
+  test('uses direct fetch when FIRECRAWL_API_KEY is unset', async () => {
+    const calls: string[] = [];
+    const fetchImpl = (async (input: any) => {
+      calls.push(String(input));
+      return fakeResponse(SAMPLE_HTML);
+    }) as unknown as typeof fetch;
+
+    const profile = await scrapeUrl('https://marble.restaurant', { fetchImpl, env: {} });
+    assert.equal(profile.fetched, true);
+    assert.equal(calls.length, 1);
+    assert.equal(calls[0], 'https://marble.restaurant');
+  });
+
+  test('prefers Firecrawl HTML when FIRECRAWL_API_KEY is set', async () => {
+    const calls: string[] = [];
+    const firecrawlBody = JSON.stringify({ data: { html: SAMPLE_HTML } });
+    const fetchImpl = (async (input: any) => {
+      calls.push(String(input));
+      return fakeResponse(firecrawlBody);
+    }) as unknown as typeof fetch;
+
+    const profile = await scrapeUrl('https://marble.restaurant', {
+      fetchImpl,
+      env: { FIRECRAWL_API_KEY: 'fc-test' },
+    });
+    assert.equal(profile.fetched, true);
+    assert.equal(calls.length, 1);
+    assert.ok(calls[0].includes('api.firecrawl.dev'), 'should hit the Firecrawl endpoint');
+  });
+
+  test('falls back to direct fetch when Firecrawl returns no html', async () => {
+    const calls: string[] = [];
+    const fetchImpl = (async (input: any) => {
+      calls.push(String(input));
+      if (String(input).includes('api.firecrawl.dev')) {
+        return fakeResponse(JSON.stringify({ data: {} }));
+      }
+      return fakeResponse(SAMPLE_HTML);
+    }) as unknown as typeof fetch;
+
+    const profile = await scrapeUrl('https://marble.restaurant', {
+      fetchImpl,
+      env: { FIRECRAWL_API_KEY: 'fc-test' },
+    });
+    assert.equal(profile.fetched, true);
+    assert.ok(calls.some((c) => c === 'https://marble.restaurant'), 'should fall back to direct fetch');
+  });
+
+  test('never throws: a hard network failure returns a low-confidence fallback', async () => {
+    const fetchImpl = (async () => {
+      throw new Error('ECONNREFUSED');
+    }) as unknown as typeof fetch;
+    const profile = await scrapeUrl('https://down.example', { fetchImpl, env: {} });
+    assert.equal(profile.fetched, false);
+    assert.ok(profile.confidence <= 0.2);
   });
 });

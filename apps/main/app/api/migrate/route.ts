@@ -607,6 +607,33 @@ export async function GET() {
     await sql`CREATE UNIQUE INDEX IF NOT EXISTS tenant_claim_tokens_token_uniq ON tenant_claim_tokens (token);`;
     await sql`CREATE INDEX IF NOT EXISTS tenant_claim_tokens_tenant_id_idx ON tenant_claim_tokens (tenant_id);`;
 
+    // 24. S2/S4 — claim-redeem ownership + multi-tenant memberships.
+    // Mirrors drizzle/0019_tenant_memberships.sql. owner_user_id is the
+    // ownership column the tenant resolver treats as source of truth;
+    // memberships carries per-user grants used by the tenant switcher and
+    // /api/tenant/switch (which 403s any tenant the caller has no row for).
+    await sql`ALTER TABLE tenants ADD COLUMN IF NOT EXISTS owner_user_id text;`;
+    await sql`
+      CREATE TABLE IF NOT EXISTS memberships (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        user_id text NOT NULL,
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        role text DEFAULT 'owner' NOT NULL,
+        created_at timestamp DEFAULT NOW() NOT NULL,
+        updated_at timestamp DEFAULT NOW() NOT NULL
+      );
+    `;
+    await sql`CREATE UNIQUE INDEX IF NOT EXISTS memberships_user_tenant_uniq ON memberships (user_id, tenant_id);`;
+    await sql`CREATE INDEX IF NOT EXISTS memberships_user_idx ON memberships (user_id);`;
+    await sql`CREATE INDEX IF NOT EXISTS memberships_tenant_idx ON memberships (tenant_id);`;
+
+    // 25. Cron fleet manager + demo mode flags on system_settings.
+    // Mirrors drizzle/0020_cron_key_demo_mode.sql. cronjob_api_key stores
+    // AES-256-GCM ciphertext only; demo_seed_active drives the "Demo data"
+    // chip while the deadbeef dataset is loaded.
+    await sql`ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS cronjob_api_key text;`;
+    await sql`ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS demo_seed_active boolean DEFAULT false NOT NULL;`;
+
     return NextResponse.json({ ok: true, message: 'All Neon database columns and tables synchronized successfully' });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || 'Migration failed' }, { status: 500 });
