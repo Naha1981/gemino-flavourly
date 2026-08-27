@@ -508,6 +508,12 @@ export const systemSettings = pgTable('system_settings', {
   masterAiSwitch: boolean('master_ai_switch').default(true).notNull(),
   maintenanceMode: boolean('maintenance_mode').default(false).notNull(),
   globalNotice: text('global_notice'),
+  // Cron fleet manager (UI-driven): AES-256-GCM ciphertext of the
+  // cron-job.org API key, saved from /admin so the fleet can be synced
+  // without touching Vercel env vars. Never store plaintext.
+  cronjobApiKey: text('cronjob_api_key'),
+  // Demo mode: true while the deadbeef-prefixed seed dataset is loaded.
+  demoSeedActive: boolean('demo_seed_active').default(false).notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 

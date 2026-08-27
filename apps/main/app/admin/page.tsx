@@ -21,6 +21,9 @@ import {
 } from '@/lib/market/competitor-store';
 import { countAllOpportunities } from '@/lib/market/opportunity-store';
 import { toggleGlobalAiAction } from './actions';
+import { CronFleetManager } from '@/components/cron-fleet-manager';
+import { DemoControls } from '@/components/demo-controls';
+import { cronKeyConfigured } from '@/lib/cron/key-store-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +53,7 @@ export default async function SuperAdminDashboard() {
     .catch(() => [{ value: 0 }]);
   const recentTenants = await db.select().from(tenants).orderBy(desc(tenants.createdAt)).limit(10).catch(() => []);
   const settings = await db.query.systemSettings.findFirst().catch(() => null);
+  const cronKeyState = await cronKeyConfigured().catch(() => ({ configured: false, source: 'none' as const }));
 
   // Gate #2 — slow days across the whole platform, this week.
   //
@@ -199,6 +203,12 @@ export default async function SuperAdminDashboard() {
             </button>
           </form>
         </div>
+
+        {/* Cron Fleet Manager — UI-driven cron lifecycle (no Vercel env needed) */}
+        <CronFleetManager initialKeyConfigured={cronKeyState.configured} />
+
+        {/* Demo Mode — busy-restaurant seed for screenshots/videos */}
+        <DemoControls initialActive={Boolean(settings?.demoSeedActive)} />
 
         {/* KPI Grid */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-10">
