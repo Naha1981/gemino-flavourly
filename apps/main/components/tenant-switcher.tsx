@@ -29,7 +29,7 @@ export function TenantSwitcher({
 
   if (tenants.length <= 1) {
     return (
-      <div className="flex items-center gap-2 rounded-md border border-zinc-800 bg-zinc-900 px-3 py-2 text-sm text-zinc-200">
+      <div className="flex items-center gap-2 rounded-md border border-app-border bg-app-surface-0 px-3 py-2 text-sm text-app-fg dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200">
         <Building2 className="h-4 w-4 text-emerald-400" />
         <span className="truncate">{tenants[0]?.name ?? 'Your restaurant'}</span>
       </div>
@@ -70,7 +70,7 @@ export function TenantSwitcher({
           value={activeTenantId}
           disabled={busy}
           onChange={(e) => switchTenant(e.target.value)}
-          className="w-full appearance-none rounded-md border border-zinc-800 bg-zinc-900 py-2 pl-9 pr-8 text-sm text-zinc-100 focus:border-emerald-500 focus:outline-none"
+          className="w-full appearance-none rounded-md border border-app-border bg-app-surface-0 py-2 pl-9 pr-8 text-sm text-app-fg focus:border-stitch-gold dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 dark:focus:border-emerald-500 focus:outline-none"
         >
           {tenants.map((t) => (
             <option key={t.id} value={t.id}>

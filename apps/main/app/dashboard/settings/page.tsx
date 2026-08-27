@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Save, CheckCircle2, Bot, Sparkles, Clock, Building, Sliders, Shield, MapPin, KeyRound } from 'lucide-react';
+import { Save, CheckCircle2, Bot, Sparkles, Clock, Building, Sliders, Shield, MapPin, KeyRound, Moon, Sun } from 'lucide-react';
+import { useThemeMode } from '@/components/theme-mode';
 
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true);
@@ -165,6 +166,19 @@ export default function SettingsPage() {
         <p className="mt-1 text-sm text-zinc-400">
           Customize how your autonomous WhatsApp Concierge interacts with guests and represents your brand.
         </p>
+      </div>
+
+      {/* Appearance — Stitch: light is default, dark is opt-in and persisted. */}
+      <div className="rounded-lg border border-app-border bg-app-surface-0 p-6 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/50">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h2 className="label-md text-app-fg dark:text-zinc-50">Appearance</h2>
+            <p className="mt-1 text-sm text-app-muted dark:text-zinc-400">
+              Light mode is the default. Dark mode is saved on this device and applied everywhere.
+            </p>
+          </div>
+          <ThemeModeSwitch />
+        </div>
       </div>
 
       {success && (
@@ -393,6 +407,32 @@ export default function SettingsPage() {
           </button>
         </div>
       </form>
+    </div>
+  );
+}
+
+/** Stitch appearance switch — light default, dark opt-in, persisted locally. */
+function ThemeModeSwitch() {
+  const { theme, setTheme } = useThemeMode();
+  const btn = (mode: 'light' | 'dark', label: string, Icon: typeof Sun) => (
+    <button
+      type="button"
+      onClick={() => setTheme(mode)}
+      aria-pressed={theme === mode}
+      className={`inline-flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+        theme === mode
+          ? 'border-stitch-gold bg-stitch-gold/15 text-stitch-brass dark:border-stitch-gold dark:text-stitch-gold'
+          : 'border-app-border text-app-muted hover:bg-app-surface-2 dark:border-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800'
+      }`}
+    >
+      <Icon className="h-4 w-4" />
+      {label}
+    </button>
+  );
+  return (
+    <div className="flex gap-2" role="radiogroup" aria-label="Theme">
+      {btn('light', 'Light', Sun)}
+      {btn('dark', 'Dark', Moon)}
     </div>
   );
 }
