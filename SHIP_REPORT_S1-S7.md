@@ -41,3 +41,38 @@ npx playwright install chromium
 BASE_URL=$PREVIEW CLERK_SECRET_KEY=... DATABASE_URL=... node e2e/ship-seed.mjs
 BASE_URL=$PREVIEW CLERK_SECRET_KEY=... npx playwright test e2e/ship.spec.ts
 ```
+
+---
+
+# Turn 3 — Stitch redesign + Demo Mode + Cron Fleet Manager
+
+## Delivered (committed locally, push pending GitHub reconnect)
+
+| Commit | Feature |
+|---|---|
+| `55e24c5` | **Cron Fleet Manager**: encrypted cron-job.org key in DB, DB-first resolution in sync-crons + watchdog auto-heal, 30s UI deadline, UI-friendly payload, /admin card (masked key input, Sync All 21 button, live status list, toasts) |
+| `d2912c0` | **Demo Mode**: deadbeef-only idempotent seed/wipe (safety contract enforced + wiring-tested), The Grand Bistro demo tenant + owner link, 6 platform tenants, /admin Load/Wipe controls, dashboard Demo chip |
+| `21db2e9` | **Stitch redesign**: light-default token system + dark opt-in toggle (localStorage, pre-paint script), self-hosted Playfair/Material Symbols, glass-card/bento/gold+forest accents, white sidebar + mobile bottom nav, 6 pages restyled (dashboard/inbox/customers/market/marketing/onboarding), new /dashboard/market index |
+| `66ebcfb` | Wiring guards repointed at the redesigned components (no test removed) |
+
+## Verification (this turn)
+
+- `npx tsc --noEmit` → **exit 0**
+- `npm run test:main` → **1332 pass / 0 fail**
+- `next build` → **✓ Compiled successfully**; new routes in table:
+  /api/admin/seed-demo, /api/admin/wipe-demo, /api/admin/settings/cron-key,
+  /dashboard/market (215 B)
+- Design hard rules honored: no route deleted, no existing data-query
+  semantics changed, empty/loading/error states kept, `&apos;` escaping,
+  Flavourly logo assets kept (light-chip treatment in dark mode)
+
+## Blocked
+
+- **Push/PR/preview**: GitHub token expired mid-turn ("token is no longer
+  valid") — needs GitHub reconnection in Arena. 4 commits ready to push;
+  they will update PR #35 automatically.
+- **Playwright screenshots (light/dark, desktop+mobile)**: sandbox blocks
+  cdn.playwright.dev (browser install) and *.vercel.app (targets).
+- **Vercel/Clerk/cron-job.org APIs**: still TLS-blocked from this sandbox.
+
+Merge remains held per the green-only rule.
