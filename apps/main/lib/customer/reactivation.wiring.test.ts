@@ -18,7 +18,10 @@ const PAGE = join(APP, 'dashboard', 'customers', 'reactivation', 'page.tsx');
 const CLIENT = join(APP, 'dashboard', 'customers', 'reactivation', 'reactivation-client.tsx');
 const MIGRATION = join(HERE, '..', '..', 'drizzle', '0007_reactivation_campaigns.sql');
 const JOURNAL = join(HERE, '..', '..', 'drizzle', 'meta', '_journal.json');
-const MIGRATE_ROUTE = join(APP, 'api', 'migrate', 'route.ts');
+// The /api/migrate DDL was lifted verbatim out of the route handler into
+// lib/db/migrate-ddl.ts so it can be EXECUTED by lib/db/migrate-execute.test.ts.
+// These assertions check the same statements, now at their real home.
+const MIGRATE_DDL_FILE = join(APP, '..', 'lib', 'db', 'migrate-ddl.ts');
 
 function source(path: string): string {
   return readFileSync(path, 'utf8');
@@ -84,7 +87,7 @@ describe('reactivation schema wiring', () => {
       journal.entries.some((entry: { tag: string }) => entry.tag === '0007_reactivation_campaigns'),
       'journal has no 0007_reactivation_campaigns entry'
     );
-    const route = code(MIGRATE_ROUTE);
+    const route = code(MIGRATE_DDL_FILE);
     assert.match(route, /CREATE TABLE IF NOT EXISTS reactivation_campaigns/);
     assert.match(route, /reactivation_campaigns_tenant_idx/);
     assert.match(route, /reactivation_campaigns_phone_idx/);

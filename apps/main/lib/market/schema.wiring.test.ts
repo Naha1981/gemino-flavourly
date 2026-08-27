@@ -9,7 +9,10 @@ const DRIZZLE = join(HERE, '..', '..', 'drizzle');
 const SCHEMA = join(HERE, '..', 'db', 'schema.ts');
 const MIGRATION_0012 = join(DRIZZLE, '0012_competitors.sql');
 const JOURNAL = join(DRIZZLE, 'meta', '_journal.json');
-const MIGRATE_ROUTE = join(HERE, '..', '..', 'app', 'api', 'migrate', 'route.ts');
+// The /api/migrate DDL was lifted verbatim out of the route handler into
+// lib/db/migrate-ddl.ts so it can be EXECUTED by lib/db/migrate-execute.test.ts.
+// These assertions check the same statements, now at their real home.
+const MIGRATE_DDL_FILE = join(HERE, '..', 'db', 'migrate-ddl.ts');
 
 function source(path: string): string {
   return readFileSync(path, 'utf8');
@@ -198,7 +201,7 @@ describe('Market Intelligence schema wiring (Gates #15-#18)', () => {
   });
 
   test('/api/migrate carries the same Gate #15-#18 DDL', () => {
-    const route = code(MIGRATE_ROUTE);
+    const route = code(MIGRATE_DDL_FILE);
     const section = from(route, 'ALTER TABLE competitors ADD COLUMN IF NOT EXISTS address');
     for (const col of ['latitude', 'longitude', 'distance_km', 'website_url', 'phone', 'place_data', 'updated_at']) {
       assert.match(section, new RegExp(`ALTER TABLE competitors ADD COLUMN IF NOT EXISTS ${col}`));

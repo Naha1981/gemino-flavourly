@@ -17,7 +17,10 @@ const LIST_PAGE = join(APP, 'dashboard', 'customers', 'page.tsx');
 const ADMIN_PAGE = join(APP, 'admin', 'page.tsx');
 const MIGRATION = join(HERE, '..', '..', 'drizzle', '0006_customer_segmentation.sql');
 const JOURNAL = join(HERE, '..', '..', 'drizzle', 'meta', '_journal.json');
-const MIGRATE_ROUTE = join(APP, 'api', 'migrate', 'route.ts');
+// The /api/migrate DDL was lifted verbatim out of the route handler into
+// lib/db/migrate-ddl.ts so it can be EXECUTED by lib/db/migrate-execute.test.ts.
+// These assertions check the same statements, now at their real home.
+const MIGRATE_DDL_FILE = join(APP, '..', 'lib', 'db', 'migrate-ddl.ts');
 
 function source(path: string): string {
   return readFileSync(path, 'utf8');
@@ -56,7 +59,7 @@ describe('customer segmentation schema wiring', () => {
   test('migration journal and /api/migrate include Gate #8 DDL', () => {
     const journal = JSON.parse(source(JOURNAL));
     assert.ok(journal.entries.some((entry: { tag: string }) => entry.tag === '0006_customer_segmentation'));
-    const route = code(MIGRATE_ROUTE);
+    const route = code(MIGRATE_DDL_FILE);
     assert.match(route, /ALTER TABLE customer_profiles ADD COLUMN IF NOT EXISTS segment/);
     assert.match(route, /segment_confidence numeric DEFAULT 0/);
     assert.match(route, /customer_profiles_segment_idx/);

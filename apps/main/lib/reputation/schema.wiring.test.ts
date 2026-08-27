@@ -11,7 +11,10 @@ const MIGRATION_0009 = join(DRIZZLE, '0009_google_reviews.sql');
 const MIGRATION_0010 = join(DRIZZLE, '0010_review_requests.sql');
 const MIGRATION_0011 = join(DRIZZLE, '0011_competitor_ratings.sql');
 const JOURNAL = join(DRIZZLE, 'meta', '_journal.json');
-const MIGRATE_ROUTE = join(HERE, '..', '..', 'app', 'api', 'migrate', 'route.ts');
+// The /api/migrate DDL was lifted verbatim out of the route handler into
+// lib/db/migrate-ddl.ts so it can be EXECUTED by lib/db/migrate-execute.test.ts.
+// These assertions check the same statements, now at their real home.
+const MIGRATE_DDL_FILE = join(HERE, '..', 'db', 'migrate-ddl.ts');
 
 function source(path: string): string {
   return readFileSync(path, 'utf8');
@@ -143,7 +146,7 @@ describe('Reputation schema wiring (Gates #11-#14)', () => {
         `journal has no ${tag} entry`
       );
     }
-    const route = code(MIGRATE_ROUTE);
+    const route = code(MIGRATE_DDL_FILE);
     assert.match(route, /CREATE TABLE IF NOT EXISTS google_reviews/);
     assert.match(route, /CREATE TABLE IF NOT EXISTS google_places_config/);
     assert.match(route, /review_request_sent/);

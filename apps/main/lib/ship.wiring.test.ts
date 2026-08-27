@@ -188,7 +188,10 @@ describe('S4 — tenant resolver, switcher, switch endpoint', () => {
   });
 
   test('/api/migrate mirrors memberships + owner_user_id', () => {
-    const migrate = stripComments(src('app/api/migrate/route.ts'));
+    // The /api/migrate DDL was lifted verbatim out of the route handler into
+    // lib/db/migrate-ddl.ts so it can be EXECUTED by
+    // lib/db/migrate-execute.test.ts. Same statements, new home.
+    const migrate = stripComments(src('lib/db/migrate-ddl.ts'));
     assert.match(migrate, /ADD COLUMN IF NOT EXISTS owner_user_id text/);
     assert.match(migrate, /CREATE TABLE IF NOT EXISTS memberships/);
   });

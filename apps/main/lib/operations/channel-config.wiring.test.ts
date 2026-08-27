@@ -12,7 +12,10 @@ const API = join(APP, 'api', 'operations', 'channel-configs', 'route.ts');
 const PAGE = join(APP, 'dashboard', 'operations', 'channel-configs', 'page.tsx');
 const MIGRATION = join(HERE, '..', '..', 'drizzle', '0013_engine6_operations.sql');
 const JOURNAL = join(HERE, '..', '..', 'drizzle', 'meta', '_journal.json');
-const MIGRATE_ROUTE = join(APP, 'api', 'migrate', 'route.ts');
+// The /api/migrate DDL was lifted verbatim out of the route handler into
+// lib/db/migrate-ddl.ts so it can be EXECUTED by lib/db/migrate-execute.test.ts.
+// These assertions check the same statements, now at their real home.
+const MIGRATE_DDL_FILE = join(APP, '..', 'lib', 'db', 'migrate-ddl.ts');
 
 function source(path: string): string {
   return readFileSync(path, 'utf8');
@@ -90,7 +93,7 @@ describe('channel config schema wiring', () => {
       journal.entries.some((entry: { tag: string }) => entry.tag === '0013_engine6_operations'),
       'journal has no 0013_engine6_operations entry'
     );
-    const route = code(MIGRATE_ROUTE);
+    const route = code(MIGRATE_DDL_FILE);
     assert.match(route, /ALTER TABLE conversations ADD COLUMN IF NOT EXISTS channel text DEFAULT 'whatsapp' NOT NULL/);
     assert.match(route, /CREATE TABLE IF NOT EXISTS channel_configs/);
     assert.match(route, /channel_configs_tenant_channel_idx/);
