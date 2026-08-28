@@ -549,7 +549,7 @@ function buildGateDb(): GateDbModule {
     }
   });
 
-  const module: GateDbModule = { mem, pool, db, ddlReport: { ok, failed }, seeded };
+  const gateModule: GateDbModule = { mem, pool, db, ddlReport: { ok, failed }, seeded };
   console.log(
     `[gate-mock] pg-mem ready: DDL ${ok}/${ok + failed.length} statements OK` +
       (failed.length ? ` — ${failed.length} skipped/failed (see gateDdlReport)` : ''),
@@ -557,7 +557,7 @@ function buildGateDb(): GateDbModule {
   for (const f of failed) {
     console.warn(`[gate-mock]   DDL issue: ${f.head} :: ${f.error.slice(0, 120)}`);
   }
-  return module;
+  return gateModule;
 }
 
 function gateDbInstance(): GateDbModule {
