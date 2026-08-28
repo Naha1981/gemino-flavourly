@@ -29,28 +29,40 @@ function handlerBody(full: string, method: string): string {
 // 1. Unauthenticated Access — /dashboard and /api/* must be protected
 // ---------------------------------------------------------------------------
 describe('GATE V3 — unauthenticated access must be denied', () => {
-  test('middleware defines isPublicRoute and calls auth().protect()', () => {
+  // Since PR #36 the public/protected decision lives in a pure, unit-tested
+  // core (lib/auth/route-guard-core.ts) that the middleware consults BEFORE
+  // touching Clerk; the protect branch still runs auth().protect(). These
+  // three tests assert the same security properties against that structure.
+  test('middleware wires the guard decision to auth().protect()', () => {
     const mw = src('middleware.ts');
-    assert.match(mw, /isPublicRoute/);
+    assert.match(mw, /route-guard-core/);
+    assert.match(mw, /guardRequest/);
     assert.match(mw, /auth\(\)\.protect\(\)/);
   });
 
-  test('/dashboard is NOT in public route list', () => {
-    const mw = src('middleware.ts');
-    // isPublicRoute array must not contain '/dashboard'
-    const publicBlock = mw.match(/isPublicRoute\s*=\s*createRouteMatcher\(\[([\s\S]*?)\]\)/);
-    assert.ok(publicBlock, 'isPublicRoute matcher not found');
-    const list = publicBlock[1];
-    assert.doesNotMatch(list, /['\"]\/dashboard['\"]/);
-    assert.doesNotMatch(list, /dashboard/);
+  function publicRouteLists(): string[] {
+    const core = src('lib/auth/route-guard-core.ts');
+    const lists = [
+      core.match(/PUBLIC_EXACT\s*=\s*new Set<string>\(\[([\s\S]*?)\]\)/)?.[1],
+      core.match(/PUBLIC_PREFIXES: string\[\] = \[([\s\S]*?)\];/)?.[1],
+    ];
+    assert.ok(
+      lists.every((l) => typeof l === 'string'),
+      'public route lists not found in route-guard-core.ts',
+    );
+    return lists as string[];
+  }
+
+  test('/dashboard is NOT in the public route list', () => {
+    for (const list of publicRouteLists()) {
+      assert.doesNotMatch(list, /dashboard/i);
+    }
   });
 
-  test('/admin is NOT in public route list', () => {
-    const mw = src('middleware.ts');
-    const publicBlock = mw.match(/isPublicRoute\s*=\s*createRouteMatcher\(\[([\s\S]*?)\]\)/);
-    assert.ok(publicBlock);
-    const list = publicBlock[1];
-    assert.doesNotMatch(list, /\/admin/);
+  test('/admin is NOT in the public route list', () => {
+    for (const list of publicRouteLists()) {
+      assert.doesNotMatch(list, /admin/i);
+    }
   });
 
   test('/api/tenant/* is NOT public — requires auth()', () => {

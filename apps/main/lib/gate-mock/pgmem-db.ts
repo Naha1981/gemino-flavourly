@@ -31,14 +31,14 @@
  *     incompatibility is always visible in the gate evidence.
  */
 import { randomUUID } from 'node:crypto';
-import { newDb, type IMemoryDB } from 'pg-mem';
+import { newDb, type IMemoryDb } from 'pg-mem';
 import { drizzle as drizzlePg } from 'drizzle-orm/node-postgres';
 import * as schema from '../db/schema';
 import { GATE_IDS, GATE_PERSONAS } from './personas';
 import { GATE_DDL } from './ddl.generated';
 
 interface GateDbModule {
-  mem: IMemoryDB;
+  mem: IMemoryDb;
   pool: import('pg').Pool;
   db: ReturnType<typeof drizzlePg<typeof schema>>;
   ddlReport: { ok: number; failed: { head: string; error: string }[] };
@@ -70,7 +70,7 @@ const g = globalThis as unknown as { __gatePgmem?: GateDbModule };
  *    patch short-circuits such statements to a successful empty result —
  *    the exact Postgres semantics.
  */
-function patchPgmemCompat(PoolCtor: new () => unknown, mem: IMemoryDB): void {
+function patchPgmemCompat(PoolCtor: new () => unknown, mem: IMemoryDb): void {
   const proto = (PoolCtor as unknown) as {
     prototype: {
       adaptResults?: (
@@ -100,7 +100,10 @@ function patchPgmemCompat(PoolCtor: new () => unknown, mem: IMemoryDB): void {
       const out = origAdapt.call(this, { ...query, rowMode: undefined }, res);
       const names = (res.fields ?? []).map((f) => f.name);
       if (Array.isArray(out.rows) && names.length > 0) {
-        out.rows = out.rows.map((row) => names.map((n) => row[n] ?? null));
+        // Positional arrays (node-pg's array rowMode contract) in the slot
+        // whose declared type is object rows — the drizzle driver consumes
+        // them positionally, which is the whole point of this emulation.
+        out.rows = out.rows.map((row) => names.map((n) => row[n] ?? null)) as unknown as typeof out.rows;
       }
       return out;
     }
@@ -114,12 +117,15 @@ function patchPgmemCompat(PoolCtor: new () => unknown, mem: IMemoryDB): void {
     console.log('[gate-mock] GATE_DEBUG_SQL=1 — logging every SQL statement');
   }
   const seenSql = new Map<string, number>();
+  // `query` is typed unknown (the Pool.prototype.query slot accepts it);
+  // the two shapes actually observed are a plain string or a config object.
   proto.prototype.query = function patchedQuery(
-    query: { text?: string; rowMode?: string } | string,
+    query: unknown,
     valuesOrCallback?: unknown,
     callback?: unknown,
   ) {
-    const text = typeof query === 'string' ? query : query?.text;
+    const q = query as { text?: string; rowMode?: string } | string;
+    const text = typeof q === 'string' ? q : q?.text;
     if (sqlDebug && text) {
       const head = text.replace(/\s+/g, ' ').slice(0, 110);
       const n = (seenSql.get(head) ?? 0) + 1;
@@ -170,7 +176,10 @@ function buildGateDb(): GateDbModule {
   // gen_random_uuid() is VOLATILE, hence `impure`.
   mem.public.registerFunction({
     name: 'gen_random_uuid',
-    returns: 'uuid',
+    // 'uuid' is the real pg type name; pg-mem's DataType union (from
+    // pgsql-ast-parser) does not list it, but it is accepted at runtime
+    // (verified: 326/326 DDL + all gate journeys). Cast to the declared type.
+    returns: 'uuid' as unknown as Parameters<typeof mem.public.registerFunction>[0]['returns'],
     impure: true,
     implementation: () => randomUUID(),
   });
@@ -218,6 +227,56 @@ function buildGateDb(): GateDbModule {
   };
   patchPgmemCompat(pgAdapter.Pool, mem);
   const pool = new pgAdapter.Pool();
+
+  // ---------------------------------------------------------------- DO $$
+  // pg-mem cannot execute plpgsql, so `DO $$ ... $$` blocks throw
+  // "Unknown language plpgsql". The only DO blocks in this schema are
+  // drizzle-kit's FK idiom — and since PR #36 they are shipped VERBATIM in
+  // lib/db/base-ddl.ts and applied at RUNTIME by GET /api/migrate (which
+  // the gate executes for real via the neon mock):
+  //
+  //   DO $$ BEGIN
+  //     ALTER TABLE "x" ADD CONSTRAINT "c" FOREIGN KEY ...;
+  //   EXCEPTION
+  //     WHEN duplicate_object THEN null;
+  //   END $$;
+  //
+  // That block means exactly "add the constraint if it is not there yet",
+  // so executing the inner ALTER TABLE directly is a faithful emulation —
+  // not a weakening: (a) all 20 blocks in base-ddl.ts match this strict
+  // shape (verified), (b) pg-mem is already idempotent for ADD CONSTRAINT
+  // (verified: duplicate constraint add is a no-op), and (c) the catch
+  // below replicates the duplicate_object swallow should the engine ever
+  // stop being so. Non-matching SQL is passed through completely untouched.
+  const DO_BLOCK = /^DO\s+\$\$\s*BEGIN\s*([\s\S]*?)(?:EXCEPTION\s+WHEN\s+duplicate_object\s+THEN\s+null\s*;)?\s*END\s+\$\$;?\s*$/i;
+  const doBlockInner = (sqlText: string): string | null => {
+    const m = sqlText.match(DO_BLOCK);
+    if (!m) return null;
+    const inner = m[1].match(/^\s*ALTER\s+TABLE[\s\S]*?;\s*$/i);
+    return inner ? inner[0].trim() : null;
+  };
+  const rawPoolQuery = pool.query.bind(pool);
+  pool.query = (async (
+    text: string | { text: string; values?: unknown[] },
+    values?: unknown[],
+  ) => {
+    const sqlText = typeof text === 'string' ? text : text?.text;
+    if (typeof sqlText === 'string') {
+      const inner = doBlockInner(sqlText.trim());
+      if (inner) {
+        try {
+          return await rawPoolQuery(inner, []);
+        } catch (err) {
+          // The DO block's EXCEPTION WHEN duplicate_object branch.
+          const msg = String(err instanceof Error ? err.message : err);
+          if (/already exists|duplicate/i.test(msg)) return { command: 'DO', rowCount: 0, rows: [] };
+          throw err;
+        }
+      }
+    }
+    return rawPoolQuery(text as string, values as unknown[]);
+  }) as unknown as typeof pool.query;
+
   const db = drizzlePg(pool, { schema });
 
   // ----------------------------------------------------------------- Seed

@@ -6,7 +6,11 @@
  * single statement list and rewrites the `DO $$ ... EXCEPTION
  * duplicate_object ... END $$;` foreign-key blocks that drizzle-kit emits
  * into plain `ALTER TABLE ... ADD CONSTRAINT ...` statements, because
- * pg-mem does not execute plpgsql `DO` blocks.
+ * pg-mem does not execute plpgsql `DO` blocks. Then appends the runtime
+ * migration DDL from lib/db/migrate-ddl.ts (what GET /api/migrate applies
+ * in production, since PR #36). The drizzle set is a superset of
+ * lib/db/base-ddl.ts (which is drizzle/0000 only), so the union covers
+ * everything the app can read in either world.
  *
  * Output: apps/main/lib/gate-mock/ddl.sql, with statements separated by a
  * dedicated `-- @@GATE-STATEMENT@@` marker (plain `;` splitting is unsafe:
@@ -89,7 +93,7 @@ for (const rawChunk of combined.split('--> statement-breakpoint')) {
 }
 
 // --------------------------------------------------------------------------
-// Runtime migration DDL (app/api/migrate/route.ts).
+// Runtime migration DDL (lib/db/migrate-ddl.ts, applied by /api/migrate).
 //
 // Production also evolves the schema through the super-admin-gated
 // `GET /api/migrate` endpoint, which applies purely additive DDL that the
@@ -97,17 +101,29 @@ for (const rawChunk of combined.split('--> statement-breakpoint')) {
 // rendering, the prospects/claim flow, outbox, ...) reads and writes those
 // columns, so the gate DB must carry them.
 //
-// The route's `sql`...`` templates are all static DDL strings — verified:
-// no interpolation, no comments, no parameters (see the smoke run) — so
-// extracting them with a backtick regex is safe and keeps the gate schema
-// a straight copy of what the app really runs against.
-const migrateRoutePath = join(root, 'apps', 'main', 'app', 'api', 'migrate', 'route.ts');
-const routeSrc = readFileSync(migrateRoutePath, 'utf8');
-const runtimeCount = [...routeSrc.matchAll(/sql`([^`]*)`/g)].length;
+// Since PR #36 the route no longer holds the DDL inline: it imports the
+// generated `MIGRATE_DDL` array from lib/db/migrate-ddl.ts (statements lifted
+// verbatim from the old route body, one template literal per statement, all
+// static — no interpolation, no parameters). We parse that array directly so
+// the gate schema stays a straight copy of what the app really runs against.
+const migrateDdlPath = join(root, 'apps', 'main', 'lib', 'db', 'migrate-ddl.ts');
+const ddlSrc = readFileSync(migrateDdlPath, 'utf8');
+// Slice from the MIGRATE_DDL declaration to end-of-file: the MIGRATE_TABLES
+// and BASE_TABLES arrays above it use double-quoted strings, so backtick
+// template matches within this slice are exactly the DDL statements.
+// Strip // line comments first: the file documents columns inline with
+// backtick-quoted identifiers inside comments (e.g. "All additive:
+// `cancelled_at`"), which the backtick matcher would otherwise pick up as
+// phantom statements. No DDL string literal in this file contains //, so
+// comment stripping is loss-free.
+const arrayBody = ddlSrc
+  .slice(ddlSrc.indexOf('MIGRATE_DDL'))
+  .replace(/\/\/[^\n]*/g, ' ');
+const runtimeCount = [...arrayBody.matchAll(/`([^`]*)`/g)].length;
 console.log(
-  `gen-gate-ddl: extracted ${runtimeCount} runtime DDL statement(s) from app/api/migrate/route.ts`,
+  `gen-gate-ddl: extracted ${runtimeCount} runtime DDL statement(s) from lib/db/migrate-ddl.ts`,
 );
-for (const m of routeSrc.matchAll(/sql`([^`]*)`/g)) {
+for (const m of arrayBody.matchAll(/`([^`]*)`/g)) {
   push(m[1]);
 }
 

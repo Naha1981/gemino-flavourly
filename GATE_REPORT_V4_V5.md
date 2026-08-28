@@ -1,8 +1,8 @@
 # GATE REPORT — V4 (All-Functionality) + V5 (Browser-Driven E2E), COMBINED
 
-**Date:** 2026-08-28 (Africa/Johannesburg)
-**Branch:** `arena/01a04858-gemino-flavourly` (stacked directly on PR #37 head `a0e4a7a`)
-**Verdict:** **PASS — 22/22 gate tests green; 1382/1382 unit tests green; 0 failures; 0×5xx across 39 recorded HTTP exchanges.**
+**Date:** 2026-08-28 (Africa/Johannesburg) — includes post-merge integration re-run
+**Branch:** `arena/01a04858-gemino-flavourly` (main + this gate's work; PR #37 and #36 are now merged into main)
+**Verdict:** **PASS — 22/22 gate tests green; 1583/1583 unit tests green (1530 main + 53 operator); `tsc --noEmit` clean; 0×5xx across 39 recorded HTTP exchanges.**
 
 ---
 
@@ -29,14 +29,18 @@ architect required (V3's static analysis was accepted only as baseline).
 ## 2. Target environment & sanctioned adaptations
 
 **Directive target:** Vercel Preview for PR #37
-(`https://gemino-flavourly-whatsap-git-34cd5e-ai-solutions-3894s-projects.vercel.app`).
+(`https://gemino-flavourly-whatsap-git-34cd5e-ai-solutions-3894s-projects.vercel.app`);
+after #37 merged, the equivalent preview for open PR #38 is deploying
+(`https://vercel.com/ai-solutions-3894s-projects/gemino-flavourly-whatsapp/Gk6kjxLGddwERv1Hwi8NnPHGwbLC`).
 
 **Status: unreachable from this sandbox — verified, not assumed.**
 TLS to that host fails with `SSL_ERROR_SYSCALL` (curl `000`); Vercel and all Playwright
 browser-CDN hosts are outside the sandbox egress allowlist (npm registry and GitHub
 are allowed). Per the directive's own fallback clause: *"If sandbox egress blocks
 Vercel, you must boot a local dev server with mocked Clerk/Neon or use pg-mem"* —
-**that fallback is in force and is what this report certifies.**
+**that fallback is in force and is what this report certifies** (against the same
+code the Vercel preview deploys — the preview remains the real-world
+deployment proof once reachable).
 
 ### Adaptation A — no real browser available (documented transparently)
 
@@ -132,6 +136,46 @@ Known harness gaps (none affect the assertions):
 - The mock IdP's API-protect 404 body is JSON (`{"error":"Unauthorized"}`) where
   real Clerk returns an empty 404; status codes are identical.
 
+### Adaptation C — integration with PR #36 (merged into main after the gate ran)
+
+While the gate work was in review, **PR #37 was merged into main** (2026-08-28
+14:05Z, merge commit `607d9ed`), and separately **PR #36** — a resilience
+refactor from another session — was also merged (`8c6b995`). PR #36 touches
+the gate's direct surface:
+
+- `middleware.ts` rewritten: the public/protected decision moved into a pure,
+  unit-tested `lib/auth/route-guard-core.ts` (`guardRequest`), and the
+  middleware short-circuits to a `/sign-in` redirect **before** invoking
+  Clerk when no valid-format `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` is present
+  (`clerkIsConfigured`).
+- `app/api/migrate/route.ts` no longer holds inline DDL: it applies the
+  generated `lib/db/base-ddl.ts` (16 base tables, **including drizzle's
+  `DO $$ … duplicate_object` FK blocks verbatim**) + `lib/db/migrate-ddl.ts`
+  (150 incremental statements, lifted verbatim from the old route body) via
+  **plain-string calls** `await sql(stmt.sql)`.
+- New `app/admin/loading.tsx` (plus error/loading boundaries site-wide) —
+  which changes how a page-level `redirect()` is transported (see J3.2).
+
+The branch was merged with `origin/main` (clean, zero conflicts; the merged
+tree's diff vs main is exactly this gate's files) and re-verified end-to-end.
+Gate-side adaptations made, each preserving the security model:
+
+| Change | Why |
+|---|---|
+| Launch env gains `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_gate` (dummy, valid format) | Without a key-shaped env var, #36's middleware would 307 every protected route before the mocked Clerk ever runs, and the sign-in page would render its `AuthUnavailable` panel instead of the mock IdP. The dummy key makes `clerkIsConfigured()` true so the **mock** — not real Clerk — handles identity, exactly as before. |
+| `scripts/gen-gate-ddl.mjs` now sources the runtime DDL from `lib/db/migrate-ddl.ts` (instead of the route's inline templates) | The route's DDL moved. Regenerated output is **byte-identical** to the pre-merge DDL (150 runtime statements; 326 total; smoke 326/326) — proof #36 lifted the statements verbatim. |
+| `neon-serverless.mock.ts` accepts both tagged-template and plain-string calls (`sql(rawSql)`) | #36's route uses the plain-string form; the real driver supports it, the mock now mirrors it. |
+| `pgmem-db.ts` emulates drizzle's `DO $$ … WHEN duplicate_object …` FK blocks at execution time | #36's base DDL ships them verbatim and the real `/api/migrate` now executes them against the gate DB. All 20 blocks match the strict single-`ALTER TABLE` shape (verified); pg-mem's `ADD CONSTRAINT` is already idempotent (verified standalone); a catch replicates the `duplicate_object` swallow. Non-matching SQL passes through untouched. |
+| J3.2 accepts both redirect transports (307 **or** 200 + meta-refresh to `/sign-in`) and asserts **no platform data** rendered | #36's new `app/admin/loading.tsx` puts the page in a Suspense boundary; Next 14 then streams the page's own `redirect('/sign-in')` as a 200 shell with `<meta http-equiv="refresh">` (`NEXT_REDIRECT;replace;/sign-in;307`) instead of a bare 307. The authorization decision is unchanged (verified: zero tenant/KPI content in the response); only the transport is a Next.js implementation detail of the approved #36 work. |
+| 3 V3 static assertions (`security-gate-v3.test.ts`) now assert the same properties against the post-#36 structure (public lists in `route-guard-core.ts`) | main itself was red on these stale assertions (identical file on main); the security properties — guard wired to `auth().protect()`, `/dashboard` and `/admin` not public — are unchanged. |
+| 6 pre-existing `tsc --noEmit` errors in the gate mocks fixed (union-keyed persona Map/Set, `IMemoryDb` spelling, positional-row cast, `unknown` query param, `returns: 'uuid'` cast) | Baseline tsc at the pre-merge commit shows the same 6; after the integration the whole `apps/main` project type-checks **clean**. |
+
+Post-integration verification (all on the merged tree): **22/22 gate tests**,
+**1530/1530 + 53/53 unit tests**, **tsc clean**, and
+`GET /api/migrate` as Super Admin → **200, 193/193 statements applied**
+(16 base tables + 23 incremental) — the app's real production migration code
+running end-to-end against the gate DB.
+
 ---
 
 ## 3. Journey evidence
@@ -149,10 +193,10 @@ HTML snapshots: `test-results/gate-evidence/html/`.
 - `GET /api/tenant/list` (API request, unauthenticated) → **404** `{"error":"Unauthorized"}` (Clerk v5 API protect = notFound).
 
 ### J3 — Super-admin gate
-- Visitor `GET /admin` → **307 → /sign-in?redirect_url=…admin**.
-- **Tenant A owner** `GET /admin` → **307 → /sign-in** (app-level `isSuperAdmin()` deny; an owner with a valid session is still denied).
+- Visitor `GET /admin` → **307 → /sign-in?redirect_url=…admin** (middleware-level; the mock mirrors Clerk v5 `protect()` page behaviour).
+- **Tenant A owner** `GET /admin` → **denied with zero platform data** (app-level `isSuperAdmin()` deny; an owner with a valid session is still denied). Post-#36 transport: **200 shell with `<meta http-equiv="refresh" content="1;url=/sign-in">`** (the page's own `redirect('/sign-in')` streamed through #36's new Suspense boundary — see Adaptation C); the pre-#36 transport was a bare **307 → /sign-in**. The test asserts both plus the absence of `Super Admin Platform Overview`, both tenant names and the kill-switch UI.
 - **Super Admin** `GET /admin` → **200**; page lists both seeded tenants (The Copper Pot, Harbor Fish House).
-- `GET /api/migrate`: visitor → **403** `{"error":"Unauthorized: Super Admin access required"}`; Tenant A → **403** (same); SA → **200** `{"ok":true,"message":"All Neon database columns and tables synchronized successfully"}` — the app's real runtime-migration code executed end-to-end against the gate DB (idempotent).
+- `GET /api/migrate`: visitor → **403** `{"error":"Unauthorized: Super Admin access required"}`; Tenant A → **403** (same); SA → **200** `{"ok":true,"message":"All Neon database columns and tables synchronized successfully","appliedStatements":193,"totalStatements":193}` — the app's **real post-#36 runtime-migration code** (BASE_DDL + MIGRATE_DDL, including the 20 `DO $$` FK blocks) executed end-to-end against the gate DB (idempotent; the gate DB is a superset of the production statement set, so the second full pass is a no-op at Postgres level).
 
 ### J4 — Magic link E2E
 - `POST /api/prospects` visitor → **404** (Clerk API protect); Tenant A → **403** (super-admin gate).
@@ -202,8 +246,10 @@ Tenant A chat detail for the seeded conversation (one outbound per state):
 - SA re-enables → **200** `{globalAiEnabled:true}`; inbound → **200** `{ok:true}` with the trading-hours reply present.
 
 ### Gate-wide
-`GATE — no 5xx in any recorded exchange of this run`: **39 exchanges — 25×200, 1×201,
-3×307, 1×401, 5×403, 4×404, 0×5xx.** PASS.
+`GATE — no 5xx in any recorded exchange of this run`: **39 exchanges — 26×200, 1×201,
+2×307, 1×401, 5×403, 4×404, 0×5xx.** PASS.
+(The 200-vs-307 shift vs the pre-#36 run is J3.2's Suspense-transported redirect,
+Adaptation C.)
 
 ---
 
@@ -214,11 +260,17 @@ Tenant A chat detail for the seeded conversation (one outbound per state):
 npm ci
 
 # 2. Boot the gate dev server (GATE_MOCK=1 gates every mock; without it the
-#    config is byte-for-byte the production config)
+#    config is byte-for-byte the production config).
+#    NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY must be key-shaped (dummy is fine):
+#    post-#36, the app's middleware decides "is Clerk even configured?" from
+#    that env var BEFORE the mocked Clerk is consulted — a missing/odd key
+#    would short-circuit every protected route to /sign-in and render the
+#    sign-in page's AuthUnavailable panel instead of the mock IdP.
 cd apps/main && GATE_MOCK=1 \
   ADMIN_EMAIL=naha.thabiso@gmail.com \
   WEBHOOK_SECRET=gate-harness-webhook-secret \
   NEXT_PUBLIC_APP_URL=http://localhost:3000 \
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_gate \
   DATABASE_URL=postgres://gate:gate@pgmem.local/gate \
   ../../node_modules/.bin/next dev -H 0.0.0.0 -p 3000 &
 
@@ -228,11 +280,13 @@ GATE_BASE_URL=http://localhost:3000 npx playwright test e2e/gate-v4-v5.spec.ts -
 # 4. Evidence
 ls test-results/gate-evidence/{network.jsonl,html,storage-states}
 
-# Regenerate gate DDL after any migration lands:
+# Regenerate gate DDL after any migration lands (drizzle files + the
+# /api/migrate runtime DDL, now sourced from lib/db/migrate-ddl.ts):
 node scripts/gen-gate-ddl.mjs && node scripts/gate-pgmem-smoke.mjs   # expect 326/326 OK
 ```
 
-Unit suite (unchanged by this gate): `npm run test:main` → **1382 pass, 0 fail**.
+Unit suite (includes PR #36's new suites; run from repo root): `npm test` →
+**1530 pass + 53 pass (operator), 0 fail**. Type-check: `cd apps/main && npx tsc --noEmit` → **clean**.
 
 ---
 
@@ -246,7 +300,8 @@ Unit suite (unchanged by this gate): `npm run test:main` → **1382 pass, 0 fail
 | `apps/main/lib/gate-mock/` | Mock IdP (server+client), pg-mem DB + patches, neon mock, seed personas, generated DDL (`ddl.sql` + `ddl.generated.ts`) |
 | `apps/main/next.config.mjs` | `GATE_MOCK=1`-only webpack aliases + warning banner (prod unaffected) |
 | `apps/main/package.json` + lock | `pg-mem` devDependency |
-| `scripts/gen-gate-ddl.mjs` | DDL generator (drizzle migrations + `/api/migrate` runtime DDL) |
+| `scripts/gen-gate-ddl.mjs` | DDL generator (drizzle migrations + the `/api/migrate` runtime DDL, sourced from `lib/db/migrate-ddl.ts` post-#36) |
+| `apps/main/lib/security-gate-v3.test.ts` | (post-#36) 3 assertions re-pointed at the new guard-core structure — same security properties |
 | `scripts/gate-pgmem-smoke.mjs` | 326/326 DDL smoke test |
 | `GATE_REPORT_V4_V5.md` | This report |
 
@@ -257,14 +312,33 @@ evidence above is regenerated by step 3.
 
 ## 6. Branch / PR status (read before merging)
 
-- This session is **pinned to branch `arena/01a04858-gemino-flavourly`** by the
-  environment — work could not be committed to PR #37's head
-  `arena/01a04816-gemino-flavourly`. Instead, this branch was **fast-forwarded onto
-  PR #37's two commits** (`4382098` V2 fix, `a0e4a7a` V3 tests) and the V4/V5 gate
-  work is stacked directly on top, so the history is linear:
-  `main(59a3838) → V2(4382098) → V3(a0e4a7a) → V4/V5 gate (this commit)`.
-- `git push origin arena/01a04858-gemino-flavourly` was executed and replacement
-  **PR #38** (`arena/01a04858-gemino-flavourly → main`) opened — it supersedes
-  PR #37 (same V2+V3 content, plus the V4/V5 gate). PR #37 can be closed without
-  merging once PR #38 is approved.
-- **DO NOT MERGE** — per directive; no merge action was taken on either PR.
+**Session pin:** This session is **pinned to branch
+`arena/01a04858-gemino-flavourly`** by the environment — work cannot be
+committed to PR #37's head `arena/01a04816-gemino-flavourly`. All of this
+gate's work lives on the pinned branch and is exposed through **PR #38**.
+
+**What changed while the gate was in review (important):**
+
+1. **PR #37 was MERGED** into `main` on 2026-08-28 14:05Z (merge commit
+   `607d9ed`). Its V2 fix (`4382098`) and V3 tests (`a0e4a7a`) are now in
+   main. (This supersedes the earlier note that #37 would be closed
+   un-merged; it was instead merged.)
+2. **PR #36 was also merged** into `main` (`8c6b995`) — an independent
+   resilience refactor (Clerk-misconfiguration hardening, generated
+   `base-ddl`/`migrate-ddl`, error/loading boundaries) that intersects the
+   gate's surface. See **Adaptation C** for how the gate was integrated
+   against it and re-verified.
+
+**Current shape:** `main` already contains V2+V3 (via #37) and the #36
+refactor. This branch is **main + this gate's work**, merged with
+`origin/main` (clean, zero conflicts). Consequently **PR #38's diff against
+main is now exactly the V4/V5 gate** (the harness, mock layer, specs, DDL
+generator, this report, plus the small post-#36 integration edits) — the
+V2/V3 lines are no longer part of #38's diff because they already landed via
+#37.
+
+- **PR #38** (`arena/01a04858-gemino-flavourly → main`) is the single open
+  PR and the merge vehicle for the gate. Its head is up to date with main.
+- **DO NOT MERGE** — per directive; no merge action has been taken on #38.
+  Once the architect approves #38, merging it brings the V4/V5 gate into
+  main on top of the already-merged V2/V3 and #36 work.

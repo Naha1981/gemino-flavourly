@@ -147,11 +147,30 @@ test.describe('J3 — Super-admin gate', () => {
   });
 
   test('J3.2 TENANT A (owner, not staff) /admin is DENIED', async ({ gateTenantA, gate }) => {
-    const { res, status } = await gate.page(gateTenantA, 'tenantAOwner', 'J3', 'J3.2-admin-tenanta', '/admin', {
+    const { res, status, html } = await gate.page(gateTenantA, 'tenantAOwner', 'J3', 'J3.2-admin-tenanta', '/admin', {
       followRedirects: false,
     });
-    expect(status).toBe(307);
-    expect(((res as { headers: () => Record<string, string> }).headers() as Record<string, string>)['location'] ?? '').toContain('/sign-in');
+    // The page's own fail-closed check (`!authorized -> redirect('/sign-in')`)
+    // still runs and still fires. PR #36 added app/admin/loading.tsx, which
+    // wraps the page in a Suspense boundary; Next 14 therefore streams that
+    // redirect as a 200 shell with a <meta http-equiv="refresh"> to /sign-in
+    // instead of a bare 307. Both transports prove the same property — the
+    // user is sent to /sign-in — so accept either and assert the rest.
+    const location =
+      ((res as { headers: () => Record<string, string> }).headers() as Record<string, string>)['location'] ?? '';
+    if (status === 307) {
+      expect(location).toContain('/sign-in');
+    } else {
+      expect(status).toBe(200);
+      expect(
+        /http-equiv=["']refresh["'][^>]*url=\/sign-in/i.test(html),
+        'expected a meta-refresh redirect to /sign-in in the SSR shell',
+      ).toBe(true);
+    }
+    // Fail-closed: NO platform data may render to a non-super-admin.
+    expect(html).not.toContain('Super Admin Platform Overview');
+    expect(html).not.toContain('The Copper Pot');
+    expect(html).not.toContain('Harbor Fish House');
   });
 
   test('J3.3 super admin /admin 200 and lists both seeded tenants', async ({ gateSa, gate }) => {

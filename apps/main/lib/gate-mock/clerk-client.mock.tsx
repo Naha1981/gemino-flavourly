@@ -32,10 +32,12 @@ function useGateIdentity(): { userId: string | null; persona: (typeof GATE_PERSO
   return { userId, persona };
 }
 
-const PERSONAS_BY_ID = new Map(
+// Keyed by string (not the persona-id union) because the cookie value is a
+// plain string at runtime; the lookup is validated against the known ids.
+const PERSONAS_BY_ID = new Map<string, (typeof GATE_PERSONAS)[keyof typeof GATE_PERSONAS]>(
   Object.values(GATE_PERSONAS).map((p) => [p.userId, p] as const),
 );
-const GATE_PERSONAS_IDS = new Set(PERSONAS_BY_ID.keys());
+const GATE_PERSONAS_IDS = new Set<string>(PERSONAS_BY_ID.keys());
 
 export function ClerkProvider({ children }: { children: ReactNode }) {
   return <>{children}</>;

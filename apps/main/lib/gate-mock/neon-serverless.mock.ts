@@ -26,24 +26,32 @@ import { gateDb } from './pgmem-db';
 type QueryResult = { rows: unknown[] };
 
 /**
- * Mirrors the neon() factory closely enough for the app's usage:
- * returns a tagged-template query function; `sql`DDL`` resolves to rows.
+ * Mirrors the neon() factory closely enough for the app's usage. The
+ * returned `sql` accepts BOTH invocation forms the driver supports:
+ *
+ *   - tagged template:  `sql`INSERT ... VALUES ($1)``
+ *   - plain string:     `sql(rawSqlString)`
+ *
+ * The plain-string form is what app/api/migrate/route.ts uses since PR #36
+ * (`await sql(stmt.sql)` over the generated BASE_DDL/MIGRATE_DDL arrays),
+ * so the mock must handle it exactly like the real driver does.
  */
-export function neon(_url?: string): (
-  strings: TemplateStringsArray,
-  ...params: unknown[]
-) => Promise<unknown[]> {
+export function neon(
+  _url?: string,
+): ((strings: TemplateStringsArray, ...params: unknown[]) => Promise<unknown[]>) &
+  ((rawSql: string) => Promise<unknown[]>) {
   const { pool } = gateDb.instance();
 
-  return function sql(strings: TemplateStringsArray, ...params: unknown[]) {
+  function sql(strings: TemplateStringsArray | string, ...params: unknown[]) {
     // The migrate route uses no parameters; still, build a proper
-    // $1..$n query so any future parameterised call works.
-    const text = strings.reduce(
-      (acc, s, i) => acc + s + (i < params.length ? `$${i + 1}` : ''),
-      '',
-    );
+    // $1..$n query so any future parameterised tagged call works.
+    const text =
+      typeof strings === 'string'
+        ? strings
+        : strings.reduce((acc, s, i) => acc + s + (i < params.length ? `$${i + 1}` : ''), '');
     return pool
-      .query(text, params)
+      .query(text, typeof strings === 'string' ? [] : params)
       .then((res: QueryResult) => res.rows);
-  };
+  }
+  return sql;
 }
