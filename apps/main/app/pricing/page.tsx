@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Check } from 'lucide-react';
 import { SignUpButton } from '@clerk/nextjs';
 
@@ -75,7 +76,7 @@ export default function PricingPage() {
       <header className="border-b border-zinc-800/80">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <Link href="/" className="flex items-center">
-            <img src="/logo.png" alt="Flavourly" className="h-9 w-auto" />
+            <Image src="/logo.png" alt="Flavourly" width={144} height={36} className="h-9 w-auto" priority />
           </Link>
           <nav className="flex items-center gap-4">
             <Link href="/" className="text-sm text-zinc-300 hover:text-white">Home</Link>

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import Image from 'next/image';
 
 export default function PrivacyPage() {
   return (
@@ -6,7 +7,7 @@ export default function PrivacyPage() {
       <header className="border-b border-zinc-800/80">
         <div className="mx-auto flex h-16 max-w-4xl items-center justify-between px-6">
           <Link href="/" className="flex items-center">
-            <img src="/logo.png" alt="Flavourly" className="h-9 w-auto" />
+            <Image src="/logo.png" alt="Flavourly" width={144} height={36} className="h-9 w-auto" priority />
           </Link>
           <nav className="flex items-center gap-4">
             <Link href="/" className="text-sm text-zinc-300 hover:text-white">Home</Link>
