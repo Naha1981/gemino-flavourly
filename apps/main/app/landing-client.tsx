@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@clerk/nextjs';
 import { ArrowRight, CalendarCheck, Timer, TrendingUp, Star, Megaphone, Swords, BarChart3, QrCode, ShieldCheck } from 'lucide-react';
@@ -20,7 +21,7 @@ export default function LandingClient() {
             className="flex select-none items-center transition-transform active:scale-95 text-left"
             title="Flavourly (Double-click for Admin)"
           >
-            <img src="/logo.png" alt="Flavourly" className="h-9 w-auto" />
+            <Image src="/logo.png" alt="Flavourly" width={144} height={36} className="h-9 w-auto" priority />
           </button>
 
           <nav className="flex items-center gap-3">

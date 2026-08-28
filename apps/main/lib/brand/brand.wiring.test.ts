@@ -35,7 +35,12 @@ describe('brand asset wiring', () => {
         assert.match(themeMode, /src\s*=\s*'\/logo\.png'/, 'LogoChip defaults to /logo.png');
         assert.match(themeMode, /<img\s+src=\{src\}/, 'LogoChip renders an <img>');
       } else {
-        assert.match(src, /<img\s+[^>]*src="\/logo\.png"/, `${file} should render <img src="/logo.png">`);
+        // GATE V2 fix: public pages now use next/image for optimization, not raw <img>.
+        // Accept either <img src="/logo.png"> (legacy) or <Image src="/logo.png"> (optimized).
+        const hasLogo =
+          /<img\s+[^>]*src="\/logo\.png"/.test(src) ||
+          /<Image\s+[^>]*src="\/logo\.png"/.test(src);
+        assert.ok(hasLogo, `${file} should render <img> or <Image> src="/logo.png">`);
       }
       assert.doesNotMatch(src, /<span[^>]*bg-zinc-100[^>]*>G<\/span>/, `${file} should not contain the legacy G box`);
     }
