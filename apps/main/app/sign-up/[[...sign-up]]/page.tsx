@@ -1,5 +1,7 @@
 import { SignUp } from '@clerk/nextjs';
 import { getSafeRedirectUrl } from '@/lib/auth/safe-redirect-url';
+import { clerkIsConfigured } from '@/lib/auth/route-guard-core';
+import { AuthUnavailable } from '@/components/auth-unavailable';
 import { ClaimSignUpGate } from './claim-sign-up';
 
 type SignUpPageProps = {
@@ -20,6 +22,12 @@ type SignUpPageProps = {
 export default function Page({ searchParams }: SignUpPageProps) {
   const claim = typeof searchParams.claim === 'string' ? searchParams.claim : null;
   const fallback = getSafeRedirectUrl(searchParams.redirect_url, '/dashboard');
+
+  // RC1: `<SignUp />` throws "Missing publishableKey" during render when
+  // Clerk is unconfigured, which 500'd this page. Degrade to a static panel.
+  if (!clerkIsConfigured(process.env)) {
+    return <AuthUnavailable mode="sign-up" />;
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4">

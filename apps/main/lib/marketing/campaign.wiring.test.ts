@@ -12,7 +12,10 @@ const API = join(APP, 'api', 'marketing', 'campaigns', 'route.ts');
 const PAGE = join(APP, 'dashboard', 'marketing', 'campaigns', 'page.tsx');
 const MIGRATION = join(HERE, '..', '..', 'drizzle', '0014_marketing_campaigns.sql');
 const JOURNAL = join(HERE, '..', '..', 'drizzle', 'meta', '_journal.json');
-const MIGRATE_ROUTE = join(APP, 'api', 'migrate', 'route.ts');
+// The /api/migrate DDL was lifted verbatim out of the route handler into
+// lib/db/migrate-ddl.ts so it can be EXECUTED by lib/db/migrate-execute.test.ts.
+// These assertions check the same statements, now at their real home.
+const MIGRATE_DDL_FILE = join(APP, '..', 'lib', 'db', 'migrate-ddl.ts');
 
 function source(path: string): string {
   return readFileSync(path, 'utf8');
@@ -83,7 +86,7 @@ describe('marketing campaign schema wiring', () => {
       journal.entries.some((entry: { tag: string }) => entry.tag === '0014_marketing_campaigns'),
       'journal has no 0014_marketing_campaigns entry'
     );
-    const route = code(MIGRATE_ROUTE);
+    const route = code(MIGRATE_DDL_FILE);
     assert.match(route, /CREATE TABLE IF NOT EXISTS marketing_campaigns/);
     assert.match(route, /marketing_campaigns_tenant_status_idx/);
     assert.match(route, /marketing_campaigns_tenant_type_idx/);

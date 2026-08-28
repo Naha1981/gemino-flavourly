@@ -1,5 +1,5 @@
-import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
+import { safeAuth } from '@/lib/auth/safe-auth';
 import LandingClient from './landing-client';
 
 /**
@@ -17,7 +17,10 @@ import LandingClient from './landing-client';
  * ./landing-client.tsx so it can stay a client component.
  */
 export default async function Page() {
-  const { userId } = await auth();
+  // safeAuth, not auth: `auth()` throws when Clerk is misconfigured, which
+  // used to 500 the landing page. A visitor with no session needs no auth,
+  // so a degraded Clerk simply means "render the landing page".
+  const { userId } = await safeAuth();
   if (userId) {
     redirect('/dashboard');
   }

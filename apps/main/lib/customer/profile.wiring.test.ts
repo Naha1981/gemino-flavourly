@@ -9,7 +9,10 @@ const APP = join(HERE, '..', '..', 'app');
 const SCHEMA = join(HERE, '..', 'db', 'schema.ts');
 const MIGRATION = join(HERE, '..', '..', 'drizzle', '0005_customer_profiles.sql');
 const JOURNAL = join(HERE, '..', '..', 'drizzle', 'meta', '_journal.json');
-const MIGRATE_ROUTE = join(APP, 'api', 'migrate', 'route.ts');
+// The /api/migrate DDL was lifted verbatim out of the route handler into
+// lib/db/migrate-ddl.ts so it can be EXECUTED by lib/db/migrate-execute.test.ts.
+// These assertions check the same statements, now at their real home.
+const MIGRATE_DDL_FILE = join(APP, '..', 'lib', 'db', 'migrate-ddl.ts');
 const BUILDER = join(HERE, 'profile-builder.ts');
 const STORE = join(HERE, 'profile-store.ts');
 const LIST_API = join(APP, 'api', 'customer', 'profiles', 'route.ts');
@@ -59,7 +62,7 @@ describe('schema and migrations agree', () => {
   });
 
   test('/api/migrate applies the same DDL', () => {
-    const src = code(MIGRATE_ROUTE);
+    const src = code(MIGRATE_DDL_FILE);
     assert.match(src, /CREATE TABLE IF NOT EXISTS customer_profiles/);
     assert.match(src, /customer_profiles_tenant_idx/);
     assert.match(src, /customer_profiles_contact_idx/);
