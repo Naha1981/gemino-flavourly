@@ -1,6 +1,9 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const BASE_URL = process.env.BASE_URL || 'https://gemino-flavourly-whatsapp.vercel.app';
+// GATE_BASE_URL: used by the GATE V4/V5 harness (e2e/gate-v4-v5.spec.ts) to
+// point the API-level suite at the local gate dev server. BASE_URL and the
+// Vercel default are unchanged for all existing suites.
+const BASE_URL = process.env.GATE_BASE_URL || process.env.BASE_URL || 'https://gemino-flavourly-whatsapp.vercel.app';
 
 export default defineConfig({
   testDir: './e2e',
