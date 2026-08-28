@@ -1,0 +1,158 @@
+#!/usr/bin/env node
+/**
+ * GATE V4/V5 — DDL generator for the pg-mem mock database.
+ *
+ * Concatenates every migration in apps/main/drizzle/*.sql (sorted) into a
+ * single statement list and rewrites the `DO $$ ... EXCEPTION
+ * duplicate_object ... END $$;` foreign-key blocks that drizzle-kit emits
+ * into plain `ALTER TABLE ... ADD CONSTRAINT ...` statements, because
+ * pg-mem does not execute plpgsql `DO` blocks. Then appends the runtime
+ * migration DDL from lib/db/migrate-ddl.ts (what GET /api/migrate applies
+ * in production, since PR #36). The drizzle set is a superset of
+ * lib/db/base-ddl.ts (which is drizzle/0000 only), so the union covers
+ * everything the app can read in either world.
+ *
+ * Output: apps/main/lib/gate-mock/ddl.sql, with statements separated by a
+ * dedicated `-- @@GATE-STATEMENT@@` marker (plain `;` splitting is unsafe:
+ * DO blocks contain their own semicolons).
+ *
+ * Usage:  node scripts/gen-gate-ddl.mjs
+ * Run it whenever a new migration lands in apps/main/drizzle.
+ */
+import { readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const root = join(dirname(fileURLToPath(import.meta.url)), '..');
+const drizzleDir = join(root, 'apps', 'main', 'drizzle');
+const outPath = join(root, 'apps', 'main', 'lib', 'gate-mock', 'ddl.sql');
+
+const files = readdirSync(drizzleDir)
+  .filter((f) => f.endsWith('.sql'))
+  .sort();
+
+let combined = '';
+for (const f of files) {
+  combined += readFileSync(join(drizzleDir, f), 'utf8');
+}
+
+const DELIM = '-- @@GATE-STATEMENT@@';
+const out = [];
+
+// Push one statement as an entry; drop comment-only fragments.
+const stripComments = (s) => s.replace(/^[ \t]*--[^\n]*\n?/gm, '').trim();
+const push = (s) => {
+  const t = s.trim();
+  if (!t) return;
+  if (!stripComments(t)) return; // comment-only fragment
+  out.push(t);
+};
+
+// drizzle-kit separates statements with `--> statement-breakpoint`, but some
+// hand-written migrations in this repo use plain `;` only. Split on both:
+// first on the breakpoint marker, then on top-level semicolons (no DDL
+// string literal in this schema contains a semicolon — verified by the
+// generator's smoke run).
+for (const rawChunk of combined.split('--> statement-breakpoint')) {
+  if (!rawChunk.trim()) continue;
+  // Drop comment lines BEFORE splitting on `;`: some comments contain
+  // semicolons and would split mid-comment. The comments are informational
+  // only; the DDL is self-documenting via its statement order.
+  const chunk = rawChunk.replace(/--[^\n]*/g, ' ');
+  // Rewrite drizzle's FK DO blocks:
+  //   DO $$ BEGIN
+  //    ALTER TABLE "x" ADD CONSTRAINT "c" FOREIGN KEY (...) REFERENCES ...;
+  //   EXCEPTION
+  //    WHEN duplicate_object THEN null;
+  //   END $$;
+  // pg-mem cannot execute plpgsql, so emit the inner ALTER TABLE directly.
+  const doBlocks = [...chunk.matchAll(/DO\s+\$\$[\s\S]*?END\s+\$\$;?/g)];
+  let rest = chunk;
+  for (const m of doBlocks) {
+    const inner = m[0]
+      .split('\n')
+      .map((l) => l.trim())
+      .find((l) => /^ALTER TABLE /i.test(l));
+    if (!inner) {
+      console.warn('gen-gate-ddl: unhandled DO block (skipped):\n' + m[0].slice(0, 200));
+      continue;
+    }
+    push(inner);
+    rest = rest.replace(m[0], ' ');
+  }
+  for (const piece of rest.split(';')) {
+    // A piece may hold several `;`-separated statements back-to-back only
+    // when a breakpoint was missing; semicolon-splitting handles that.
+    const cleaned = piece.trim();
+    if (!cleaned) continue;
+    // Multiple statements can still live in one piece if a trailing `;`
+    // was the only separator inside a breakpoint chunk — not possible here
+    // because we split on every `;`. Guard against empty comment-only bits.
+    push(cleaned);
+  }
+}
+
+// --------------------------------------------------------------------------
+// Runtime migration DDL (lib/db/migrate-ddl.ts, applied by /api/migrate).
+//
+// Production also evolves the schema through the super-admin-gated
+// `GET /api/migrate` endpoint, which applies purely additive DDL that the
+// drizzle migration files do NOT contain. The app code (delivery-status
+// rendering, the prospects/claim flow, outbox, ...) reads and writes those
+// columns, so the gate DB must carry them.
+//
+// Since PR #36 the route no longer holds the DDL inline: it imports the
+// generated `MIGRATE_DDL` array from lib/db/migrate-ddl.ts (statements lifted
+// verbatim from the old route body, one template literal per statement, all
+// static — no interpolation, no parameters). We parse that array directly so
+// the gate schema stays a straight copy of what the app really runs against.
+const migrateDdlPath = join(root, 'apps', 'main', 'lib', 'db', 'migrate-ddl.ts');
+const ddlSrc = readFileSync(migrateDdlPath, 'utf8');
+// Slice from the MIGRATE_DDL declaration to end-of-file: the MIGRATE_TABLES
+// and BASE_TABLES arrays above it use double-quoted strings, so backtick
+// template matches within this slice are exactly the DDL statements.
+// Strip // line comments first: the file documents columns inline with
+// backtick-quoted identifiers inside comments (e.g. "All additive:
+// `cancelled_at`"), which the backtick matcher would otherwise pick up as
+// phantom statements. No DDL string literal in this file contains //, so
+// comment stripping is loss-free.
+const arrayBody = ddlSrc
+  .slice(ddlSrc.indexOf('MIGRATE_DDL'))
+  .replace(/\/\/[^\n]*/g, ' ');
+const runtimeCount = [...arrayBody.matchAll(/`([^`]*)`/g)].length;
+console.log(
+  `gen-gate-ddl: extracted ${runtimeCount} runtime DDL statement(s) from lib/db/migrate-ddl.ts`,
+);
+for (const m of arrayBody.matchAll(/`([^`]*)`/g)) {
+  push(m[1]);
+}
+
+const header = [
+  '-- GATE V4/V5 — combined schema DDL for the pg-mem mock database.',
+  '-- GENERATED by scripts/gen-gate-ddl.mjs from the project\'s own schema sources:',
+  '--   1. the drizzle migration files (apps/main/drizzle/*.sql), and',
+  '--   2. the additive DDL that GET /api/migrate (super-admin gated) applies',
+  '--      at runtime in production — it is NOT part of the drizzle files but',
+  '--      the app code reads those columns (e.g. messages.delivery_status),',
+  '--      so the gate DB must carry them too.',
+  '-- Do not edit by hand; re-run the generator after schema changes.',
+  '-- Statements are separated by a dedicated GATE-STATEMENT marker line.',
+  '',
+].join('\n');
+
+mkdirSync(dirname(outPath), { recursive: true });
+// A delimiter follows the header too, so every chunk is cleanly separated.
+writeFileSync(outPath, header + '\n' + DELIM + '\n' + out.join('\n' + DELIM + '\n') + '\n');
+
+// Also emit a TypeScript module with the DDL inlined. The pg-mem mock
+// imports this instead of fs-reading ddl.sql at runtime, because
+// __dirname is unreliable inside webpack-bundled server modules.
+const tsOut = outPath.replace(/\.sql$/, '.generated.ts');
+const escaped = out.join('\n' + DELIM + '\n').replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
+writeFileSync(
+  tsOut,
+  `// GENERATED by scripts/gen-gate-ddl.mjs — do not edit by hand.\n` +
+    `// Inline copy of ddl.sql for the pg-mem gate mock (see file header there).\n` +
+    `export const GATE_DDL =\n  \`${escaped}\`;\n`,
+);
+console.log(`gen-gate-ddl: wrote ${outPath} and ${tsOut} (${out.length} statements from ${files.length} files)`);
