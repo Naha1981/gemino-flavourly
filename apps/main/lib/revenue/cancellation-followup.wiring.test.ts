@@ -24,7 +24,10 @@ const CRON_ROUTE = join(APP, 'api', 'cron', 'cancellation-followup', 'route.ts')
 const STORE = join(HERE, 'cancellation-followup-store.ts');
 const SCHEMA = join(HERE, '..', 'db', 'schema.ts');
 const MIGRATION = join(HERE, '..', '..', 'drizzle', '0002_cancellation_followup.sql');
-const MIGRATE_ROUTE = join(APP, 'api', 'migrate', 'route.ts');
+// The /api/migrate DDL was lifted verbatim out of the route handler into
+// lib/db/migrate-ddl.ts so it can be EXECUTED by lib/db/migrate-execute.test.ts.
+// These assertions check the same statements, now at their real home.
+const MIGRATE_DDL_FILE = join(APP, '..', 'lib', 'db', 'migrate-ddl.ts');
 
 /** Strip comments so prose describing behaviour is not mistaken for code. */
 function code(path: string): string {
@@ -122,7 +125,7 @@ describe('seam 2: the store asks the question the logic assumes', () => {
 describe('seam 3: schema and migrations agree', () => {
   const schema = code(SCHEMA);
   const migration = readFileSync(MIGRATION, 'utf8');
-  const migrateRoute = code(MIGRATE_ROUTE);
+  const migrateRoute = code(MIGRATE_DDL_FILE);
 
   const columns = ['cancelled_at', 'cancellation_followup_sent', 'cancellation_followup_sent_at'];
 

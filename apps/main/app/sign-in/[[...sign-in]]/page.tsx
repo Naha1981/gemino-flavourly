@@ -1,5 +1,7 @@
 import { SignIn } from '@clerk/nextjs';
 import { getSafeRedirectUrl } from '@/lib/auth/safe-redirect-url';
+import { clerkIsConfigured } from '@/lib/auth/route-guard-core';
+import { AuthUnavailable } from '@/components/auth-unavailable';
 
 type SignInPageProps = {
   searchParams: {
@@ -8,6 +10,12 @@ type SignInPageProps = {
 };
 
 export default function Page({ searchParams }: SignInPageProps) {
+  // RC1: `<SignIn />` throws "Missing publishableKey" during render when
+  // Clerk is unconfigured, which 500'd this page. Degrade to a static panel.
+  if (!clerkIsConfigured(process.env)) {
+    return <AuthUnavailable mode="sign-in" />;
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-zinc-950 p-4">
       <SignIn 

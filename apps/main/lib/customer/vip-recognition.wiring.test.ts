@@ -18,7 +18,10 @@ const VIP_PAGE = join(APP, 'dashboard', 'customers', 'vip-today', 'page.tsx');
 const CLIENT = join(APP, 'dashboard', 'customers', 'vip-today', 'vip-today-client.tsx');
 const MIGRATION = join(HERE, '..', '..', 'drizzle', '0008_vip_recognition.sql');
 const JOURNAL = join(HERE, '..', '..', 'drizzle', 'meta', '_journal.json');
-const MIGRATE_ROUTE = join(APP, 'api', 'migrate', 'route.ts');
+// The /api/migrate DDL was lifted verbatim out of the route handler into
+// lib/db/migrate-ddl.ts so it can be EXECUTED by lib/db/migrate-execute.test.ts.
+// These assertions check the same statements, now at their real home.
+const MIGRATE_DDL_FILE = join(APP, '..', 'lib', 'db', 'migrate-ddl.ts');
 const ADMIN = join(APP, 'admin', 'page.tsx');
 
 function source(path: string): string {
@@ -90,7 +93,7 @@ describe('VIP schema wiring', () => {
       journal.entries.some((entry: { tag: string }) => entry.tag === '0008_vip_recognition'),
       'journal has no 0008_vip_recognition entry'
     );
-    const route = code(MIGRATE_ROUTE);
+    const route = code(MIGRATE_DDL_FILE);
     assert.match(route, /CREATE TABLE IF NOT EXISTS vip_alerts/);
     assert.match(route, /vip_alerts_tenant_idx/);
     assert.match(route, /vip_alerts_phone_idx/);

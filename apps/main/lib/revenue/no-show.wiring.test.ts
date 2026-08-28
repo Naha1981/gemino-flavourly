@@ -31,7 +31,10 @@ const STORE = join(HERE, 'no-show-store.ts');
 const SCHEMA = join(HERE, '..', 'db', 'schema.ts');
 const MIGRATION = join(HERE, '..', '..', 'drizzle', '0004_no_show_monitoring.sql');
 const JOURNAL = join(HERE, '..', '..', 'drizzle', 'meta', '_journal.json');
-const MIGRATE_ROUTE = join(APP, 'api', 'migrate', 'route.ts');
+// The /api/migrate DDL was lifted verbatim out of the route handler into
+// lib/db/migrate-ddl.ts so it can be EXECUTED by lib/db/migrate-execute.test.ts.
+// These assertions check the same statements, now at their real home.
+const MIGRATE_DDL_FILE = join(APP, '..', 'lib', 'db', 'migrate-ddl.ts');
 
 /** Strip comments so prose describing behaviour is not mistaken for code. */
 function code(path: string): string {
@@ -214,7 +217,7 @@ describe('seam 4: schema, migration, journal and /api/migrate agree', () => {
   const schema = code(SCHEMA);
   const migration = readFileSync(MIGRATION, 'utf8');
   const journal = readFileSync(JOURNAL, 'utf8');
-  const migrateRoute = code(MIGRATE_ROUTE);
+  const migrateRoute = code(MIGRATE_DDL_FILE);
 
   const columns = ['no_show_detected', 'no_show_detected_at', 'no_show_followup_sent', 'no_show_followup_sent_at'];
 
