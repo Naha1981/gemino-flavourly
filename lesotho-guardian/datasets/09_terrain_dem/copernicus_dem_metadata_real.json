@@ -1,0 +1,39 @@
+{
+  "source": "Copernicus DEM",
+  "registry": "https://registry.opendata.aws/copernicus-dem/",
+  "s3_bucket": "s3://copernicus-dem-30m/",
+  "docs": "https://copernicus-dem-30m.s3.amazonaws.com/readme.html",
+  "tile_list": "https://copernicus-dem-30m.s3.amazonaws.com/tileList.txt",
+  "lesotho_tiles": [
+    "Copernicus_DSM_COG_10_S30_00_E027_00_DEM/Copernicus_DSM_COG_10_S30_00_E027_00_DEM.tif",
+    "Copernicus_DSM_COG_10_S30_00_E028_00_DEM/Copernicus_DSM_COG_10_S30_00_E028_00_DEM.tif",
+    "Copernicus_DSM_COG_10_S30_00_E029_00_DEM/Copernicus_DSM_COG_10_S30_00_E029_00_DEM.tif",
+    "Copernicus_DSM_COG_10_S29_00_E027_00_DEM/Copernicus_DSM_COG_10_S29_00_E027_00_DEM.tif",
+    "Copernicus_DSM_COG_10_S29_00_E028_00_DEM/Copernicus_DSM_COG_10_S29_00_E028_00_DEM.tif",
+    "Copernicus_DSM_COG_10_S29_00_E029_00_DEM/Copernicus_DSM_COG_10_S29_00_E029_00_DEM.tif",
+    "Copernicus_DSM_COG_10_S31_00_E027_00_DEM/Copernicus_DSM_COG_10_S31_00_E027_00_DEM.tif",
+    "Copernicus_DSM_COG_10_S31_00_E028_00_DEM/Copernicus_DSM_COG_10_S31_00_E028_00_DEM.tif"
+  ],
+  "bbox": [27.01123, -30.677847955, 29.457366138, -28.5705973],
+  "resolution": "30m",
+  "type": "Digital Surface Model (DSM) including buildings, infrastructure, vegetation",
+  "license": "Copernicus licence https://dataspace.copernicus.eu/explore-data/data-collections/copernicus-contributing-missions/collections-description/COP-DEM",
+  "opentopography": {
+    "url": "https://portal.opentopography.org/raster?opentopoID=OTSDEM.032021.4326.3",
+    "bulk": "aws s3 ls s3://raster/COP30/ --recursive --endpoint-url https://opentopography.s3.sdsc.edu --no-sign-request",
+    "cop30": "s3://raster/COP30/",
+    "cop90": "s3://raster/COP90/"
+  },
+  "srtm": {
+    "url": "https://dwtkns.com/srtm30m/",
+    "tiles": ["S30/E027", "S30/E028", "S30/E029", "S29/E027", "S29/E028", "S29/E029"]
+  },
+  "derived_products": ["slope", "aspect", "hillshade", "drainage", "watershed", "landslide_susceptibility"],
+  "example_gdal": [
+    "gdal_merge.py -o lesotho_dem_30m.tif copernicus_dem_lesotho/*.tif",
+    "gdaldem slope lesotho_dem_30m.tif lesotho_slope.tif",
+    "gdaldem aspect lesotho_dem_30m.tif lesotho_aspect.tif"
+  ],
+  "verified": true,
+  "note": "Lesotho is extremely terrain-dependent, elevation 1400-3400m"
+}

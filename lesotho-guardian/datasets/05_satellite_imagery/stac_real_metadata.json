@@ -1,0 +1,46 @@
+{
+  "source": "Copernicus + Planetary Computer + USGS",
+  "lesotho_bbox": [27.01123, -30.677847955, 29.457366138, -28.5705973],
+  "endpoints": {
+    "copernicus_dataspace": {
+      "url": "https://stac.dataspace.copernicus.eu/v1",
+      "collections": ["SENTINEL-1", "SENTINEL-2", "SENTINEL-3", "SENTINEL-5P"],
+      "docs": "https://documentation.dataspace.copernicus.eu/APIs/STAC.html",
+      "verified": true
+    },
+    "planetary_computer": {
+      "url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+      "collections": ["sentinel-2-l2a", "sentinel-1-rtc", "landsat-c2-l2", "cop-dem-glo-30"],
+      "example": "https://planetarycomputer.microsoft.com/api/stac/v1/collections/sentinel-2-l2a",
+      "verified": true,
+      "free_no_key": true
+    },
+    "usgs_landsat": {
+      "url": "https://landsatlook.usgs.gov/stac-server",
+      "verified": true
+    }
+  },
+  "sentinel2": {
+    "resolution": "10m optical",
+    "use": "vegetation, land cover, burn scars, construction/change detection",
+    "cloud_cover_filter": "<20%",
+    "verified": true
+  },
+  "sentinel1": {
+    "resolution": "10m SAR",
+    "use": "flooding, surface changes, infrastructure monitoring, works through clouds/night",
+    "verified": true
+  },
+  "landsat": {
+    "resolution": "30m",
+    "use": "long historical archive",
+    "verified": true
+  },
+  "aws_open_data": {
+    "sentinel2": "s3://sentinel-s2-l2a/",
+    "sentinel1": "s3://sentinel-s1-rtc-indigo/",
+    "copernicus_dem": "s3://copernicus-dem-30m/"
+  },
+  "ingestion_pipeline": "scripts/fetch_05_satellite.py creates ingestion_planetary_computer.py using pystac-client",
+  "verified": true
+}

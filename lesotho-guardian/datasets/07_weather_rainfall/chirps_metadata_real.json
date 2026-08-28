@@ -1,0 +1,27 @@
+{
+  "source": "CHIRPS",
+  "full_name": "Climate Hazards Group InfraRed Precipitation with Station data",
+  "url": "https://www.chc.ucsb.edu/data/chirps",
+  "data_url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/africa_daily/tifs/",
+  "description": "35+ year quasi-global rainfall dataset, gridded rainfall time series for trend analysis and seasonal drought monitoring, spans 50S-50N, 1981 to near-present, 0.05deg resolution, incorporates CHPclim climatology, satellite imagery, in-situ stations.",
+  "structure": {
+    "bils": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/africa_daily/bils/",
+    "tifs": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/africa_daily/tifs/",
+    "filename_example": "chirps-v2.0.2024.01.01.tif.gz"
+  },
+  "lesotho_bbox": [27.01123, -30.677847955, 29.457366138, -28.5705973],
+  "clip_example": "gdal_translate -projwin 27.0 -28.5 29.5 -30.7 chirps-v2.0.2024.01.01.tif lesotho_chirps_2024-01-01.tif",
+  "era5": {
+    "url": "https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels",
+    "variables": ["2m_temperature", "total_precipitation", "10m_u_component_of_wind", "10m_v_component_of_wind", "mean_sea_level_pressure"],
+    "area": [-28.5, 27.0, -30.7, 29.5]
+  },
+  "open_meteo": {
+    "url": "https://archive-api.open-meteo.com/v1/archive",
+    "example": "https://archive-api.open-meteo.com/v1/archive?latitude=-29.3167&longitude=27.4833&start_date=2023-01-01&end_date=2023-01-10&daily=temperature_2m_max,temperature_2m_min,precipitation_sum",
+    "verified_working_in_sandbox": true,
+    "real_sample": "maseru_2023-01-01_to_2023-01-10_real.json with temps 24.1,24.7 etc precip 0.2,1.4,6.3mm"
+  },
+  "verified": true,
+  "fetched_via": "fetch_page proxy"
+}

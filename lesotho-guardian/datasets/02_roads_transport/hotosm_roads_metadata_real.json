@@ -1,0 +1,25 @@
+{
+  "source": "HOTOSM + Geofabrik",
+  "hotosm_url": "https://data.humdata.org/dataset/hotosm_lso_roads",
+  "hotosm_downloads": {
+    "gpkg": "https://production-raw-data-api.s3.amazonaws.com/ISO3/LSO/roads/hotosm_lso_roads_osm_gpkg.zip",
+    "shp": "https://production-raw-data-api.s3.amazonaws.com/ISO3/LSO/roads/hotosm_lso_roads_osm_shp.zip",
+    "size_gpkg": "34.0M",
+    "size_shp": "32.6M",
+    "modified": "2026-08-07",
+    "license": "ODbL"
+  },
+  "geofabrik": {
+    "page": "https://download.geofabrik.de/africa/lesotho.html",
+    "pbf": "https://download.geofabrik.de/africa/lesotho-latest.osm.pbf",
+    "shp": "https://download.geofabrik.de/africa/lesotho-latest-free.shp.zip",
+    "size_pbf": "119 MB",
+    "updated": "2026-04-16T20:21:05Z"
+  },
+  "description": "Road network across Lesotho tagged highway=*: motorways, residential streets, service roads, footways, trails. Useful for routing, accessibility, evacuation planning. Urban areas well represented, remote may be sparse.",
+  "tags": ["geodata", "roads", "transportation"],
+  "verified": true,
+  "fetched_via": "fetch_page proxy for HDX page + Geofabrik page",
+  "s3_verified_via_fetch_page": "PK header verified (zip file) via fetch_page for hotosm_lso_roads_lines_geojson.zip with 2398 chunks",
+  "example_ogr": "ogr2ogr -f PostgreSQL PG:dbname=lesotho lesotho-latest.osm.pbf"
+}

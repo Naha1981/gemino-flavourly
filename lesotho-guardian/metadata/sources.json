@@ -1,0 +1,262 @@
+{
+  "project": "Lesotho Guardian AI - MVP Dataset Stack",
+  "created": "2026-08-28",
+  "datasets": {
+    "01_admin_boundaries": {
+      "priority": "MUST HAVE",
+      "sources": [
+        {
+          "name": "HDX COD-AB Lesotho - FAO & Ministry of Local Government 2016/2019",
+          "url": "https://data.humdata.org/dataset/cod-ab-lso",
+          "direct_download": "https://data.humdata.org/dataset/55b1367e-667a-447b-952d-5bb139835628/resource/f922a67a-9840-4174-bd1e-e4b10cc88591/download/lso_adm_fao_mlgca_2019.zip",
+          "license": "Creative Commons Attribution 4.0",
+          "contains": ["ADM0 country", "ADM1 10 districts", "ADM2 78 community councils"],
+          "verified": true
+        },
+        {
+          "name": "Natural Earth Admin 0 - Lesotho",
+          "url": "https://www.naturalearthdata.com/downloads/10m-cultural-vectors/",
+          "direct_download": "https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_admin_0_countries.zip",
+          "license": "Public Domain",
+          "verified": true
+        },
+        {
+          "name": "geoBoundaries Lesotho ADM1",
+          "url": "https://www.geoboundaries.org/countryDownloads.html",
+          "api": "https://www.geoboundaries.org/api/current/gbOpen/LSO/ADM1/",
+          "verified": true
+        },
+        {
+          "name": "Lesotho NSDI / DRWS Official Service",
+          "url": "https://drws.gov.ls/server/rest/services/LesothoBoundaries/MapServer",
+          "note": "Official Lesotho boundaries service with district and community-council layers",
+          "verified": true
+        }
+      ]
+    },
+    "02_roads_transport": {
+      "priority": "MUST HAVE",
+      "sources": [
+        {
+          "name": "Geofabrik Lesotho OSM PBF",
+          "url": "https://download.geofabrik.de/africa/lesotho.html",
+          "direct_download": "https://download.geofabrik.de/africa/lesotho-latest.osm.pbf",
+          "size": "119MB",
+          "verified": true
+        },
+        {
+          "name": "Geofabrik Lesotho Shapefile",
+          "url": "https://download.geofabrik.de/africa/lesotho.html",
+          "direct_download": "https://download.geofabrik.de/africa/lesotho-latest-free.shp.zip",
+          "verified": true
+        },
+        {
+          "name": "HOTOSM Lesotho Roads",
+          "url": "https://data.humdata.org/dataset/hotosm_lso_roads",
+          "direct_download_geojson": "https://s3.dualstack.us-east-1.amazonaws.com/production-raw-data-api/ISO3/LSO/roads/lines/hotosm_lso_roads_lines_geojson.zip",
+          "direct_download_shp": "https://s3.dualstack.us-east-1.amazonaws.com/production-raw-data-api/ISO3/LSO/roads/lines/hotosm_lso_roads_lines_shp.zip",
+          "verified": true
+        }
+      ]
+    },
+    "03_settlements_buildings": {
+      "priority": "MUST HAVE",
+      "sources": [
+        {
+          "name": "HOTOSM Lesotho Buildings",
+          "url": "https://data.humdata.org/dataset/hotosm_lso_buildings",
+          "verified": true
+        },
+        {
+          "name": "Microsoft GlobalML Building Footprints Lesotho",
+          "url": "https://github.com/microsoft/GlobalMLBuildingFootprints",
+          "dataset": "https://minedbuildings.z5.web.core.windows.net/global-buildings/dataset-links.csv",
+          "note": "Lesotho is in dataset, quadkeys covering 27E-29.5E, -30.7S to -28.5S",
+          "verified": true
+        },
+        {
+          "name": "Google Open Buildings Lesotho",
+          "url": "https://sites.research.google/open-buildings/",
+          "dataset": "https://storage.googleapis.com/open-buildings-data/v3/",
+          "verified": true
+        },
+        {
+          "name": "HOTOSM Lesotho Settlements / Populated Places",
+          "url": "https://data.humdata.org/dataset/hotosm_lso_populated_places",
+          "verified": true
+        }
+      ]
+    },
+    "04_population": {
+      "priority": "MUST HAVE",
+      "sources": [
+        {
+          "name": "WorldPop 100m Constrained 2020 Lesotho",
+          "url": "https://hub.worldpop.org/geodata/summary?id=49695",
+          "direct_download": "https://data.worldpop.org/GIS/Population/Global_2000_2020_Constrained/2020/maxar_v1/LSO/lso_ppp_2020_constrained.tif",
+          "license": "CC BY 4.0",
+          "verified": true
+        },
+        {
+          "name": "WorldPop 1km UN Adjusted 2020",
+          "url": "https://data.humdata.org/dataset/worldpop-population-counts-for-lesotho",
+          "direct_download": "https://data.worldpop.org/GIS/Population/Global_2000_2020/2020/LSO/lso_ppp_2020.tif",
+          "verified": true
+        },
+        {
+          "name": "Kontur 400m H3 Population Lesotho",
+          "url": "https://data.humdata.org/dataset/kontur-population-lesotho",
+          "verified": true
+        }
+      ]
+    },
+    "05_satellite_imagery": {
+      "priority": "MUST HAVE",
+      "sources": [
+        {
+          "name": "Copernicus Sentinel-2 STAC API",
+          "url": "https://stac.dataspace.copernicus.eu/v1",
+          "collection": "SENTINEL-2",
+          "note": "Ingestion pipeline via pystac-client",
+          "verified": true
+        },
+        {
+          "name": "Copernicus Sentinel-1 STAC API",
+          "url": "https://stac.dataspace.copernicus.eu/v1",
+          "collection": "SENTINEL-1",
+          "verified": true
+        },
+        {
+          "name": "USGS Landsat Collection 2",
+          "url": "https://landsatlook.usgs.gov/stac-server",
+          "verified": true
+        },
+        {
+          "name": "Microsoft Planetary Computer STAC",
+          "url": "https://planetarycomputer.microsoft.com/api/stac/v1",
+          "collections": ["sentinel-2-l2a", "sentinel-1-rtc", "landsat-c2-l2"],
+          "verified": true
+        }
+      ]
+    },
+    "06_fire": {
+      "priority": "MUST HAVE",
+      "sources": [
+        {
+          "name": "NASA FIRMS VIIRS 375m NRT",
+          "url": "https://firms.modaps.eosdis.nasa.gov/api/",
+          "endpoint_example": "https://firms.modaps.eosdis.nasa.gov/api/area/csv/VERSION/MAP_KEY/VIIRS_SNPP_NRT/-30.7,27.0,-28.5,29.5/1",
+          "verified": true
+        },
+        {
+          "name": "NASA FIRMS MODIS C6 NRT",
+          "url": "https://firms.modaps.eosdis.nasa.gov/",
+          "verified": true
+        }
+      ]
+    },
+    "07_weather_rainfall": {
+      "priority": "MUST HAVE",
+      "sources": [
+        {
+          "name": "CHIRPS Daily 0.05deg Africa",
+          "url": "https://data.chc.ucsb.edu/products/CHIRPS-2.0/africa_daily/",
+          "docs": "https://www.chc.ucsb.edu/data/chirps",
+          "verified": true
+        },
+        {
+          "name": "ERA5 via CDS",
+          "url": "https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels",
+          "note": "Lesotho bbox 27.0,-30.7,29.5,-28.5",
+          "verified": true
+        },
+        {
+          "name": "Open-Meteo ERA5 Archive API (free, no key)",
+          "url": "https://open-meteo.com/en/docs/historical-weather-api",
+          "example": "https://archive-api.open-meteo.com/v1/archive?latitude=-29.3167&longitude=27.4833&start_date=2020-01-01&end_date=2024-12-31&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,wind_speed_10m_max",
+          "verified": true
+        }
+      ]
+    },
+    "08_hydrology": {
+      "priority": "MUST HAVE",
+      "sources": [
+        {
+          "name": "HydroSHEDS HydroRIVERS Africa",
+          "url": "https://www.hydrosheds.org/products/hydrorivers",
+          "direct_download": "https://data.hydrosheds.org/file/hydrorivers/HydroRIVERS_v10_af_shp.zip",
+          "verified": true
+        },
+        {
+          "name": "HydroSHEDS HydroLAKES",
+          "url": "https://www.hydrosheds.org/products/hydrolakes",
+          "direct_download": "https://data.hydrosheds.org/file/hydrolakes/HydroLAKES_polys_v10_shp.zip",
+          "verified": true
+        },
+        {
+          "name": "HOTOSM Lesotho Waterways",
+          "url": "https://data.humdata.org/dataset/hotosm_lso_waterways",
+          "verified": true
+        },
+        {
+          "name": "Natural Earth Rivers + Lakes",
+          "url": "https://www.naturalearthdata.com/downloads/10m-physical-vectors/",
+          "verified": true
+        }
+      ]
+    },
+    "09_terrain_dem": {
+      "priority": "MUST HAVE",
+      "sources": [
+        {
+          "name": "Copernicus DEM 30m AWS Open Data",
+          "url": "https://registry.opendata.aws/copernicus-dem/",
+          "s3": "s3://copernicus-dem-30m/",
+          "note": "Tiles covering Lesotho: Copernicus_DSM_COG_10_S30_00_E027_00_DEM, etc.",
+          "verified": true
+        },
+        {
+          "name": "SRTM 30m USGS",
+          "url": "https://dwtkns.com/srtm30m/",
+          "verified": true
+        },
+        {
+          "name": "OpenTopography SRTM",
+          "url": "https://opentopography.org/",
+          "verified": true
+        }
+      ]
+    },
+    "10_critical_infrastructure": {
+      "priority": "MUST HAVE",
+      "sources": [
+        {
+          "name": "HOTOSM Lesotho Health Facilities",
+          "url": "https://data.humdata.org/dataset/hotosm_lso_health_facilities",
+          "verified": true
+        },
+        {
+          "name": "HOTOSM Lesotho Education Facilities",
+          "url": "https://data.humdata.org/dataset/hotosm_lso_education_facilities",
+          "verified": true
+        },
+        {
+          "name": "HDX Lesotho Airports",
+          "url": "https://data.humdata.org/dataset/ourairports-lso",
+          "verified": true
+        },
+        {
+          "name": "OSM Overpass - Critical Infrastructure",
+          "url": "https://overpass-turbo.eu/",
+          "queries": ["amenity=hospital, clinic, school, police, fire_station", "aeroway, power, telecom"],
+          "verified": true
+        },
+        {
+          "name": "Lesotho Gov Data Portal - vegetation/geospatial",
+          "url": "https://www.gov.ls/eservice/data-management-vegetation-geospatial-and-user-data/",
+          "verified": true
+        }
+      ]
+    }
+  }
+}

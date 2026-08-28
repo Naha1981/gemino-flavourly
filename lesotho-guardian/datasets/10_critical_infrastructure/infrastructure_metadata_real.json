@@ -1,0 +1,42 @@
+{
+  "source": "HOTOSM + Overpass + HDX + Gov",
+  "hotosm_health": {
+    "url": "https://data.humdata.org/dataset/hotosm_lso_health_facilities",
+    "gpkg": "https://production-raw-data-api.s3.amazonaws.com/ISO3/LSO/health_facilities/hotosm_lso_health_facilities_osm_gpkg.zip",
+    "size": "7.2KB GPKG example",
+    "license": "ODbL",
+    "tags": ["healthcare", "amenity=clinic,hospital,pharmacy", "building"],
+    "verified": true
+  },
+  "hotosm_education": {
+    "url": "https://data.humdata.org/dataset/hotosm_lso_education_facilities",
+    "gpkg": "https://production-raw-data-api.s3.amazonaws.com/ISO3/LSO/education_facilities/hotosm_lso_education_facilities_osm_gpkg.zip",
+    "verified": true
+  },
+  "hotosm_airports": {
+    "url": "https://data.humdata.org/dataset/hotosm_lso_airports",
+    "gpkg": "https://production-raw-data-api.s3.amazonaws.com/ISO3/LSO/airports/hotosm_lso_airports_osm_gpkg.zip",
+    "verified": true
+  },
+  "healthsites": {
+    "url": "https://data.humdata.org/dataset/lesotho-healthsites",
+    "description": "List of operating health facilities with Name, Nature, Activities, Lat, Long",
+    "verified": true
+  },
+  "overpass": {
+    "url": "https://overpass-api.de/api/interpreter",
+    "turbo": "https://overpass-turbo.eu/",
+    "queries": ["amenity=hospital, clinic, school, police, fire_station", "aeroway=aerodrome,helipad", "power=plant,substation,line", "waterway=dam"],
+    "example_file": "overpass_hospitals.oql",
+    "verified": true
+  },
+  "gov": {
+    "data_portal": "https://www.gov.ls/eservice/data-management-vegetation-geospatial-and-user-data/",
+    "drws_boundaries": "https://drws.gov.ls/server/rest/services/LesothoBoundaries/MapServer",
+    "nsdi": "https://nsdf.org.ls/service/national-spatial-data-infrastructure-nsdi/",
+    "verified": true
+  },
+  "types": ["hospitals", "clinics", "schools", "police stations", "fire stations", "government offices", "airports", "dams", "power infrastructure", "telecommunications", "major bridges", "water infrastructure"],
+  "note": "Government-owned datasets should eventually replace/augment OSM where appropriate via official data-sharing agreement",
+  "verified": true
+}

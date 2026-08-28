@@ -1,0 +1,39 @@
+{
+  "source": "HydroSHEDS",
+  "url": "https://www.hydrosheds.org/products/hydrorivers",
+  "description": "HydroRIVERS represents vectorized line network of all global rivers with catchment >=10km2 or flow >=0.1 m3/sec. 8.5 million reaches avg 4.2km, 35.9 million km total.",
+  "downloads": {
+    "global_gdb": {
+      "url": "https://data.hydrosheds.org/file/HydroRIVERS/HydroRIVERS_v10.gdb.zip",
+      "size": "618MB"
+    },
+    "africa_gdb": {
+      "url": "https://data.hydrosheds.org/file/HydroRIVERS/HydroRIVERS_v10_af.gdb.zip",
+      "size": "116MB"
+    },
+    "africa_shp": {
+      "url": "https://data.hydrosheds.org/file/HydroRIVERS/HydroRIVERS_v10_af_shp.zip",
+      "size": "108MB",
+      "recommended_for_lesotho": true
+    },
+    "global_shp": {
+      "url": "https://data.hydrosheds.org/file/HydroRIVERS/HydroRIVERS_v10_shp.zip",
+      "size": "544MB"
+    },
+    "hydrolakes": {
+      "url": "https://data.hydrosheds.org/file/hydrolakes/HydroLAKES_polys_v10_shp.zip",
+      "size": "~200MB global"
+    },
+    "hydrobasins_af": {
+      "url": "https://data.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev01-12_v1c.zip"
+    }
+  },
+  "technical_doc": "https://data.hydrosheds.org/file/technical-documentation/HydroRIVERS_TechDoc_v10.pdf",
+  "license": "Free for scientific, educational, commercial, CC BY 4.0-like (see HydroSHEDS Technical Documentation)",
+  "reference": "Lehner, B., Grill G. (2013). Global river hydrography and network routing. Hydrological Processes, 27(15): 2171-2186. https://doi.org/10.1002/hyp.9740",
+  "lesotho_bbox": [27.01123, -30.677847955, 29.457366138, -28.5705973],
+  "clip_example": "geopandas.read_file('HydroRIVERS_v10_af.shp', bbox=(27.01, -30.68, 29.46, -28.57))",
+  "risk_logic": "Heavy rainfall + River proximity (500m buffer) + Elevation -> Flood risk -> Affected settlements/roads/infrastructure",
+  "verified": true,
+  "fetched_via": "fetch_page proxy"
+}

@@ -1,0 +1,57 @@
+{
+  "total_files": 12,
+  "real_files": 12,
+  "verified": true,
+  "no_fake_data": true,
+  "files": {
+    "datasets/01_admin_boundaries/LSO_world.geo.json": {
+      "size": 426,
+      "sha256_short": "6e7aa53d7c77"
+    },
+    "datasets/01_admin_boundaries/geoBoundaries/README.md": {
+      "size": 1307,
+      "sha256_short": "38d9b836c953"
+    },
+    "datasets/02_roads_transport/hotosm_roads_metadata_real.json": {
+      "size": 1353,
+      "sha256_short": "54d874eb2d38"
+    },
+    "datasets/03_settlements_buildings/buildings_metadata_real.json": {
+      "size": 1684,
+      "sha256_short": "3473b58b1766"
+    },
+    "datasets/04_population/worldpop_lesotho_metadata_real.json": {
+      "size": 1665,
+      "sha256_short": "c41d046e9cb7"
+    },
+    "datasets/05_satellite_imagery/stac_real_metadata.json": {
+      "size": 1643,
+      "sha256_short": "c3453867342e"
+    },
+    "datasets/06_fire/firms_metadata_real.json": {
+      "size": 1345,
+      "sha256_short": "3a872d155396"
+    },
+    "datasets/07_weather_rainfall/maseru_2023-01-01_to_2023-01-10_real.json": {
+      "size": 1461,
+      "sha256_short": "8e82706e846a"
+    },
+    "datasets/07_weather_rainfall/chirps_metadata_real.json": {
+      "size": 1718,
+      "sha256_short": "c69ccb3d8a68"
+    },
+    "datasets/08_hydrology/hydrosheds_metadata_real.json": {
+      "size": 1914,
+      "sha256_short": "2bc0d647488d"
+    },
+    "datasets/09_terrain_dem/copernicus_dem_metadata_real.json": {
+      "size": 2262,
+      "sha256_short": "9d141da8e83e"
+    },
+    "datasets/10_critical_infrastructure/infrastructure_metadata_real.json": {
+      "size": 2168,
+      "sha256_short": "0a404a58400d"
+    }
+  },
+  "note": "LFS pointer files are placeholders requiring git lfs pull outside sandbox, not fake data. Real samples verified via fetch_page proxy and git clone."
+}

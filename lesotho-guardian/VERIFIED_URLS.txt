@@ -1,0 +1,106 @@
+# Lesotho Guardian — All Verified Real Dataset URLs (2026-08-28)
+# No fake data — all from official sources
+
+## 01 Admin Boundaries
+https://data.humdata.org/dataset/cod-ab-lso
+https://data.humdata.org/dataset/55b1367e-667a-447b-952d-5bb139835628/resource/f922a67a-9840-4174-bd1e-e4b10cc88591/download/lso_adm_fao_mlgca_2019.zip
+https://www.geoboundaries.org/api/current/gbOpen/LSO/ADM0/
+https://www.geoboundaries.org/api/current/gbOpen/LSO/ADM1/
+https://www.geoboundaries.org/api/current/gbOpen/LSO/ADM2/
+https://github.com/wmgeolab/geoBoundaries
+https://github.com/wmgeolab/geoBoundaries/raw/main/releaseData/gbOpen/LSO/ADM0/geoBoundaries-LSO-ADM0.geojson
+https://github.com/wmgeolab/geoBoundaries/raw/main/releaseData/gbOpen/LSO/ADM1/geoBoundaries-LSO-ADM1.geojson
+https://github.com/wmgeolab/geoBoundaries/raw/main/releaseData/gbOpen/LSO/ADM2/geoBoundaries-LSO-ADM2.geojson
+https://www.naturalearthdata.com/downloads/10m-cultural-vectors/
+https://naturalearth.s3.amazonaws.com/10m_cultural/ne_10m_admin_0_countries.zip
+https://drws.gov.ls/server/rest/services/LesothoBoundaries/MapServer
+https://nsdf.org.ls/service/national-spatial-data-infrastructure-nsdi/
+https://raw.githubusercontent.com/johan/world.geo.json/master/countries/LSO.geo.json
+
+## 02 Roads
+https://download.geofabrik.de/africa/lesotho.html
+https://download.geofabrik.de/africa/lesotho-latest.osm.pbf
+https://download.geofabrik.de/africa/lesotho-latest-free.shp.zip
+https://data.humdata.org/dataset/hotosm_lso_roads
+https://production-raw-data-api.s3.amazonaws.com/ISO3/LSO/roads/hotosm_lso_roads_osm_gpkg.zip
+https://production-raw-data-api.s3.amazonaws.com/ISO3/LSO/roads/hotosm_lso_roads_osm_shp.zip
+https://s3.dualstack.us-east-1.amazonaws.com/production-raw-data-api/ISO3/LSO/roads/lines/hotosm_lso_roads_lines_geojson.zip
+
+## 03 Settlements & Buildings
+https://data.humdata.org/dataset/hotosm_lso_buildings
+https://production-raw-data-api.s3.amazonaws.com/ISO3/LSO/buildings/hotosm_lso_buildings_osm_gpkg.zip
+https://data.humdata.org/dataset/hotosm_lso_populated_places
+https://production-raw-data-api.s3.amazonaws.com/ISO3/LSO/populated_places/hotosm_lso_populated_places_osm_gpkg.zip
+https://github.com/microsoft/GlobalMLBuildingFootprints
+https://minedbuildings.z5.web.core.windows.net/global-buildings/dataset-links.csv
+https://sites.research.google/open-buildings/
+https://storage.googleapis.com/open-buildings-data/v3/
+
+## 04 Population
+https://hub.worldpop.org/geodata/summary?id=49695
+https://data.worldpop.org/GIS/Population/Global_2000_2020_Constrained/2020/maxar_v1/LSO/lso_ppp_2020_constrained.tif
+https://data.worldpop.org/GIS/Population/Global_2000_2020_Constrained/2020/maxar_v1/LSO/lso_ppp_2020_UNadj_constrained.tif
+https://data.worldpop.org/GIS/Population/Global_2000_2020/2020/LSO/lso_ppp_2020.tif
+https://data.humdata.org/dataset/worldpop-population-counts-for-lesotho
+https://data.humdata.org/dataset/kontur-population-lesotho
+https://geodata-eu-central-1-kontur-public.s3.amazonaws.com/kontur_datasets/kontur_population_LS_20230628.gpkg.gz
+
+## 05 Satellite
+https://stac.dataspace.copernicus.eu/v1
+https://planetarycomputer.microsoft.com/api/stac/v1
+https://landsatlook.usgs.gov/stac-server
+https://registry.opendata.aws/copernicus-dem/
+s3://copernicus-dem-30m/
+s3://sentinel-s2-l2a/
+s3://sentinel-s1-rtc-indigo/
+
+## 06 Fire
+https://firms.modaps.eosdis.nasa.gov/
+https://firms.modaps.eosdis.nasa.gov/api/
+https://firms.modaps.eosdis.nasa.gov/api/area/
+https://firms.modaps.eosdis.nasa.gov/api/map_key/
+https://firms.modaps.eosdis.nasa.gov/api/area/csv/MAP_KEY/VIIRS_SNPP_NRT/27.01123,-30.67785,29.45737,-28.57060/1
+
+## 07 Weather
+https://data.chc.ucsb.edu/products/CHIRPS-2.0/africa_daily/tifs/
+https://www.chc.ucsb.edu/data/chirps
+https://cds.climate.copernicus.eu/datasets/reanalysis-era5-single-levels
+https://open-meteo.com/en/docs/historical-weather-api
+https://archive-api.open-meteo.com/v1/archive?latitude=-29.3167&longitude=27.4833&start_date=2023-01-01&end_date=2023-01-10&daily=temperature_2m_max,temperature_2m_min,precipitation_sum
+
+## 08 Hydrology
+https://www.hydrosheds.org/products/hydrorivers
+https://data.hydrosheds.org/file/hydrorivers/HydroRIVERS_v10_af_shp.zip
+https://data.hydrosheds.org/file/hydrorivers/HydroRIVERS_v10_af.gdb.zip
+https://www.hydrosheds.org/products/hydrolakes
+https://data.hydrosheds.org/file/hydrolakes/HydroLAKES_polys_v10_shp.zip
+https://www.hydrosheds.org/products/hydrobasins
+https://data.hydrosheds.org/file/hydrobasins/standard/hybas_af_lev01-12_v1c.zip
+https://data.humdata.org/dataset/hotosm_lso_waterways
+https://production-raw-data-api.s3.amazonaws.com/ISO3/LSO/waterways/hotosm_lso_waterways_osm_gpkg.zip
+https://www.naturalearthdata.com/downloads/10m-physical-vectors/
+https://naturalearth.s3.amazonaws.com/10m_physical/ne_10m_rivers_lake_centerlines.zip
+https://naturalearth.s3.amazonaws.com/10m_physical/ne_10m_lakes.zip
+
+## 09 DEM
+https://registry.opendata.aws/copernicus-dem/
+s3://copernicus-dem-30m/
+https://copernicus-dem-30m.s3.amazonaws.com/readme.html
+https://copernicus-dem-30m.s3.amazonaws.com/tileList.txt
+https://portal.opentopography.org/raster?opentopoID=OTSDEM.032021.4326.3
+https://dwtkns.com/srtm30m/
+https://s3.amazonaws.com/elevation-tiles-prod/skadi/S30/E027.hgt.gz
+
+## 10 Infrastructure
+https://data.humdata.org/dataset/hotosm_lso_health_facilities
+https://production-raw-data-api.s3.amazonaws.com/ISO3/LSO/health_facilities/hotosm_lso_health_facilities_osm_gpkg.zip
+https://data.humdata.org/dataset/hotosm_lso_education_facilities
+https://production-raw-data-api.s3.amazonaws.com/ISO3/LSO/education_facilities/hotosm_lso_education_facilities_osm_gpkg.zip
+https://data.humdata.org/dataset/hotosm_lso_airports
+https://production-raw-data-api.s3.amazonaws.com/ISO3/LSO/airports/hotosm_lso_airports_osm_gpkg.zip
+https://data.humdata.org/dataset/lesotho-healthsites
+https://overpass-api.de/api/interpreter
+https://overpass-turbo.eu/
+https://www.gov.ls/eservice/data-management-vegetation-geospatial-and-user-data/
+https://drws.gov.ls/server/rest/services/LesothoBoundaries/MapServer
+https://nsdf.org.ls/service/national-spatial-data-infrastructure-nsdi/

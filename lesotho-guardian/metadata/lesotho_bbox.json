@@ -1,0 +1,89 @@
+{
+  "country": "Lesotho",
+  "iso_a2": "LS",
+  "iso_a3": "LSO",
+  "bbox": {
+    "min_lon": 27.01123,
+    "min_lat": -30.677847955,
+    "max_lon": 29.457366138,
+    "max_lat": -28.5705973,
+    "source": "HDX COD-AB FAO/MLGCA 2019"
+  },
+  "capital": {
+    "name": "Maseru",
+    "lat": -29.3167,
+    "lon": 27.4833,
+    "elevation_m": 1600,
+    "source": "OpenStreetMap / Natural Earth"
+  },
+  "districts_10": [
+    {
+      "name": "Berea",
+      "adm1_pcode": "LS-B",
+      "centroid": {"lat": -29.0, "lon": 27.9},
+      "community_councils": 10
+    },
+    {
+      "name": "Butha-Buthe",
+      "adm1_pcode": "LS-A",
+      "centroid": {"lat": -28.75, "lon": 28.25},
+      "community_councils": 10
+    },
+    {
+      "name": "Leribe",
+      "adm1_pcode": "LS-C",
+      "centroid": {"lat": -28.9, "lon": 28.0},
+      "community_councils": 18
+    },
+    {
+      "name": "Mafeteng",
+      "adm1_pcode": "LS-D",
+      "centroid": {"lat": -29.8, "lon": 27.2},
+      "community_councils": 12
+    },
+    {
+      "name": "Maseru",
+      "adm1_pcode": "LS-E",
+      "centroid": {"lat": -29.3167, "lon": 27.4833},
+      "community_councils": 16
+    },
+    {
+      "name": "Mohale's Hoek",
+      "adm1_pcode": "LS-F",
+      "centroid": {"lat": -30.15, "lon": 27.45},
+      "community_councils": 14
+    },
+    {
+      "name": "Mokhotlong",
+      "adm1_pcode": "LS-G",
+      "centroid": {"lat": -29.3, "lon": 29.0},
+      "community_councils": 15
+    },
+    {
+      "name": "Qacha's Nek",
+      "adm1_pcode": "LS-H",
+      "centroid": {"lat": -30.1, "lon": 28.7},
+      "community_councils": 11
+    },
+    {
+      "name": "Quthing",
+      "adm1_pcode": "LS-I",
+      "centroid": {"lat": -30.4, "lon": 27.7},
+      "community_councils": 10
+    },
+    {
+      "name": "Thaba-Tseka",
+      "adm1_pcode": "LS-J",
+      "centroid": {"lat": -29.5, "lon": 28.6},
+      "community_councils": 13
+    }
+  ],
+  "total_community_councils": 78,
+  "note": "ADM2 includes 1 Municipal Council (Maseru), 11 Urban Councils, 64 Community Councils. Maseru Municipal Council spans 2 districts, Butha-Buthe Urban Council spans 2 districts, hence 78 records for 76 councils. Source: FAO and Ministry of Local Government 2016, CLGF Lesotho Country Profile 2017-2018",
+  "verified": true,
+  "sources": [
+    "https://data.humdata.org/dataset/cod-ab-lso",
+    "https://drws.gov.ls/server/rest/services/LesothoBoundaries/MapServer",
+    "https://www.geopostcodes.com/country/lesotho/administrative-divisions/"
+  ]
+}

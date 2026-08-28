@@ -1,0 +1,34 @@
+{
+  "source": "NASA FIRMS",
+  "url": "https://firms.modaps.eosdis.nasa.gov/",
+  "api": "https://firms.modaps.eosdis.nasa.gov/api/",
+  "api_version": "4.1.6",
+  "services": {
+    "area": "Fire detection hotspots based on area, date and sensor in CSV format",
+    "data_availability": "Date availability of SP and NRT data",
+    "kml_fire_footprints": "KML fire detection footprints",
+    "map_key": "Setup MAP_KEY",
+    "missing_data": "View dates with missing satellite data"
+  },
+  "lesotho_bbox": {
+    "wsen": "27.01123,-30.67785,29.45737,-28.57060",
+    "swne": "-30.67785,27.01123,-28.57060,29.45737"
+  },
+  "instruments": [
+    "VIIRS 375m (SNPP, NOAA-20, NOAA-21) NRT",
+    "MODIS 1km (Terra, Aqua) NRT",
+    "Landsat (US & Canada)"
+  ],
+  "latency": "3 hours global, 60 seconds US/Canada URT",
+  "example_query": "https://firms.modaps.eosdis.nasa.gov/api/area/csv/MAP_KEY/VIIRS_SNPP_NRT/27.01123,-30.67785,29.45737,-28.57060/1",
+  "map_key_url": "https://firms.modaps.eosdis.nasa.gov/api/map_key/",
+  "use_cases": [
+    "wildfire detection",
+    "fire-risk mapping",
+    "emergency response",
+    "confirm reported fires"
+  ],
+  "verified": true,
+  "fetched_via": "fetch_page proxy",
+  "sample_csv_structure": "latitude,longitude,bright_ti4,scan,track,acq_date,acq_time,satellite,instrument,confidence,version,bright_ti5,frp,daynight"
+}

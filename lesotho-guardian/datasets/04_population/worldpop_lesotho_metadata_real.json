@@ -1,0 +1,23 @@
+{
+  "source": "WorldPop Hub",
+  "url": "https://hub.worldpop.org/geodata/summary?id=49695",
+  "title": "Lesotho 100m Population",
+  "description": "The spatial distribution of population in 2020 with country total adjusted to match the corresponding UNPD estimate, Lesotho. Estimated total number of people per grid-cell at 3 arc (100m) resolution, WGS84, NoData = unsettled based on building footprints Ecopia AI/Maxar 2020. Random Forests dasymetric redistribution Stevens et al 2015.",
+  "doi": "10.5258/SOTON/WP00683",
+  "citation": "Bondarenko M., Kerr D., Sorichetta A., and Tatem, A.J. 2020. Census/projection-disaggregated gridded population datasets, adjusted to match the corresponding UNPD 2020 estimates, for 51 countries across sub-Saharan Africa using building footprints. WorldPop, University of Southampton, UK.",
+  "download_url": "https://data.worldpop.org/GIS/Population/Global_2000_2020_Constrained/2020/maxar_v1/LSO/lso_ppp_2020_UNadj_constrained.tif",
+  "size": "1.90 MB",
+  "license": "CC BY 4.0",
+  "resolution": "100m constrained",
+  "year": 2020,
+  "verified": true,
+  "fetched_via": "fetch_page proxy (verified real page)",
+  "lesotho_population_2020_worldpop": "~2.14M",
+  "lesotho_population_2025_worldometer": "2,363,325 (1.11% growth)",
+  "bbox": "27.01123,-30.67785,29.45737,-28.57060",
+  "hdx_url": "https://data.humdata.org/dataset/worldpop-population-counts-for-lesotho",
+  "alternative": {
+    "1km": "https://data.worldpop.org/GIS/Population/Global_2000_2020/2020/LSO/lso_ppp_2020.tif",
+    "kontur_400m": "https://geodata-eu-central-1-kontur-public.s3.amazonaws.com/kontur_datasets/kontur_population_LS_20230628.gpkg.gz"
+  }
+}
