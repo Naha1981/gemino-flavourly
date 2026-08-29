@@ -22,10 +22,10 @@ function src(rel: string): string {
  * After fix, they import Image from next/image and use <Image ...>.
  */
 const PUBLIC_PAGES = [
-  'app/landing-client.tsx',
-  'app/pricing/page.tsx',
-  'app/privacy/page.tsx',
-  'app/terms/page.tsx',
+  'app/(marketing)/landing-client.tsx',
+  'app/(marketing)/pricing/page.tsx',
+  'app/(marketing)/privacy/page.tsx',
+  'app/(marketing)/terms/page.tsx',
 ];
 
 describe('GATE V2 — public pages use next/image not raw <img>', () => {
@@ -57,8 +57,8 @@ describe('GATE V2 — public pages use next/image not raw <img>', () => {
     // of allowed dynamic cases (claim page dynamic logoUrl is allowed and
     // has eslint-disable).
     const allowedRawDynamic = [
-      'app/claim/[token]/page.tsx', // dynamic logoUrl, has eslint-disable
-      'app/dashboard/whatsapp/page.tsx', // QR code canvas fallback, has eslint-disable
+      'app/(app)/claim/[token]/page.tsx', // dynamic logoUrl, has eslint-disable
+      'app/(app)/dashboard/whatsapp/page.tsx', // QR code canvas fallback, has eslint-disable
     ];
     // This test just ensures our 4 pages are clean; broader scan is lint.
     for (const rel of PUBLIC_PAGES) {

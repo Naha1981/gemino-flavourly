@@ -91,25 +91,54 @@ describe('RC1 — middleware never lets a Clerk misconfiguration 500 public rout
   });
 });
 
-describe('RC1 layer 2 — root layout skips ClerkProvider when unconfigured', () => {
-  const layout = stripComments(src('app/layout.tsx'));
+describe('PERF-1 — root layout has zero dynamic APIs and no ClerkProvider', () => {
+  const rootLayout = stripComments(src('app/layout.tsx'));
+
+  test('root layout never imports or renders ClerkProvider', () => {
+    // ClerkProvider forces every route under it dynamic (it reads request
+    // headers), which is exactly what kept /, /pricing, /privacy and /terms
+    // off static rendering. It now lives ONLY in app/(app)/layout.tsx.
+    assert.ok(!/ClerkProvider/.test(rootLayout), 'root layout must not reference ClerkProvider at all');
+    assert.ok(!/clerkIsConfigured/.test(rootLayout), 'root layout must not branch on Clerk config');
+  });
+
+  test('root layout renders one unconditional html/body shell', () => {
+    assert.match(rootLayout, /<html/);
+    assert.match(rootLayout, /<body/);
+    // No ternary/branching shell — same markup for every request, which is
+    // what makes it safe to prerender as static HTML.
+    assert.ok(!/\?\s*<ClerkProvider>/.test(rootLayout));
+  });
+});
+
+describe('RC1 layer 2 (relocated) — (app) group gates ClerkProvider behind clerkIsConfigured', () => {
+  const appLayout = stripComments(src('app/(app)/layout.tsx'));
 
   test('layout gates ClerkProvider behind clerkIsConfigured', () => {
-    assert.match(layout, /clerkIsConfigured\(process\.env\)/);
-    // ClerkProvider must only be rendered in the ready branch.
-    assert.match(layout, /clerkReady\s*\?\s*<ClerkProvider>/);
+    assert.match(appLayout, /clerkIsConfigured\(process\.env\)/);
+    assert.match(appLayout, /<ClerkProvider>/);
   });
 
   test('layout logs a diagnosable error instead of throwing', () => {
-    assert.match(layout, /console\.error\(/);
-    assert.match(layout, /NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY/);
+    assert.match(appLayout, /console\.error\(/);
+    assert.match(appLayout, /NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY/);
   });
 
-  test('the html/body shell renders on BOTH branches', () => {
-    // `shell` is built once and reused, so the degraded branch still emits
-    // <html>/<body> — Next requires them and a missing one is a hard error.
-    assert.match(layout, /const shell = \(/);
-    assert.match(layout, /return clerkReady \? <ClerkProvider>\{shell\}<\/ClerkProvider> : shell;/);
+  test('degraded branch still returns valid children, never throws', () => {
+    assert.match(appLayout, /return <>\{children\}<\/>;/);
+  });
+});
+
+describe('PERF-1 — (marketing) group has no ClerkProvider and no dynamic APIs', () => {
+  const marketingLayout = stripComments(src('app/(marketing)/layout.tsx'));
+
+  test('marketing layout does not mount a server-side ClerkProvider', () => {
+    assert.ok(!/^import[^;]*ClerkProvider[^;]*from '@clerk\/nextjs';?$/m.test(marketingLayout));
+  });
+
+  test('marketing layout wraps children in the lazy ClerkAwareRegion', () => {
+    assert.match(marketingLayout, /from '@\/components\/clerk-shell'/);
+    assert.match(marketingLayout, /<ClerkAwareRegion>/);
   });
 });
 
@@ -135,8 +164,8 @@ describe('RC1 layer 3 — Clerk components have degraded stand-ins', () => {
 
   test('public pages import the wrappers, never @clerk/nextjs directly', () => {
     const publicPages = [
-      'app/landing-client.tsx',
-      'app/pricing/page.tsx',
+      'app/(marketing)/landing-client.tsx',
+      'app/(marketing)/pricing/page.tsx',
     ];
     for (const rel of publicPages) {
       const code = stripComments(src(rel));
@@ -149,7 +178,7 @@ describe('RC1 layer 3 — Clerk components have degraded stand-ins', () => {
   });
 
   test('sign-in and sign-up degrade to a static panel', () => {
-    for (const rel of ['app/sign-in/[[...sign-in]]/page.tsx', 'app/sign-up/[[...sign-up]]/page.tsx']) {
+    for (const rel of ['app/(app)/sign-in/[[...sign-in]]/page.tsx', 'app/(app)/sign-up/[[...sign-up]]/page.tsx']) {
       const code = stripComments(src(rel));
       assert.match(code, /if \(!clerkIsConfigured\(process\.env\)\)/);
       assert.match(code, /<AuthUnavailable mode=/);
@@ -164,13 +193,23 @@ describe('RC1 layer 3 — Clerk components have degraded stand-ins', () => {
   });
 });
 
-describe('RC1 — the landing page never calls auth() directly', () => {
-  test('app/page.tsx uses safeAuth, not auth', () => {
-    const code = stripComments(src('app/page.tsx'));
-    assert.match(code, /from '@\/lib\/auth\/safe-auth'/);
-    assert.match(code, /await safeAuth\(\)/);
+describe('PERF-1 — the landing page has zero server-side auth calls', () => {
+  test('app/(marketing)/page.tsx calls neither auth() nor safeAuth()', () => {
+    // The signed-in redirect moved client-side (see landing-client.tsx's
+    // <SignedIn><DashboardRedirect /></SignedIn>) specifically so this page
+    // has no dynamic APIs at all and can prerender as static HTML.
+    const code = stripComments(src('app/(marketing)/page.tsx'));
     assert.ok(!/await auth\(\)/.test(code), 'landing page must not call auth() directly');
+    assert.ok(!/await safeAuth\(\)/.test(code), 'landing page must not call safeAuth() server-side either');
     assert.ok(!/from '@clerk\/nextjs\/server'/.test(code));
+    assert.ok(!/from '@\/lib\/auth\/safe-auth'/.test(code));
+  });
+
+  test('landing-client.tsx redirects signed-in visitors client-side via <SignedIn>', () => {
+    const code = stripComments(src('app/(marketing)/landing-client.tsx'));
+    assert.match(code, /from '@\/components\/clerk-shell'/);
+    assert.match(code, /<SignedIn>/);
+    assert.match(code, /router\.replace\('\/dashboard'\)/);
   });
 
   test('safeAuth degrades to signed-out instead of throwing', () => {

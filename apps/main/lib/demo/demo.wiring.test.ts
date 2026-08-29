@@ -63,10 +63,10 @@ describe('demo mode — safety wiring', () => {
   });
 
   test('admin page exposes Load/Wipe controls and the demo flag chip source', () => {
-    const page = stripComments(src('app/admin/page.tsx'));
+    const page = stripComments(src('app/(app)/admin/page.tsx'));
     assert.match(page, /<DemoControls/);
     assert.match(page, /demoSeedActive/);
-    const layout = stripComments(src('app/dashboard/layout.tsx'));
+    const layout = stripComments(src('app/(app)/dashboard/layout.tsx'));
     assert.match(layout, /demoSeedActive/);
     assert.match(layout, /demoActive/);
   });

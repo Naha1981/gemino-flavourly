@@ -14,8 +14,8 @@ const CRON = join(APP, 'api', 'cron', 'reactivation-campaigns', 'route.ts');
 const WEBHOOK = join(APP, 'api', 'webhooks', 'whatsapp', 'route.ts');
 const API = join(APP, 'api', 'customer', 'reactivation', 'route.ts');
 const STATS_API = join(APP, 'api', 'customer', 'reactivation', 'stats', 'route.ts');
-const PAGE = join(APP, 'dashboard', 'customers', 'reactivation', 'page.tsx');
-const CLIENT = join(APP, 'dashboard', 'customers', 'reactivation', 'reactivation-client.tsx');
+const PAGE = join(APP, '(app)', 'dashboard', 'customers', 'reactivation', 'page.tsx');
+const CLIENT = join(APP, '(app)', 'dashboard', 'customers', 'reactivation', 'reactivation-client.tsx');
 const MIGRATION = join(HERE, '..', '..', 'drizzle', '0007_reactivation_campaigns.sql');
 const JOURNAL = join(HERE, '..', '..', 'drizzle', 'meta', '_journal.json');
 // The /api/migrate DDL was lifted verbatim out of the route handler into

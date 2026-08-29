@@ -78,7 +78,7 @@ describe('analytics API routes wiring', () => {
 
 describe('super admin analytics wiring', () => {
   test('admin analytics page is behind the super-admin gate', () => {
-    const page = code(join(APP, 'admin', 'analytics', 'page.tsx'));
+    const page = code(join(APP, '(app)', 'admin', 'analytics', 'page.tsx'));
     assert.match(page, /isSuperAdmin\(\)/);
     assert.match(page, /redirect\('\/sign-in'\)/);
     assert.match(page, /fetchPlatformAnalytics/);

@@ -2,19 +2,47 @@
 
 import Link from 'next/link';
 import Image from 'next/image';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-// Degradation-aware Clerk wrappers: when the publishable key is missing the
-// root layout skips <ClerkProvider>, and the raw Clerk components would then
-// throw on the client and blank the landing page. See components/clerk-shell.
+// Degradation-aware Clerk wrappers: when the publishable key is missing,
+// or on a static marketing page with no ancestor ClerkProvider, the raw
+// Clerk components would throw on the client and blank the landing page.
+// See components/clerk-shell.
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@/components/clerk-shell';
 import { ArrowRight, CalendarCheck, Timer, TrendingUp, Star, Megaphone, Swords, BarChart3, QrCode, ShieldCheck } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
+
+/**
+ * PERF-1 — signed-in redirect off `/`, moved from server to client.
+ *
+ * `/` used to be a Server Component that called `safeAuth()` and issued a
+ * `redirect('/dashboard')` before anything rendered, so a signed-in visitor
+ * never saw the marketing page at all. `safeAuth()` calls Clerk's `auth()`,
+ * which reads headers and forces the route dynamic — incompatible with the
+ * static rendering this gate is here to unlock.
+ *
+ * Renders inside <SignedIn> (see components/clerk-shell), so it only mounts
+ * once Clerk has resolved an active session, then replaces immediately.
+ * Trade-off (accepted): on a static page there's no per-request server
+ * render to redirect during, so a signed-in visitor now sees a brief flash
+ * of the marketing page before this fires, instead of never seeing it.
+ */
+function DashboardRedirect() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace('/dashboard');
+  }, [router]);
+  return null;
+}
 
 export default function LandingClient() {
   const router = useRouter();
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-50 antialiased">
+      <SignedIn>
+        <DashboardRedirect />
+      </SignedIn>
       {/* ── Nav ─────────────────────────────────────────── */}
       <header className="border-b border-zinc-800/80">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">

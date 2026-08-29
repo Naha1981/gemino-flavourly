@@ -19,7 +19,7 @@ function stripComments(s: string): string {
 }
 
 describe('S1 — /claim/[token] never invents data', () => {
-  const page = src('app/claim/[token]/page.tsx');
+  const page = src('app/(app)/claim/[token]/page.tsx');
 
   test('empty menu renders "Not confirmed yet" instead of hiding the section', () => {
     const code = stripComments(page);
@@ -40,7 +40,7 @@ describe('S1 — /claim/[token] never invents data', () => {
 });
 
 describe('S1 — /admin/prospects Re-scrape action', () => {
-  const console = src('app/admin/prospects/prospects-console.tsx');
+  const console = src('app/(app)/admin/prospects/prospects-console.tsx');
 
   test('exposes a Re-scrape action for built prospects', () => {
     assert.match(console, /Re-scrape/);
@@ -106,7 +106,7 @@ describe('S2 — claim redeem writes ownership + membership + cookie + deep-link
   });
 
   test('the GET redeem redirect path (post sign-up) also pins the cookie + deep-link', () => {
-    const getRoute = stripComments(src('app/claim/redeem/route.ts'));
+    const getRoute = stripComments(src('app/(app)/claim/redeem/route.ts'));
     assert.match(getRoute, /ACTIVE_TENANT_COOKIE/);
     assert.match(getRoute, /response\.cookies\.set\(ACTIVE_TENANT_COOKIE, result\.tenantId/);
     assert.match(getRoute, /result\.redirect/);
@@ -119,8 +119,8 @@ describe('S2 — claim redeem writes ownership + membership + cookie + deep-link
 });
 
 describe('S3 — already-claimed deep links', () => {
-  const states = src('app/claim/[token]/claim-states.tsx');
-  const page = src('app/claim/[token]/page.tsx');
+  const states = src('app/(app)/claim/[token]/claim-states.tsx');
+  const page = src('app/(app)/claim/[token]/page.tsx');
 
   test('sign-in deep-links to the claimed tenant dashboard via redirect_url', () => {
     assert.match(states, /redirect_url=/);
@@ -167,10 +167,10 @@ describe('S4 — tenant resolver, switcher, switch endpoint', () => {
   });
 
   test('the dashboard layout resolves via the resolver and renders the switcher', () => {
-    const layout = stripComments(src('app/dashboard/layout.tsx'));
+    const layout = stripComments(src('app/(app)/dashboard/layout.tsx'));
     assert.match(layout, /resolveActiveTenant\(/);
     assert.match(layout, /<DashboardChrome/);
-    const chrome = stripComments(src('app/dashboard/dashboard-chrome.tsx'));
+    const chrome = stripComments(src('app/(app)/dashboard/dashboard-chrome.tsx'));
     assert.match(chrome, /<TenantSwitcher/);
   });
 

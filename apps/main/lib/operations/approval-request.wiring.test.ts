@@ -10,7 +10,7 @@ const SCHEMA = join(HERE, '..', 'db', 'schema.ts');
 const STORE = join(HERE, 'approval-request-store.ts');
 const API = join(APP, 'api', 'operations', 'approval-requests', 'route.ts');
 const PATCH_API = join(APP, 'api', 'operations', 'approval-requests', '[id]', 'route.ts');
-const PAGE = join(APP, 'dashboard', 'operations', 'approval-requests', 'page.tsx');
+const PAGE = join(APP, '(app)', 'dashboard', 'operations', 'approval-requests', 'page.tsx');
 const MIGRATION = join(HERE, '..', '..', 'drizzle', '0013_engine6_operations.sql');
 const JOURNAL = join(HERE, '..', '..', 'drizzle', 'meta', '_journal.json');
 // The /api/migrate DDL was lifted verbatim out of the route handler into

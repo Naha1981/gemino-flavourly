@@ -17,9 +17,9 @@ const BUILDER = join(HERE, 'profile-builder.ts');
 const STORE = join(HERE, 'profile-store.ts');
 const LIST_API = join(APP, 'api', 'customer', 'profiles', 'route.ts');
 const DETAIL_API = join(APP, 'api', 'customer', 'profiles', '[customer_phone]', 'route.ts');
-const LIST_PAGE = join(APP, 'dashboard', 'customers', 'page.tsx');
-const DETAIL_PAGE = join(APP, 'dashboard', 'customers', '[customer_phone]', 'page.tsx');
-const LAYOUT = join(APP, 'dashboard', 'layout.tsx');
+const LIST_PAGE = join(APP, '(app)', 'dashboard', 'customers', 'page.tsx');
+const DETAIL_PAGE = join(APP, '(app)', 'dashboard', 'customers', '[customer_phone]', 'page.tsx');
+const LAYOUT = join(APP, '(app)', 'dashboard', 'layout.tsx');
 
 function code(path: string): string {
   return readFileSync(path, 'utf8')

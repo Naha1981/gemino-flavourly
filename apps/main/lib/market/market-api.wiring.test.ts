@@ -185,7 +185,7 @@ describe('market API: menu history, promotions and alerts', () => {
 });
 
 describe('super admin: market metrics (#18)', () => {
-  const ADMIN = join(HERE, '..', '..', 'app', 'admin', 'page.tsx');
+  const ADMIN = join(HERE, '..', '..', 'app', '(app)', 'admin', 'page.tsx');
   const admin = code(ADMIN);
 
   test('the three market KPIs are computed with the degrade-to-0 contract', () => {

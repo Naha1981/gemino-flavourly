@@ -13,8 +13,8 @@ const RUNNER = join(HERE, 'segmentation-cron.ts');
 const CRON = join(APP, 'api', 'cron', 'customer-segmentation', 'route.ts');
 const LIST_API = join(APP, 'api', 'customer', 'profiles', 'route.ts');
 const COUNTS_API = join(APP, 'api', 'customer', 'profiles', 'segment-counts', 'route.ts');
-const LIST_PAGE = join(APP, 'dashboard', 'customers', 'page.tsx');
-const ADMIN_PAGE = join(APP, 'admin', 'page.tsx');
+const LIST_PAGE = join(APP, '(app)', 'dashboard', 'customers', 'page.tsx');
+const ADMIN_PAGE = join(APP, '(app)', 'admin', 'page.tsx');
 const MIGRATION = join(HERE, '..', '..', 'drizzle', '0006_customer_segmentation.sql');
 const JOURNAL = join(HERE, '..', '..', 'drizzle', 'meta', '_journal.json');
 // The /api/migrate DDL was lifted verbatim out of the route handler into

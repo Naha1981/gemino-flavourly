@@ -5,7 +5,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const PAGE = join(HERE, '..', '..', 'app', 'sign-in', '[[...sign-in]]', 'page.tsx');
+const PAGE = join(HERE, '..', '..', 'app', '(app)', 'sign-in', '[[...sign-in]]', 'page.tsx');
 
 /**
  * Wiring check for the signed-in guard on /sign-in.

@@ -5,7 +5,7 @@ import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const SETTINGS_PAGE = join(HERE, '..', '..', 'app', 'dashboard', 'settings', 'page.tsx');
+const SETTINGS_PAGE = join(HERE, '..', '..', 'app', '(app)', 'dashboard', 'settings', 'page.tsx');
 const SETTINGS_API = join(HERE, '..', '..', 'app', 'api', 'settings', 'route.ts');
 const MENU_PAGE = join(HERE, '..', '..', 'app', 'm', '[slug]', 'page.tsx');
 

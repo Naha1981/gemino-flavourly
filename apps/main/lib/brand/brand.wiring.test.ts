@@ -9,11 +9,11 @@ const APP = join(HERE, '..', '..', 'app');
 const PUBLIC = join(HERE, '..', '..', 'public');
 
 const HEADER_FILES = [
-  join(APP, 'landing-client.tsx'),
-  join(APP, 'dashboard', 'layout.tsx'),
-  join(APP, 'terms', 'page.tsx'),
-  join(APP, 'privacy', 'page.tsx'),
-  join(APP, 'pricing', 'page.tsx'),
+  join(APP, '(marketing)', 'landing-client.tsx'),
+  join(APP, '(app)', 'dashboard', 'layout.tsx'),
+  join(APP, '(marketing)', 'terms', 'page.tsx'),
+  join(APP, '(marketing)', 'privacy', 'page.tsx'),
+  join(APP, '(marketing)', 'pricing', 'page.tsx'),
 ];
 
 const LAYOUT_FILE = join(APP, 'layout.tsx');
@@ -31,7 +31,7 @@ describe('brand asset wiring', () => {
         assert.match(src, /<DashboardChrome/, 'dashboard layout should render the DashboardChrome shell');
         const chrome = readFileSync(file.replace('layout.tsx', 'dashboard-chrome.tsx'), 'utf8');
         assert.match(chrome, /<LogoChip/, 'chrome should render the logo chip');
-        const themeMode = readFileSync(join(file, '..', '..', '..', 'components', 'theme-mode.tsx'), 'utf8');
+        const themeMode = readFileSync(join(file, '..', '..', '..', '..', 'components', 'theme-mode.tsx'), 'utf8');
         assert.match(themeMode, /src\s*=\s*'\/logo\.png'/, 'LogoChip defaults to /logo.png');
         assert.match(themeMode, /<img\s+src=\{src\}/, 'LogoChip renders an <img>');
       } else {

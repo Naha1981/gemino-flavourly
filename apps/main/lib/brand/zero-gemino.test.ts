@@ -12,14 +12,14 @@ const APP = join(HERE, '..', '..', 'app');
 // rebrand these files must never mention the old name.
 const PUBLIC_PAGES = [
   'layout.tsx',
-  'page.tsx',
-  'landing-client.tsx',
-  'pricing/page.tsx',
-  'privacy/page.tsx',
-  'terms/page.tsx',
-  'onboarding/page.tsx',
-  'sign-in/[[...sign-in]]/page.tsx',
-  'sign-up/[[...sign-up]]/page.tsx',
+  '(marketing)/page.tsx',
+  '(marketing)/landing-client.tsx',
+  '(marketing)/pricing/page.tsx',
+  '(marketing)/privacy/page.tsx',
+  '(marketing)/terms/page.tsx',
+  '(app)/onboarding/page.tsx',
+  '(app)/sign-in/[[...sign-in]]/page.tsx',
+  '(app)/sign-up/[[...sign-up]]/page.tsx',
 ];
 
 describe('zero-gemino public brand wiring', () => {
@@ -31,7 +31,7 @@ describe('zero-gemino public brand wiring', () => {
   });
 
   test('public pages carry the Flavourly brand and premium copy', () => {
-    const landing = readFileSync(join(APP, 'landing-client.tsx'), 'utf8');
+    const landing = readFileSync(join(APP, '(marketing)', 'landing-client.tsx'), 'utf8');
     assert.match(landing, /Flavourly/);
     assert.match(landing, /fully booked/);
     assert.match(landing, /Flavourly HQ/);
