@@ -6,8 +6,8 @@ export async function statusHandler(req: Request, res: Response) {
   const waAccountId = (req.query.waAccountId as string) || (req.body?.waAccountId as string);
   const tenantId = (req.query.tenantId as string) || (req.body?.tenantId as string);
 
-  if (!waAccountId) {
-    return res.status(400).json({ error: 'waAccountId query parameter is required' });
+  if (!waAccountId || !tenantId) {
+    return res.status(400).json({ error: 'waAccountId and tenantId are required' });
   }
 
   try {
@@ -18,7 +18,10 @@ export async function statusHandler(req: Request, res: Response) {
 
     // Same ownership check as /start and /send: don't let one tenant
     // read another tenant's connection status just by guessing an ID.
-    if (tenantId && account.tenant_id !== tenantId) {
+    // tenantId is REQUIRED (not just checked when present) — an optional
+    // check is fail-open: a caller can bypass it entirely by omitting the
+    // field, which defeats the purpose of the check.
+    if (account.tenant_id !== tenantId) {
       return res.status(403).json({ error: 'waAccountId does not belong to the given tenantId' });
     }
 
