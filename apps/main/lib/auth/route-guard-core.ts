@@ -40,6 +40,7 @@ const PUBLIC_PREFIXES: string[] = [
   '/claim/',
   '/m/',
   '/s/',
+  '/api/auth/status',
   '/api/webhooks',
   '/api/cron',
   '/api/whatsapp',

@@ -1,8 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import dynamicImport from 'next/dynamic';
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
   SignedIn as ClerkSignedIn,
   SignedOut as ClerkSignedOut,
@@ -39,48 +38,66 @@ export const CLERK_READY: boolean = clerkIsConfigured({
 });
 
 /**
- * PERF-1 — lazy, client-only ClerkProvider for the (marketing) route group.
+ * PERF-1 (fixed) — marketing-page signed-in awareness with NO ClerkProvider
+ * of any kind, real or lazy.
  *
- * app/(app)/layout.tsx mounts a real (server-aware) <ClerkProvider> for
- * dashboard/admin/sign-in/sign-up/onboarding/claim. app/(marketing)/layout.tsx
- * has none — that's what lets /, /pricing, /privacy and /terms prerender as
- * static HTML instead of being forced dynamic (see app/layout.tsx for why).
+ * First attempt at this used a `next/dynamic(..., { ssr: false })`
+ * ClerkProvider wrapped around each marketing page's entire body. That
+ * bailed the WHOLE page out of server/static rendering — confirmed via
+ * `data-dgst="BAILOUT_TO_CLIENT_SIDE_RENDERING"` showing up in the actual
+ * generated HTML for /, /pricing, /privacy and /terms, all of which shipped
+ * an empty <body> to real visitors and search engines. `ssr:false` doesn't
+ * just skip the dynamically-imported component itself; it suspends the
+ * whole subtree passed as its children during the server pass, and Next
+ * resolves that suspense by bailing to client-only rendering rather than
+ * waiting.
  *
- * Marketing pages still want signed-in-aware chrome (the "Open Dashboard"
- * button, avatar), so <ClerkAwareRegion> below lazily mounts its own
- * <ClerkProvider> — `ssr: false` guarantees it never touches request
- * headers during the server/static render, only after hydration in the
- * browser. Route groups are siblings, never nested, so a page only ever
- * has ONE of "the real (app) provider" or "this lazy marketing provider"
- * as an ancestor — never both — which avoids Clerk's "multiple instances"
- * conflict.
- *
- * Trade-off (accepted): on a truly static page there is no per-request
- * server render to read the session cookie during, so signed-in chrome
- * always starts in the signed-out shape and flips after Clerk's client JS
- * resolves the session — a brief, expected flash of "Sign In" before
- * "Open Dashboard", not a bug.
+ * This version never mounts any ClerkProvider (real or lazy) on marketing
+ * pages, so there's nothing that can suspend server rendering. Instead
+ * `useAuthStatus` below does one plain client-side fetch to
+ * `/api/auth/status` (a normal dynamic API route — those don't affect a
+ * PAGE's static/dynamic classification) after mount, same pattern as any
+ * other client-only widget. `app/(app)/layout.tsx` still mounts the real,
+ * full `<ClerkProvider>` for dashboard/admin/sign-in/sign-up/onboarding/
+ * claim, where session-aware server rendering is actually needed.
  */
-const LazyClerkProvider = dynamicImport(
-  () => import('@clerk/nextjs').then((mod) => mod.ClerkProvider),
-  { ssr: false },
-);
+type AuthStatus = { isLoaded: boolean; isSignedIn: boolean };
 
-export function ClerkAwareRegion({ children }: { children: ReactNode }) {
-  // Unconfigured Clerk: no provider, no fallback flash — every clerk-shell
-  // component below already degrades to plain markup via CLERK_READY.
-  if (!CLERK_READY) return <>{children}</>;
-  return <LazyClerkProvider>{children}</LazyClerkProvider>;
+function useAuthStatus(): AuthStatus {
+  const [status, setStatus] = useState<AuthStatus>({ isLoaded: false, isSignedIn: false });
+
+  useEffect(() => {
+    if (!CLERK_READY) return;
+    let cancelled = false;
+    fetch('/api/auth/status', { cache: 'no-store' })
+      .then((res) => (res.ok ? res.json() : { signedIn: false }))
+      .then((data: { signedIn?: boolean }) => {
+        if (!cancelled) setStatus({ isLoaded: true, isSignedIn: Boolean(data?.signedIn) });
+      })
+      .catch(() => {
+        if (!cancelled) setStatus({ isLoaded: true, isSignedIn: false });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return status;
 }
 
 export function SignedIn({ children }: { children: ReactNode }) {
-  if (!CLERK_READY) return null;
-  return <ClerkSignedIn>{children}</ClerkSignedIn>;
+  const { isLoaded, isSignedIn } = useAuthStatus();
+  if (!CLERK_READY || !isLoaded || !isSignedIn) return null;
+  return <>{children}</>;
 }
 
 export function SignedOut({ children }: { children: ReactNode }) {
-  if (!CLERK_READY) return <>{children}</>;
-  return <ClerkSignedOut>{children}</ClerkSignedOut>;
+  const { isLoaded, isSignedIn } = useAuthStatus();
+  // Default to "signed out" markup before the status fetch resolves (and
+  // whenever Clerk is unconfigured) — matches the old degraded behaviour
+  // and avoids a flash of the wrong nav state for the common case.
+  if (!CLERK_READY || !isLoaded || !isSignedIn) return <>{children}</>;
+  return null;
 }
 
 export function SignInButton({
@@ -90,8 +107,8 @@ export function SignInButton({
   children: ReactNode;
   forceRedirectUrl?: string;
 }) {
-  if (!CLERK_READY) return <Link href="/sign-in">{children}</Link>;
-  return <ClerkSignInButton forceRedirectUrl={forceRedirectUrl}>{children}</ClerkSignInButton>;
+  const href = forceRedirectUrl ? `/sign-in?redirect_url=${encodeURIComponent(forceRedirectUrl)}` : '/sign-in';
+  return <Link href={href}>{children}</Link>;
 }
 
 export function SignUpButton({
@@ -101,11 +118,39 @@ export function SignUpButton({
   children: ReactNode;
   forceRedirectUrl?: string;
 }) {
-  if (!CLERK_READY) return <Link href="/sign-up">{children}</Link>;
-  return <ClerkSignUpButton forceRedirectUrl={forceRedirectUrl}>{children}</ClerkSignUpButton>;
+  const href = forceRedirectUrl ? `/sign-up?redirect_url=${encodeURIComponent(forceRedirectUrl)}` : '/sign-up';
+  return <Link href={href}>{children}</Link>;
 }
 
+/**
+ * Marketing-page UserButton: a plain link to the dashboard. The real
+ * avatar/menu Clerk `<UserButton>` needs a mounted ClerkProvider, which
+ * marketing pages deliberately don't have (see module doc above). Signed-in
+ * visitors on a marketing page are about to be redirected to /dashboard
+ * anyway (see landing-client.tsx's <SignedIn><DashboardRedirect /></SignedIn>),
+ * where the real <ClerkUserButton /> renders normally under app/(app)/layout.tsx's
+ * ClerkProvider.
+ */
 export function UserButton({ afterSignOutUrl }: { afterSignOutUrl?: string }) {
   if (!CLERK_READY) return null;
-  return <ClerkUserButton afterSignOutUrl={afterSignOutUrl} />;
+  return (
+    <Link
+      href={afterSignOutUrl || '/dashboard'}
+      className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-800 text-sm font-medium text-zinc-200 hover:bg-zinc-700"
+      aria-label="Open dashboard"
+    >
+      →
+    </Link>
+  );
 }
+
+// Re-exported so app/(app)/ pages that need the real, fully-featured Clerk
+// components (with a mounted ClerkProvider ancestor) don't have to import
+// from '@clerk/nextjs' directly.
+export {
+  ClerkSignedIn as ClerkNativeSignedIn,
+  ClerkSignedOut as ClerkNativeSignedOut,
+  ClerkSignInButton as ClerkNativeSignInButton,
+  ClerkSignUpButton as ClerkNativeSignUpButton,
+  ClerkUserButton as ClerkNativeUserButton,
+};
