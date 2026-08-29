@@ -136,9 +136,17 @@ describe('PERF-1 — (marketing) group has no ClerkProvider and no dynamic APIs'
     assert.ok(!/^import[^;]*ClerkProvider[^;]*from '@clerk\/nextjs';?$/m.test(marketingLayout));
   });
 
-  test('marketing layout wraps children in the lazy ClerkAwareRegion', () => {
-    assert.match(marketingLayout, /from '@\/components\/clerk-shell'/);
-    assert.match(marketingLayout, /<ClerkAwareRegion>/);
+  test('marketing layout is a plain passthrough — no Clerk, lazy or otherwise', () => {
+    // First attempt wrapped children in a next/dynamic(ssr:false) lazy
+    // ClerkProvider here, which bailed the ENTIRE page body to client-side
+    // rendering (data-dgst="BAILOUT_TO_CLIENT_SIDE_RENDERING" in the actual
+    // generated HTML for /, /pricing, /privacy and /terms — all four
+    // shipped empty content). Fixed version mounts nothing here at all;
+    // signed-in-aware chrome gets its state from a plain client-side fetch
+    // instead (see components/clerk-shell.tsx's useAuthStatus).
+    assert.ok(!/ClerkAwareRegion/.test(marketingLayout));
+    assert.ok(!/from '@\/components\/clerk-shell'/.test(marketingLayout));
+    assert.match(marketingLayout, /return <>\{children\}<\/>;/);
   });
 });
 
@@ -150,16 +158,25 @@ describe('RC1 layer 3 — Clerk components have degraded stand-ins', () => {
     assert.match(shell, /clerkIsConfigured/);
   });
 
-  test('every exported Clerk wrapper short-circuits when not ready', () => {
+  test('marketing-page auth chrome uses a client-side fetch, never a nested ClerkProvider', () => {
+    // See PERF-1 test above for why: any ClerkProvider (real or lazy)
+    // nested inside a marketing page suspends/bails its render tree.
+    assert.ok(!/next\/dynamic/.test(shell), 'must not lazy-mount ClerkProvider here');
+    assert.ok(!/<ClerkProvider>/.test(shell));
+    assert.match(shell, /fetch\('\/api\/auth\/status'/);
+  });
+
+  test('every exported Clerk wrapper degrades sensibly when not ready or not yet resolved', () => {
     for (const name of ['SignedIn', 'SignedOut', 'SignInButton', 'SignUpButton', 'UserButton']) {
       assert.ok(shell.includes(`export function ${name}`), `missing export: ${name}`);
     }
-    // SignedIn/UserButton render nothing; SignedOut renders children; the
-    // buttons degrade to plain links so the page stays clickable.
-    assert.match(shell, /if \(!CLERK_READY\) return null;/);
-    assert.match(shell, /if \(!CLERK_READY\) return <>\{children\}<\/>;/);
-    assert.match(shell, /if \(!CLERK_READY\) return <Link href="\/sign-in">/);
-    assert.match(shell, /if \(!CLERK_READY\) return <Link href="\/sign-up">/);
+    // SignedIn renders nothing until a real signed-in status resolves;
+    // SignedOut defaults to showing its children (the common case, and the
+    // safe default while the status fetch is in flight); the buttons are
+    // plain links so the page stays clickable with zero Clerk dependency.
+    assert.match(shell, /if \(!CLERK_READY \|\| !isLoaded \|\| !isSignedIn\) return null;/);
+    assert.match(shell, /if \(!CLERK_READY \|\| !isLoaded \|\| !isSignedIn\) return <>\{children\}<\/>;/);
+    assert.match(shell, /<Link href=\{href\}>\{children\}<\/Link>/);
   });
 
   test('public pages import the wrappers, never @clerk/nextjs directly', () => {
