@@ -20,7 +20,7 @@ export async function POST() {
       'Content-Type': 'application/json',
       'x-api-key': process.env.OPERATOR_API_KEY!,
     },
-    body: JSON.stringify({ waAccountId: account.id }),
+    body: JSON.stringify({ waAccountId: account.id, tenantId: tenant.id }),
     cache: 'no-store',
   });
 
