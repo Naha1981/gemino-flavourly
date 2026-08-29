@@ -26,7 +26,7 @@ const APP = join(HERE, '..', '..', 'app');
 const MANUAL_REPLY_ROUTE = join(APP, 'api', 'conversations', '[id]', 'messages', 'route.ts');
 const OUTBOX_ROUTE = join(APP, 'api', 'cron', 'outbox', 'route.ts');
 const WEBHOOK_ROUTE = join(APP, 'api', 'webhooks', 'whatsapp', 'route.ts');
-const CHAT_CLIENT = join(APP, 'dashboard', 'inbox', '[id]', 'chat-detail-client.tsx');
+const CHAT_CLIENT = join(APP, '(app)', 'dashboard', 'inbox', '[id]', 'chat-detail-client.tsx');
 
 /** Strip comments so prose describing an old behaviour is not matched. */
 function code(path: string): string {

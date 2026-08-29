@@ -37,14 +37,14 @@ function stripComments(s: string): string {
 const ERROR_BOUNDARIES = [
   'app/error.tsx',
   'app/global-error.tsx',
-  'app/dashboard/error.tsx',
-  'app/admin/error.tsx',
+  'app/(app)/dashboard/error.tsx',
+  'app/(app)/admin/error.tsx',
 ];
 
 const LOADING_STATES = [
   'app/loading.tsx',
-  'app/dashboard/loading.tsx',
-  'app/admin/loading.tsx',
+  'app/(app)/dashboard/loading.tsx',
+  'app/(app)/admin/loading.tsx',
 ];
 
 describe('RC5 — an error boundary exists at every level that can throw', () => {
@@ -81,7 +81,7 @@ describe('RC5 — an error boundary exists at every level that can throw', () =>
   });
 
   test('error.tsx boundaries do NOT render <html> (they nest inside the layout)', () => {
-    for (const rel of ['app/error.tsx', 'app/dashboard/error.tsx', 'app/admin/error.tsx']) {
+    for (const rel of ['app/error.tsx', 'app/(app)/dashboard/error.tsx', 'app/(app)/admin/error.tsx']) {
       assert.ok(!/<html/.test(src(rel)), `${rel} must not render <html>`);
     }
   });
@@ -105,7 +105,7 @@ describe('RC5 — loading and 404 states exist', () => {
 });
 
 describe('RC6 — dashboard layout degrades instead of throwing (F2)', () => {
-  const layout = stripComments(src('app/dashboard/layout.tsx'));
+  const layout = stripComments(src('app/(app)/dashboard/layout.tsx'));
 
   test('resolveActiveTenant is wrapped in try/catch', () => {
     assert.match(layout, /try\s*\{[\s\S]*?resolveActiveTenant\(\)[\s\S]*?\}\s*catch/);

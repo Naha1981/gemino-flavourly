@@ -10,7 +10,7 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const STORE = join(HERE, 'positioning-store.ts');
 const ANALYZER = join(HERE, 'positioning-analyzer.ts');
 const ROUTE = join(HERE, '..', '..', 'app', 'api', 'market', 'positioning', 'route.ts');
-const PAGE = join(HERE, '..', '..', 'app', 'dashboard', 'market', 'positioning', 'page.tsx');
+const PAGE = join(HERE, '..', '..', 'app', '(app)', 'dashboard', 'market', 'positioning', 'page.tsx');
 
 const ALLOWED_EXPORTS = new Set(['GET', 'POST', 'PATCH', 'DELETE', 'dynamic', 'runtime', 'maxDuration', 'revalidate']);
 

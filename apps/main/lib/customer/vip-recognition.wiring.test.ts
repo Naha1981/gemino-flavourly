@@ -13,16 +13,16 @@ const WEBHOOK = join(APP, 'api', 'webhooks', 'whatsapp', 'route.ts');
 const API = join(APP, 'api', 'customer', 'vip-alerts', 'route.ts');
 const TODAY_API = join(APP, 'api', 'customer', 'vip-alerts', 'today', 'route.ts');
 const ID_API = join(APP, 'api', 'customer', 'vip-alerts', '[id]', 'route.ts');
-const PAGE = join(APP, 'dashboard', 'inbox', 'page.tsx');
-const VIP_PAGE = join(APP, 'dashboard', 'customers', 'vip-today', 'page.tsx');
-const CLIENT = join(APP, 'dashboard', 'customers', 'vip-today', 'vip-today-client.tsx');
+const PAGE = join(APP, '(app)', 'dashboard', 'inbox', 'page.tsx');
+const VIP_PAGE = join(APP, '(app)', 'dashboard', 'customers', 'vip-today', 'page.tsx');
+const CLIENT = join(APP, '(app)', 'dashboard', 'customers', 'vip-today', 'vip-today-client.tsx');
 const MIGRATION = join(HERE, '..', '..', 'drizzle', '0008_vip_recognition.sql');
 const JOURNAL = join(HERE, '..', '..', 'drizzle', 'meta', '_journal.json');
 // The /api/migrate DDL was lifted verbatim out of the route handler into
 // lib/db/migrate-ddl.ts so it can be EXECUTED by lib/db/migrate-execute.test.ts.
 // These assertions check the same statements, now at their real home.
 const MIGRATE_DDL_FILE = join(APP, '..', 'lib', 'db', 'migrate-ddl.ts');
-const ADMIN = join(APP, 'admin', 'page.tsx');
+const ADMIN = join(APP, '(app)', 'admin', 'page.tsx');
 
 function source(path: string): string {
   return readFileSync(path, 'utf8');

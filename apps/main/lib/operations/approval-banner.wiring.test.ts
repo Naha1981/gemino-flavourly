@@ -6,7 +6,7 @@ import { fileURLToPath } from 'url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, '..', '..', 'app');
-const DASHBOARD = join(APP, 'dashboard', 'page.tsx');
+const DASHBOARD = join(APP, '(app)', 'dashboard', 'page.tsx');
 
 function code(path: string): string {
   return readFileSync(path, 'utf8')

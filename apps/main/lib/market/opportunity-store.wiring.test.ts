@@ -7,9 +7,9 @@ import { fileURLToPath } from 'url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const STORE = join(HERE, 'opportunity-store.ts');
 const API_DIR = join(HERE, '..', '..', 'app', 'api', 'market', 'opportunities');
-const PAGE = join(HERE, '..', '..', 'app', 'dashboard', 'market', 'opportunities', 'page.tsx');
+const PAGE = join(HERE, '..', '..', 'app', '(app)', 'dashboard', 'market', 'opportunities', 'page.tsx');
 const ANALYZER = join(HERE, 'opportunity-analyzer.ts');
-const PAGE_ACTIONS = join(HERE, '..', '..', 'app', 'dashboard', 'market', 'opportunities', 'opportunity-actions.tsx');
+const PAGE_ACTIONS = join(HERE, '..', '..', 'app', '(app)', 'dashboard', 'market', 'opportunities', 'opportunity-actions.tsx');
 
 const ROUTES = ['route.ts', 'analyze/route.ts', '[id]/route.ts'];
 const ALLOWED_EXPORTS = new Set(['GET', 'POST', 'PATCH', 'DELETE', 'PUT', 'dynamic', 'runtime', 'maxDuration', 'revalidate']);

@@ -96,13 +96,13 @@ describe('GATE V3 — unauthenticated access must be denied', () => {
 // ---------------------------------------------------------------------------
 describe('GATE V3 — super-admin gate denies non-admin', () => {
   test('/admin page checks isSuperAdmin and redirects', () => {
-    const page = src('app/admin/page.tsx');
+    const page = src('app/(app)/admin/page.tsx');
     assert.match(page, /isSuperAdmin\(\)/);
     assert.match(page, /redirect\(['\"]\/sign-in['\"]\)/);
   });
 
   test('/admin/prospects page is super-admin only', () => {
-    const page = src('app/admin/prospects/page.tsx');
+    const page = src('app/(app)/admin/prospects/page.tsx');
     assert.match(page, /isSuperAdmin\(\)/);
   });
 
@@ -356,7 +356,7 @@ describe('GATE V3 — hard rules alive', () => {
     assert.match(dispatch, /queued/);
     assert.match(dispatch, /sent/);
     assert.match(dispatch, /failed/);
-    const inboxPage = src('app/dashboard/inbox/page.tsx');
+    const inboxPage = src('app/(app)/dashboard/inbox/page.tsx');
     // UI must show delivery states, not fake green
     // Check that deliveryStatus is used
     const messagesRoute = src('app/api/conversations/[id]/messages/route.ts');

@@ -27,7 +27,7 @@ const APP = join(HERE, '..', '..', 'app');
 
 const SUMMARY_ROUTE = join(APP, 'api', 'revenue', 'summary', 'route.ts');
 const BRIEF_ROUTE = join(APP, 'api', 'cron', 'daily-brief', 'route.ts');
-const ADMIN_PAGE = join(APP, 'admin', 'page.tsx');
+const ADMIN_PAGE = join(APP, '(app)', 'admin', 'page.tsx');
 const LOGIC = join(HERE, 'opportunity.ts');
 const STORE = join(HERE, 'opportunity-store.ts');
 

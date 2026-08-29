@@ -1,5 +1,4 @@
 import type { Metadata } from 'next';
-import { ClerkProvider } from '@clerk/nextjs';
 import './globals.css';
 // Stitch typography + icons — self-hosted via npm packages (fontsource /
 // material-symbols). No Google CDN at build or runtime.
@@ -8,7 +7,6 @@ import '@fontsource/playfair-display/600.css';
 import '@fontsource/playfair-display/700.css';
 import 'material-symbols/outlined.css';
 import { ThemeModeProvider } from '@/components/theme-mode';
-import { clerkIsConfigured } from '@/lib/auth/route-guard-core';
 
 export const metadata: Metadata = {
   title: 'Flavourly — The AI WhatsApp Employee for South African Restaurants',
@@ -34,26 +32,36 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * PERF-1 — this shell deliberately contains ZERO dynamic APIs (no
+ * `cookies()`, `headers()`, `auth()`) and ZERO `<ClerkProvider>`.
+ *
+ * Previously `<ClerkProvider>` lived here, wrapping every route in the app.
+ * `<ClerkProvider>`'s server half reads request headers to hydrate initial
+ * auth state, and Next.js treats "layout uses a dynamic API" as "every route
+ * under this layout is dynamic" — so /pricing, /privacy and /terms (which
+ * touch no auth state at all) were forced into server-rendered-on-demand
+ * (ƒ) instead of prerendered-static (○), even though nothing about their
+ * content depends on the visitor's session.
+ *
+ * `<ClerkProvider>` now lives only in app/(app)/layout.tsx, scoped to the
+ * routes that actually need it (dashboard, admin, sign-in, sign-up,
+ * onboarding, claim). app/(marketing)/layout.tsx has no provider at all.
+ * Route groups are siblings, not nested, so a page only ever renders
+ * whichever one layout applies to it — never both, so there's no risk of
+ * two <ClerkProvider> instances mounting at once.
+ *
+ * Marketing pages that still need to show signed-in-aware nav chrome (the
+ * "Open Dashboard" button, avatar, etc.) get it via components/clerk-shell,
+ * which lazily self-mounts its own client-only <ClerkProvider> — see that
+ * file for why that's safe here.
+ */
 export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  // RC1 layer 2 — `<ClerkProvider>` throws
-  // "@clerk/clerk-react: Missing publishableKey" when the key is absent,
-  // which 500'd EVERY page including /pricing, /privacy and /terms. Those
-  // pages need no auth, so we skip the provider and let the degraded Clerk
-  // stand-ins in components/clerk-shell render instead.
-  const clerkReady = clerkIsConfigured(process.env);
-  if (!clerkReady) {
-    console.error(
-      '[layout] Clerk publishable key missing/invalid — rendering without ClerkProvider. ' +
-        'Public pages stay up; auth features are disabled. ' +
-        'Set NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY in Vercel -> Settings -> Environment Variables.',
-    );
-  }
-
-  const shell = (
+  return (
     <html lang="en" suppressHydrationWarning>
       <head>
         {/* Stitch: light is the default. A returning user's saved dark
@@ -69,6 +77,4 @@ export default function RootLayout({
       </body>
     </html>
   );
-
-  return clerkReady ? <ClerkProvider>{shell}</ClerkProvider> : shell;
 }

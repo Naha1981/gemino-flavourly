@@ -9,7 +9,7 @@ const APP = join(HERE, '..', '..', 'app');
 const SCHEMA = join(HERE, '..', 'db', 'schema.ts');
 const STORE = join(HERE, 'event-store.ts');
 const API = join(APP, 'api', 'marketing', 'events', 'route.ts');
-const PAGE = join(APP, 'dashboard', 'marketing', 'events', 'page.tsx');
+const PAGE = join(APP, '(app)', 'dashboard', 'marketing', 'events', 'page.tsx');
 const MIGRATION = join(HERE, '..', '..', 'drizzle', '0015_marketing_events.sql');
 const JOURNAL = join(HERE, '..', '..', 'drizzle', 'meta', '_journal.json');
 // The /api/migrate DDL was lifted verbatim out of the route handler into

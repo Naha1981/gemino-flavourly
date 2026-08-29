@@ -7,7 +7,7 @@ import { fileURLToPath } from 'url';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, '..', '..', 'app');
 const LIB = join(HERE, '..');
-const INBOX_PAGE = join(APP, 'dashboard', 'inbox', 'page.tsx');
+const INBOX_PAGE = join(APP, '(app)', 'dashboard', 'inbox', 'page.tsx');
 const AGGREGATOR = join(LIB, 'inbox', 'aggregator.ts');
 const CRON_ROUTE = join(APP, 'api', 'cron', 'aggregate-messages', 'route.ts');
 

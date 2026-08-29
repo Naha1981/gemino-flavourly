@@ -18,16 +18,16 @@ import { isPublicPath, guardRequest } from '../auth/route-guard-core.ts';
 const HERE = dirname(fileURLToPath(import.meta.url));
 const APP = join(HERE, '..', '..', 'app');
 
-const ADMIN_PAGE = join(APP, 'admin', 'prospects', 'page.tsx');
+const ADMIN_PAGE = join(APP, '(app)', 'admin', 'prospects', 'page.tsx');
 const PROSPECTS_API = join(APP, 'api', 'prospects', 'route.ts');
 const PROSPECT_BUILD = join(APP, 'api', 'prospects', '[id]', 'build', 'route.ts');
-const CLAIM_PAGE = join(APP, 'claim', '[token]', 'page.tsx');
-const CLAIM_REDEEM_ROUTE = join(APP, 'claim', 'redeem', 'route.ts');
+const CLAIM_PAGE = join(APP, '(app)', 'claim', '[token]', 'page.tsx');
+const CLAIM_REDEEM_ROUTE = join(APP, '(app)', 'claim', 'redeem', 'route.ts');
 const CLAIM_REDEEM_API = join(APP, 'api', 'claim', 'redeem', 'route.ts');
 const CRON_PROCESS = join(APP, 'api', 'cron', 'process-prospects', 'route.ts');
 const MIDDLEWARE = join(APP, '..', 'middleware.ts');
-const SIGNUP_PAGE = join(APP, 'sign-up', '[[...sign-up]]', 'page.tsx');
-const SIGNUP_ACTIONS = join(APP, 'sign-up', 'actions.ts');
+const SIGNUP_PAGE = join(APP, '(app)', 'sign-up', '[[...sign-up]]', 'page.tsx');
+const SIGNUP_ACTIONS = join(APP, '(app)', 'sign-up', 'actions.ts');
 
 /** Strip comments so prose describing an old behaviour is not matched. */
 function code(path: string): string {
