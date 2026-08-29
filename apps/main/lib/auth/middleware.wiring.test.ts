@@ -53,8 +53,11 @@ describe('RC1 — middleware never lets a Clerk misconfiguration 500 public rout
   });
 
   test('redirects protected routes to /sign-in when Clerk is unusable', () => {
-    assert.match(code, /action === 'redirect'/);
-    assert.match(code, /redirect/);
+    assert.match(code, /decision\.action === 'pass'/);
+    // The only other outcome guardRequest can return with clerkConfigured:
+    // false is 'redirect' — that's the implicit fall-through here, verified
+    // exhaustively by route-guard-core.test.ts's own coverage of guardRequest.
+    assert.match(code, /redirectTo\(request, decision\.to\)/);
   });
 
   test('the Clerk middleware invocation is awaited inside try/catch', () => {
@@ -62,21 +65,25 @@ describe('RC1 — middleware never lets a Clerk misconfiguration 500 public rout
     // clerkMiddleware's key assertions run in an async function, so they
     // REJECT. Without `await`, a try/catch cannot catch them and Next still
     // answers 500 — which is exactly the bug this fix must not reintroduce.
-    assert.match(code, /try\s*\{[\s\S]*?await clerkProtectedMiddleware\(request, event\)[\s\S]*?\}\s*catch/);
+    assert.match(code, /try\s*\{[\s\S]*?await clerkAwareMiddleware\(request, event\)[\s\S]*?\}\s*catch/);
   });
 
   test('the middleware handler is async (so the await above is real)', () => {
     assert.match(code, /export default async function middleware\(/);
   });
 
-  test('clerkMiddleware is only ENTERED for protected routes', () => {
-    // Entering clerkMiddleware at all is what triggers the key assertions,
-    // so the guard decision must precede it in source order too.
-    const decisionAt = code.indexOf('guardRequest({');
-    const clerkCallAt = code.indexOf('await clerkProtectedMiddleware(request, event)');
-    assert.ok(decisionAt > -1, 'guardRequest call not found');
+  test('clerkAwareMiddleware is never INVOKED when Clerk is unconfigured', () => {
+    // Entering clerkMiddleware at all is what triggers the key assertions —
+    // so the `!clerkReady` early return must come before the call in source
+    // order, exactly as before. What changed is the OTHER direction: when
+    // Clerk IS ready, clerkAwareMiddleware is now called for every route,
+    // not just protected ones (see the next describe block) — that's the
+    // actual auth-flash fix, not this guard.
+    const guardAt = code.indexOf('if (!clerkReady)');
+    const clerkCallAt = code.indexOf('await clerkAwareMiddleware(request, event)');
+    assert.ok(guardAt > -1, 'clerkReady guard not found');
     assert.ok(clerkCallAt > -1, 'clerk invocation not found');
-    assert.ok(decisionAt < clerkCallAt, 'guard decision must run before Clerk is invoked');
+    assert.ok(guardAt < clerkCallAt, 'clerkReady guard must run before Clerk is invoked');
   });
 
   test('the catch falls back to a redirect, not a rethrow', () => {
@@ -88,6 +95,68 @@ describe('RC1 — middleware never lets a Clerk misconfiguration 500 public rout
   test('no unconditional auth().protect() outside a guard', () => {
     // Every call to protect() must be preceded by a clerkConfigured check.
     assert.match(code, /clerkIsConfigured\(process\.env\)|clerkIsConfigured\(\{/);
+  });
+});
+
+/**
+ * fix(auth-flash) — public routes must go THROUGH clerkMiddleware, not
+ * around it, whenever Clerk is actually configured.
+ *
+ * Root cause of the reported /sign-in flashing: `guardRequest`'s 'pass'
+ * decision used to make middleware.ts return `NextResponse.next()`
+ * directly for public routes — bypassing clerkMiddleware entirely, even
+ * when Clerk was correctly configured. Clerk's Next.js SDK requires
+ * clerkMiddleware to process a request before `auth()`/`safeAuth()` can
+ * resolve the session in a Server Component on that request. Skipping it
+ * meant `safeAuth()` on /sign-in always reported signed-out server-side —
+ * regardless of the actual session cookie — while the client-side
+ * <ClerkProvider>/<SignIn> (which reads the cookie directly, no middleware
+ * needed) correctly saw an active session and tried to navigate away.
+ * Server-says-signed-out vs client-says-signed-in, forever, on the same
+ * route: that mismatch was the flash.
+ */
+describe('fix(auth-flash) — clerkMiddleware runs on public routes too once Clerk is ready', () => {
+  const code = stripComments(src('middleware.ts'));
+
+  test('imports isPublicPath alongside guardRequest', () => {
+    assert.match(code, /from\s+'@\/lib\/auth\/route-guard-core'/);
+    assert.match(code, /isPublicPath/);
+    assert.match(code, /guardRequest/);
+  });
+
+  test('clerkAwareMiddleware checks isPublicPath INSIDE the clerkMiddleware callback', () => {
+    // This is the actual fix: the public/protected branch now lives inside
+    // the callback passed to clerkMiddleware(...), so clerkMiddleware has
+    // already run (and populated auth() context) by the time either branch
+    // executes — for public routes too, not just protected ones.
+    const clerkMiddlewareCallAt = code.indexOf('clerkMiddleware((auth, request)');
+    const isPublicPathCheckAt = code.indexOf('isPublicPath(request.nextUrl.pathname)');
+    assert.ok(clerkMiddlewareCallAt > -1, 'clerkMiddleware(...) call not found');
+    assert.ok(isPublicPathCheckAt > -1, 'isPublicPath check not found');
+    assert.ok(
+      isPublicPathCheckAt > clerkMiddlewareCallAt,
+      'isPublicPath must be checked INSIDE the clerkMiddleware callback, not before it',
+    );
+  });
+
+  test('the public branch returns before calling .protect()', () => {
+    const publicBranch = code.slice(
+      code.indexOf('isPublicPath(request.nextUrl.pathname)'),
+      code.indexOf('auth().protect()'),
+    );
+    assert.match(publicBranch, /return\s+response;/);
+  });
+
+  test('once Clerk is ready, clerkAwareMiddleware handles every route — not only protected ones', () => {
+    // The old design's guard decision ran before Clerk was ever touched,
+    // for BOTH the ready and not-ready cases, and only entered Clerk for
+    // protected routes. The fix keeps that early-exit for the NOT-ready
+    // case only (see the describe block above) — once Clerk is ready, the
+    // decision of public-vs-protected happens inside clerkAwareMiddleware
+    // itself, so there is exactly one call site, unconditional on path.
+    const readyBranch = code.slice(code.indexOf('if (!clerkReady)'));
+    const clerkCallsInReadyBranch = readyBranch.match(/await clerkAwareMiddleware\(request, event\)/g) ?? [];
+    assert.equal(clerkCallsInReadyBranch.length, 1, 'expected exactly one unconditional clerkAwareMiddleware call');
   });
 });
 

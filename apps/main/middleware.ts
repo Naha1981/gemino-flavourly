@@ -1,6 +1,6 @@
 import { NextResponse, type NextFetchEvent, type NextRequest } from 'next/server';
 import { clerkMiddleware } from '@clerk/nextjs/server';
-import { clerkIsConfigured, guardRequest } from '@/lib/auth/route-guard-core';
+import { clerkIsConfigured, guardRequest, isPublicPath } from '@/lib/auth/route-guard-core';
 
 /**
  * RC1 fix — the middleware must never turn a Clerk misconfiguration into a
@@ -21,22 +21,54 @@ import { clerkIsConfigured, guardRequest } from '@/lib/auth/route-guard-core';
  *     const userHandlerResult = await handler?.(() => authObj, request, event);
  *   };
  *
- * Both key assertions run BEFORE the user handler is awaited. So guarding
- * inside `clerkMiddleware((auth, req) => ...)` cannot help: by the time our
- * callback would run, the throw has already happened. Wrapping the callback
- * body in try/catch was the wrong fix and demonstrably did not work (the
- * app still returned 500 on /, /pricing, /privacy and /terms with no key).
- *
- * The fix is therefore to decide BEFORE entering clerkMiddleware at all.
- * `guardRequest` is a pure function of the pathname, so a missing or
- * malformed key can never reach a public route.
+ * Both key assertions run BEFORE the user handler is awaited, and they run
+ * the instant `clerkMiddleware(...)`'s returned function is *invoked* — not
+ * when it's defined. So when Clerk is unconfigured, this file must never
+ * call that function at all, for any route. `guardRequest` still owns that
+ * decision (see route-guard-core.ts) — it's unchanged and still correct.
  */
 
 /**
- * Built once, but only ever *invoked* when Clerk is configured — invoking it
- * is what triggers the key assertions above.
+ * FIX (auth-flash) — public routes now go THROUGH clerkMiddleware too, not
+ * around it, whenever Clerk is actually configured.
+ *
+ * The previous design decided "public vs protected" BEFORE ever touching
+ * Clerk, and for public routes (including /sign-in and /sign-up) returned
+ * `NextResponse.next()` directly — clerkMiddleware was never invoked for
+ * them at all, even when Clerk was fully and correctly configured.
+ *
+ * That's a real bug, not just a missed optimisation: Clerk's Next.js SDK
+ * requires clerkMiddleware to actually process a request before `auth()` /
+ * `safeAuth()` can correctly resolve the session in a Server Component on
+ * that same request. Skip clerkMiddleware entirely on a route, and `auth()`
+ * called anywhere on that route reports signed-out regardless of whether a
+ * valid session cookie is present.
+ *
+ * That produced exactly the reported symptom: a signed-in visitor hitting
+ * /sign-in got a server that always rendered the sign-in form (safeAuth()
+ * on that route could never see the session) while the CLIENT-SIDE
+ * <ClerkProvider>/<SignIn> — which reads the session cookie directly in the
+ * browser and doesn't depend on middleware for that — correctly detected an
+ * active session and tried to navigate away. Server says signed-out, client
+ * says signed-in, on the same route, forever: that mismatch is the flash.
+ *
+ * The fix: once Clerk is confirmed configured, this single clerkMiddleware
+ * instance handles EVERY route the app serves, public or protected — the
+ * only thing that differs is whether it calls `.protect()`. When Clerk is
+ * NOT configured, this function is still never invoked at all (see the
+ * outer `middleware` function below) — a missing/invalid key still can't
+ * 500 anything, public or protected, exactly as before.
  */
-const clerkProtectedMiddleware = clerkMiddleware((auth, request) => {
+const clerkAwareMiddleware = clerkMiddleware((auth, request) => {
+  if (isPublicPath(request.nextUrl.pathname)) {
+    // Let clerkMiddleware finish processing the request (session
+    // handshake/refresh, populating the context `auth()` reads downstream)
+    // without forcing authentication.
+    const response = NextResponse.next();
+    response.headers.set('x-route-guard', 'public');
+    return response;
+  }
+
   auth().protect();
 
   // S4 — forward the explicit ?tenant= selection to server components as a
@@ -62,34 +94,44 @@ function redirectTo(request: NextRequest, pathname: string) {
 export default async function middleware(request: NextRequest, event: NextFetchEvent) {
   const clerkReady = clerkIsConfigured(process.env);
 
-  // Decision #1 — pure, and deliberately ahead of any Clerk call.
-  const decision = guardRequest({ rawPath: request.nextUrl.pathname, clerkConfigured: clerkReady });
+  // Decision #1 — pure, and deliberately ahead of any Clerk call. Only used
+  // for the Clerk-unconfigured branch now: it still correctly says which
+  // routes are public (render anyway) vs protected (redirect, since nobody
+  // can be authenticated) without ever touching Clerk.
+  if (!clerkReady) {
+    const decision = guardRequest({ rawPath: request.nextUrl.pathname, clerkConfigured: false });
 
-  if (decision.action === 'pass') {
-    // Public route or static asset. Never touches Clerk, so it renders even
-    // with every auth env var missing — this is what keeps the marketing
-    // site up during an auth outage.
-    return NextResponse.next();
+    if (decision.action === 'pass') {
+      return NextResponse.next();
+    }
+
+    // action === 'redirect' — the only other outcome guardRequest can
+    // return with clerkConfigured: false (it never returns 'protect' in
+    // that case, but TypeScript can't infer that from the call site, so
+    // narrow explicitly rather than asserting).
+    if (decision.action === 'redirect') {
+      console.error(
+        '[middleware] Clerk is not configured (missing/invalid publishable key) — ' +
+          `redirecting protected route ${request.nextUrl.pathname} to ${decision.to}`,
+      );
+      return redirectTo(request, decision.to);
+    }
+
+    // Unreachable with clerkConfigured: false, but keeps this exhaustive
+    // and fails closed (redirect, never a 500) if that ever changes.
+    return redirectTo(request, '/sign-in');
   }
 
-  if (decision.action === 'redirect') {
-    // Protected route, but Clerk is unusable: we cannot authenticate
-    // anyone, so send the visitor to the sign-in page instead of throwing.
-    console.error(
-      '[middleware] Clerk is not configured (missing/invalid publishable key) — ' +
-        `redirecting protected route ${request.nextUrl.pathname} to ${decision.to}`,
-    );
-    return redirectTo(request, decision.to);
-  }
-
-  // Decision #2 — genuinely protected route with a usable Clerk config.
+  // Decision #2 — Clerk is configured, so every route (public or protected)
+  // goes through clerkAwareMiddleware, which decides internally whether to
+  // call `.protect()`.
   //
   // Must `await`: clerkMiddleware's key assertions run inside an async
   // function, so they REJECT rather than throw synchronously. A plain
   // try/catch around an un-awaited call would let the rejection escape and
   // Next would still answer 500.
   try {
-    return await clerkProtectedMiddleware(request, event);
+    return await clerkAwareMiddleware(request, event);
   } catch (err) {
     // Clerk can still fail here (revoked key, malformed value, its API
     // unreachable). Degrade to a redirect rather than a 500.
