@@ -12,6 +12,18 @@ import { clerkIsConfigured } from '@/lib/auth/route-guard-core';
  * the app fails closed to `<AuthUnavailable>` / redirects instead of a
  * hard 500. See components/clerk-shell.tsx for the client-side fallback
  * this pairs with.
+ *
+ * Explicit signInUrl/signUpUrl — Clerk's own docs: "Set the
+ * CLERK_SIGN_IN_URL environment variable to tell Clerk where the <SignIn />
+ * component is being hosted." .env.example documents
+ * NEXT_PUBLIC_CLERK_SIGN_IN_URL / _SIGN_UP_URL as expected config for this
+ * project, but whether that's actually set correctly in Vercel isn't
+ * something this repo can verify — a missing/wrong value there is a known
+ * cause of Clerk's internal navigation (e.g. the "Sign in instead" /
+ * "Sign up instead" links each component renders, and Clerk's own
+ * client-side routing between its sub-steps) resolving incorrectly and
+ * bouncing through an unexpected redirect. Passing both explicitly as
+ * props makes this correct regardless of Vercel's env var state.
  */
 export default function AppGroupLayout({
   children,
@@ -28,5 +40,14 @@ export default function AppGroupLayout({
     return <>{children}</>;
   }
 
-  return <ClerkProvider>{children}</ClerkProvider>;
+  return (
+    <ClerkProvider
+      signInUrl="/sign-in"
+      signUpUrl="/sign-up"
+      signInFallbackRedirectUrl="/dashboard"
+      signUpFallbackRedirectUrl="/dashboard"
+    >
+      {children}
+    </ClerkProvider>
+  );
 }

@@ -116,7 +116,16 @@ describe('RC1 layer 2 (relocated) — (app) group gates ClerkProvider behind cle
 
   test('layout gates ClerkProvider behind clerkIsConfigured', () => {
     assert.match(appLayout, /clerkIsConfigured\(process\.env\)/);
-    assert.match(appLayout, /<ClerkProvider>/);
+    // Explicit signInUrl/signUpUrl props added — see the layout's own
+    // comment for why: Clerk's docs say to set these so its internal
+    // navigation (the "sign in instead"/"sign up instead" links each
+    // component renders, and routing between its own sub-steps) resolves
+    // correctly regardless of Vercel's env var configuration. Match the
+    // opening tag loosely (any attributes) rather than the literal
+    // `<ClerkProvider>` with none.
+    assert.match(appLayout, /<ClerkProvider[\s>]/);
+    assert.match(appLayout, /signInUrl="\/sign-in"/);
+    assert.match(appLayout, /signUpUrl="\/sign-up"/);
   });
 
   test('layout logs a diagnosable error instead of throwing', () => {
