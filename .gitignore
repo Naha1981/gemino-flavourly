@@ -64,3 +64,7 @@ next-env.d.ts
 scripts/clean-cronjobs.mjs
 cron-cleanup.sh
 existing_jobs.json
+
+# Agent tooling (Neon CLI skills install; local-only, never shipped)
+.claude/
+skills-lock.json

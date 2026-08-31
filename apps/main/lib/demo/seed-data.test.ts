@@ -104,7 +104,10 @@ describe('conversations — WhatsApp transcript shape', () => {
   });
 
   test('outcome vocabulary maps onto the live ConvoBadge states', () => {
-    const statuses = new Set(DEMO_CONVERSATIONS.map((c) => c.status));
+    // Array.from instead of for..of over the Set: the app tsconfig has no
+    // explicit target, so tsc defaults to ES5 and TS2802s on raw Set
+    // iteration. Array.from is target-safe.
+    const statuses = Array.from(new Set(DEMO_CONVERSATIONS.map((c) => c.status)));
     for (const s of statuses) {
       assert.ok(['open', 'pending', 'closed', 'waiting'].includes(s), `unknown status ${s}`);
     }

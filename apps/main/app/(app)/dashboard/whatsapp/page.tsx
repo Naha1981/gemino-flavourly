@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { QRCodeCanvas } from 'qrcode.react';
-import { CheckCircle2, Loader2, QrCode, RefreshCw } from 'lucide-react';
+import { CheckCircle2, Loader2, QrCode, RefreshCw, WifiOff } from 'lucide-react';
 import {
   qrPhase,
   shouldAutoKick,
+  shouldClearEngineError,
   MAX_AUTO_KICKS,
   type QrPhase,
 } from '@/lib/whatsapp/qr-freshness';
@@ -15,6 +16,12 @@ type Status = {
   phoneNumber: string | null;
   qrCode: string | null;
   status?: 'unlinked' | 'connecting' | 'connected' | 'disconnected';
+  /**
+   * Round 2 (2026-08-31): operator /health reachability, reported by the
+   * status route ONLY while linking (no QR, not connected). null = not
+   * checked (not relevant in this state).
+   */
+  operatorOnline?: boolean | null;
 };
 
 const POLL_MS = 3_000;
@@ -23,7 +30,15 @@ const QR_SIZE = 288;
 
 export default function WhatsAppConnectPage() {
   const [status, setStatus] = useState<Status | null>(null);
+  // Engine errors (kick failures) — PERSISTENT: cleared only by a
+  // successful kick, a state improvement, or the TTL (round-2 fix; the
+  // old page cleared them within 3s on the next successful status poll,
+  // which is why the real failure cause was never readable).
   const [error, setError] = useState<string | null>(null);
+  const [engineErrorAt, setEngineErrorAt] = useState<number | null>(null);
+  // Status-endpoint errors — separate box, cleared by the next
+  // successful poll (the poll itself retries every 3s).
+  const [statusError, setStatusError] = useState<string | null>(null);
   // Client clock, ticked every second — drives stale detection + the
   // "code refreshed Ns ago" chip without extra fetches.
   const [now, setNow] = useState(() => Date.now());
@@ -33,26 +48,46 @@ export default function WhatsAppConnectPage() {
   const lastKickAt = useRef<number | null>(null);
   const kickInFlight = useRef(false);
   const prevQr = useRef<string | null>(null);
+  // Set after the FIRST status fetch cycle completes — ok or not. The
+  // auto-kick gate used to be `status !== null`, so a 401/500 from the
+  // status route meant zero kicks and an infinite "Starting the
+  // WhatsApp engine…" (round-2 fix).
+  const pollAttempted = useRef(false);
+
+  const applyStatus = useCallback((next: Status) => {
+    setStatus(next);
+    // Track when the CODE VALUE last changed — the freshness clock.
+    // A re-fetch that returns the same string tells us nothing about
+    // scanability; only a changed string does (Baileys re-emits ~20s).
+    if ((next.qrCode ?? null) !== prevQr.current) {
+      prevQr.current = next.qrCode ?? null;
+      setLastQrChangeAt(Date.now());
+    }
+  }, []);
 
   const refresh = useCallback(async () => {
     try {
       const res = await fetch('/api/whatsapp/status', { cache: 'no-store' });
       if (res.ok) {
         const next: Status = await res.json();
-        setStatus(next);
-        // Track when the CODE VALUE last changed — the freshness clock.
-        // A re-fetch that returns the same string tells us nothing about
-        // scanability; only a changed string does (Baileys re-emits ~20s).
-        if ((next.qrCode ?? null) !== prevQr.current) {
-          prevQr.current = next.qrCode ?? null;
-          setLastQrChangeAt(Date.now());
-        }
-        setError(null);
+        applyStatus(next);
+        setStatusError(null);
+      } else {
+        // Round 2: a failing status endpoint is now VISIBLE. The old
+        // page swallowed non-OK responses entirely — the page then sat
+        // on "Starting the WhatsApp engine…" forever with no error and
+        // no kick.
+        const data = await res.json().catch(() => ({ error: '' }));
+        setStatusError(
+          `Couldn't read WhatsApp status (HTTP ${res.status}): ${data?.error || 'unknown error'}`
+        );
       }
     } catch {
-      // Transient network error — keep the last known status on screen.
+      setStatusError('Network error while reading WhatsApp status — retrying automatically.');
+    } finally {
+      pollAttempted.current = true;
     }
-  }, []);
+  }, [applyStatus]);
 
   const kick = useCallback(async () => {
     if (kickInFlight.current) return;
@@ -61,16 +96,36 @@ export default function WhatsAppConnectPage() {
     setKicks((k) => k + 1);
     try {
       const res = await fetch('/api/whatsapp/connect', { method: 'POST' });
-      if (!res.ok) {
+      if (res.ok) {
+        const data: { ok?: boolean; isConnected?: boolean; qrCode?: string | null; phoneNumber?: string | null } =
+          await res.json().catch(() => ({}));
+        setError(null);
+        setEngineErrorAt(null);
+        // The operator's /start already waited ~3s for the first QR —
+        // merge its snapshot so the code renders immediately instead of
+        // on the next 3s poll.
+        if (data && (data.qrCode || data.isConnected)) {
+          applyStatus({
+            isConnected: !!data.isConnected,
+            phoneNumber: data.phoneNumber ?? status?.phoneNumber ?? null,
+            qrCode: data.qrCode ?? null,
+            status: data.isConnected ? 'connected' : 'connecting',
+            operatorOnline: true,
+          });
+        }
+      } else {
         const data = await res.json().catch(() => ({}));
         setError(data?.error || 'Could not reach the WhatsApp engine.');
+        setEngineErrorAt(Date.now());
       }
     } catch {
       setError('Could not reach the WhatsApp engine.');
+      setEngineErrorAt(Date.now());
     } finally {
       kickInFlight.current = false;
     }
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [applyStatus]);
 
   // Poll the account state (QR string, connection) every 3s.
   useEffect(() => {
@@ -95,16 +150,34 @@ export default function WhatsAppConnectPage() {
     });
   }, [status, lastQrChangeAt, now]);
 
+  // Engine-error expiry: state improved, or the TTL passed (see
+  // shouldClearEngineError — decisions stay unit-tested in the policy
+  // module).
+  useEffect(() => {
+    if (error === null) return;
+    if (
+      shouldClearEngineError({
+        engineErrorAt,
+        stateImproved: phase === 'fresh' || phase === 'connected',
+        now,
+      })
+    ) {
+      setError(null);
+      setEngineErrorAt(null);
+    }
+  }, [now, error, engineErrorAt, phase]);
+
   // Auto-recovery: when the displayed code goes stale (operator paused,
   // redeploy, backoff window) re-kick the engine — rate-limited and
   // capped, so a hard-down engine degrades to the manual button instead
   // of a request loop. On first load this is also what auto-starts the
-  // linking flow.
+  // linking flow — and since round 2 it fires even when the status poll
+  // itself is failing (the kick error then names the actual problem).
   useEffect(() => {
-    if (!status) return;
     if (
       shouldAutoKick({
         phase,
+        pollAttempted: pollAttempted.current,
         lastKickAt: lastKickAt.current,
         kicks,
         now,
@@ -112,10 +185,12 @@ export default function WhatsAppConnectPage() {
     ) {
       kick();
     }
-  }, [phase, kicks, now, status, kick]);
+  }, [phase, kicks, now, kick]);
 
   const gaveUp = kicks >= MAX_AUTO_KICKS && phase !== 'connected' && phase !== 'fresh';
   const secsSinceRefresh = lastQrChangeAt !== null ? Math.max(0, Math.floor((now - lastQrChangeAt) / 1000)) : null;
+  const engineOffline = status?.operatorOnline === false;
+  const loggedOut = status?.status === 'disconnected' && !status.isConnected;
 
   return (
     <div className="max-w-2xl space-y-8">
@@ -126,9 +201,44 @@ export default function WhatsAppConnectPage() {
         </p>
       </div>
 
-      {error && (
+      {statusError && (
         <div className="rounded-lg border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-300">
-          {error}
+          {statusError}
+        </div>
+      )}
+
+      {error && (
+        <div
+          className="rounded-lg border border-red-900 bg-red-950/40 px-4 py-3 text-sm text-red-300"
+          data-testid="engine-error"
+        >
+          <span className="font-semibold">WhatsApp engine error:</span> {error}
+        </div>
+      )}
+
+      {engineOffline && !status?.isConnected && (
+        <div
+          className="rounded-lg border border-amber-800 bg-amber-950/40 px-4 py-3 text-sm text-amber-200"
+          data-testid="engine-offline"
+        >
+          <div className="flex items-center gap-2">
+            <WifiOff className="h-4 w-4 shrink-0" aria-hidden />
+            <span>
+              The WhatsApp engine on Render is not responding right now. It may be waking up from
+              standby (about a minute on the free plan) — or OPERATOR_URL in the Vercel environment
+              may not point at the Render service. Kicking continues automatically.
+            </span>
+          </div>
+        </div>
+      )}
+
+      {loggedOut && (
+        <div
+          className="rounded-lg border border-amber-800 bg-amber-950/40 px-4 py-3 text-sm text-amber-200"
+          data-testid="logged-out"
+        >
+          This WhatsApp number was logged out of WhatsApp (unlinked from the phone side or the
+          session expired). A fresh pairing code is being generated — scan it to relink.
         </div>
       )}
 
@@ -231,7 +341,15 @@ export default function WhatsAppConnectPage() {
               ) : (
                 <>
                   <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
-                  <p className="text-sm text-zinc-400">Starting the WhatsApp engine…</p>
+                  <p className="text-sm text-zinc-400" data-testid="starting-message">
+                    Starting the WhatsApp engine…
+                  </p>
+                  <p className="text-xs text-zinc-600">
+                    {status?.status === 'connecting'
+                      ? 'The engine is preparing a pairing code.'
+                      : 'Requesting a pairing code from the engine.'}{' '}
+                    This normally takes a few seconds.
+                  </p>
                   <button
                     onClick={kick}
                     className="text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-300"

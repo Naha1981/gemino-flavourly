@@ -1,19 +1,76 @@
 import { NextResponse } from 'next/server';
 import { getOrCreateTenant } from '@/lib/tenant';
 import { ensureWaAccount } from '@/lib/whatsapp/ensure-account';
+import { operatorClient } from '@/lib/operator-client';
 
 export const dynamic = 'force-dynamic';
 
+// ───────────────────────────────────────────────────────────────────────
+// Operator reachability signal (round 2, 2026-08-31).
+//
+// The linking page used to have NO way to distinguish "engine is
+// starting" from "engine is unreachable": /api/whatsapp/status only
+// echoed the DB row, so a broken OPERATOR_URL or a spun-down Render
+// service rendered as "Starting the WhatsApp engine…" forever. The
+// status response now carries `operatorOnline` while the account is in
+// the linking phase (no QR yet, not connected) — the only state where
+// the distinction matters.
+//
+// Cached for OPERATOR_HEALTH_TTL_MS so a 3s poll from one tab (or
+// several) cannot turn into a health-check storm against Render, and
+// the check is skipped entirely once a QR is on the row.
+// ───────────────────────────────────────────────────────────────────────
+const OPERATOR_HEALTH_TTL_MS = 5_000;
+let operatorHealthCache: { at: number; ok: boolean } | null = null;
+
+async function checkOperatorOnline(): Promise<boolean> {
+  const now = Date.now();
+  if (operatorHealthCache && now - operatorHealthCache.at < OPERATOR_HEALTH_TTL_MS) {
+    return operatorHealthCache.ok;
+  }
+  const ok = await operatorClient.checkHealth();
+  operatorHealthCache = { at: now, ok };
+  return ok;
+}
+
 export async function GET() {
-  const tenant = await getOrCreateTenant();
+  // Round 2: every failure path below returns a STRUCTURED error the
+  // linking page can render. Previously a thrown error here produced a
+  // generic 500 while the page silently swallowed it — the "Starting
+  // the WhatsApp engine…" forever freeze with zero diagnostics.
+  let tenant;
+  try {
+    tenant = await getOrCreateTenant();
+  } catch (err) {
+    return NextResponse.json(
+      { error: `Could not resolve your account: ${(err as Error).message}` },
+      { status: 500 }
+    );
+  }
   if (!tenant) return NextResponse.json({ error: 'Sign in first.' }, { status: 401 });
 
   // Auto-provisions the row for tenants created before the row-per-tenant
   // invariant existed — without this, the entire linking flow 404'd for
   // them and no QR could ever be displayed (2026-08-31 gate finding).
-  const account = await ensureWaAccount(tenant.id);
+  let account;
+  try {
+    account = await ensureWaAccount(tenant.id);
+  } catch (err) {
+    return NextResponse.json(
+      { error: `Could not read the WhatsApp account row: ${(err as Error).message}` },
+      { status: 500 }
+    );
+  }
   if (!account) {
     return NextResponse.json({ error: 'Could not provision WhatsApp account row.' }, { status: 500 });
+  }
+
+  // Engine reachability: only while linking (no code on the row yet).
+  // Best-effort — a Render cold start reports offline, which the page
+  // shows as "engine waking up", never as a hard failure.
+  let operatorOnline: boolean | null = null;
+  if (!account.isConnected && !account.qrCode) {
+    operatorOnline = await checkOperatorOnline();
   }
 
   return NextResponse.json({
@@ -21,5 +78,6 @@ export async function GET() {
     phoneNumber: account.phoneNumber,
     qrCode: account.qrCode,
     status: account.status ?? 'unlinked',
+    operatorOnline,
   });
 }

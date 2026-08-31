@@ -28,13 +28,22 @@ interface SocketStatusResponse {
 
 export const operatorClient = {
   /**
-   * Health check to ensure operator is running and healthy
+   * Health check to ensure operator is running and healthy.
+   *
+   * `timeoutMs` (default 2.5s): this is called from the WhatsApp linking
+   * page's status poll while the user waits on "Starting the WhatsApp
+   * engine…". Render's free tier spins the operator down after idle —
+   * a cold wake takes ~50s — and WITHOUT a timeout this fetch would
+   * hang the whole status response until Vercel kills the route at
+   * maxDuration, turning "engine waking up" into an opaque 500.
+   * Bounded = the page can say "engine offline, retrying" honestly.
    */
-  async checkHealth(): Promise<boolean> {
+  async checkHealth(timeoutMs: number = 2_500): Promise<boolean> {
     try {
       const res = await fetch(`${OPERATOR_URL}/health`, {
         method: 'GET',
         cache: 'no-store',
+        signal: AbortSignal.timeout(timeoutMs),
       });
       return res.ok;
     } catch {

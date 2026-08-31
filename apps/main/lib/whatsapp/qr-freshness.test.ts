@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import {
   qrPhase,
   shouldAutoKick,
+  shouldClearEngineError,
   QR_STALE_AFTER_MS,
   MIN_KICK_INTERVAL_MS,
   MAX_AUTO_KICKS,
+  ENGINE_ERROR_TTL_MS,
 } from './qr-freshness.ts';
 
 describe('qrPhase — display state for the linking code', () => {
@@ -82,6 +84,78 @@ describe('shouldAutoKick — operator re-kick policy', () => {
     assert.equal(
       shouldAutoKick({ phase: 'waiting', lastKickAt: 1_000, kicks: 0, now: 2_000, minIntervalMs: 10_000 }),
       false
+    );
+  });
+
+  test('round 2: kicks fire when the status poll FAILED (pollAttempted true)', () => {
+    // The "Starting the WhatsApp engine…" forever freeze: a 401/500 from
+    // /api/whatsapp/status must not stop the page from kicking — the
+    // kick's error then names the real problem.
+    assert.equal(
+      shouldAutoKick({ phase: 'waiting', pollAttempted: true, lastKickAt: null, kicks: 0, now: 0 }),
+      true
+    );
+  });
+
+  test('round 2: no kick before ANY poll cycle completed (pollAttempted false)', () => {
+    assert.equal(
+      shouldAutoKick({ phase: 'waiting', pollAttempted: false, lastKickAt: null, kicks: 0, now: 0 }),
+      false
+    );
+  });
+
+  test('round 2: pollAttempted defaults to true (historic callers unchanged)', () => {
+    assert.equal(shouldAutoKick({ phase: 'stale', lastKickAt: null, kicks: 0, now: 0 }), true);
+  });
+});
+
+describe('shouldClearEngineError — engine error persistence (round 2)', () => {
+  test('no error recorded → nothing to clear (true is a no-op)', () => {
+    assert.equal(shouldClearEngineError({ engineErrorAt: null, stateImproved: false, now: 1_000 }), true);
+  });
+
+  test('the production defect: a fresh error must NOT be cleared by the 3s status poll', () => {
+    // Old behaviour: refresh() cleared `error` on any successful poll —
+    // i.e. 3s after a failed kick, before a human could read it.
+    assert.equal(
+      shouldClearEngineError({ engineErrorAt: 100_000, stateImproved: false, now: 100_000 + 3_000 }),
+      false
+    );
+  });
+
+  test('state improved (QR arrived / connected) → error goes immediately', () => {
+    assert.equal(
+      shouldClearEngineError({ engineErrorAt: 100_000, stateImproved: true, now: 100_000 + 1 }),
+      true
+    );
+  });
+
+  test('error expires after the TTL so it cannot linger beside a healthy flow', () => {
+    assert.equal(
+      shouldClearEngineError({
+        engineErrorAt: 100_000,
+        stateImproved: false,
+        now: 100_000 + ENGINE_ERROR_TTL_MS + 1,
+      }),
+      true
+    );
+  });
+
+  test('boundary: exactly the TTL is not yet expired', () => {
+    assert.equal(
+      shouldClearEngineError({ engineErrorAt: 100_000, stateImproved: false, now: 100_000 + ENGINE_ERROR_TTL_MS }),
+      false
+    );
+  });
+
+  test('custom TTL seam is respected', () => {
+    assert.equal(
+      shouldClearEngineError({ engineErrorAt: 0, stateImproved: false, now: 5_000, ttlMs: 10_000 }),
+      false
+    );
+    assert.equal(
+      shouldClearEngineError({ engineErrorAt: 0, stateImproved: false, now: 10_001, ttlMs: 10_000 }),
+      true
     );
   });
 });

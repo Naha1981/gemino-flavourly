@@ -115,4 +115,91 @@ Unit tests: `lib/demo/seed-data.test.ts` (determinism via double module-load + s
 ## Open items for the owner
 1. **Redeploy Render (operator) and Vercel (main app)** — the QR fixes take effect in production only after deploy.
 2. The admin's own tenant (`naha.thabiso`) has never linked WhatsApp; the Marble demo tenant is the one with a `wa_accounts` row in `connecting` state — a fresh link attempt after redeploy will now auto-recover instead of showing a dead code.
-3. Baileys pairing refs exhaust after several minutes per socket; the operator's linking backoff (15 s) recycles sockets automatically, but a phone must eventually scan within a code's ~20 s window.
+
+---
+
+# ROUND 2 — "Starting the WhatsApp engine…" forever (same day, evening)
+
+**Symptom (owner report):** health returns OK on the Render deploy, auth works, but the QR
+"doesn't load anymore" — the connection page is stuck on "Starting the WhatsApp engine…" indefinitely.
+
+## Diagnosis (evidence, in causal order)
+
+| # | Finding | Evidence |
+|---|---------|----------|
+| 1 | **The Baileys engine itself is healthy — even from a datacenter IP.** A bare `makeWASocket` with the EXACT operator options (`browser: ['Gemino Business OS','Chrome','120.0.0.0']`, `qrTimeout: 20_000`, pino logger, fresh creds) emitted QR #1 in **0.9 s** and re-emitted exactly every 20 s (5 codes in 90 s: `+0.9s`, `+20.9s`, `+40.9s`, `+60.9s`, `+80.9s`). | `scripts/baileys-probe/probe.mjs` run log (this session) |
+| 2 | **The Render operator is up and its route/auth layer is intact.** `/health` → `OK`; `/ready` → `{"database":"ok","accountsMarkedConnected":0,"activeSockets":0,"whatsapp":"ok"}`; `POST /start` and `GET /status` without a key → `401 {"error":"Unauthorized: missing x-api-key header"}` (the new constant-time auth code is deployed). | Live curl against `gemino-flavourly-whatsapp.onrender.com` |
+| 3 | **The deployed Vercel app runs the GATE 1 frontend** — the exact string "Starting the WhatsApp engine…" (with "the") exists only in the post-GATE-1 page; the pre-GATE-1 page had it only as a button label. | `git show 57d93ef^:...whatsapp/page.tsx` vs the owner's quoted symptom |
+| 4 | **THE BLACK HOLE: the page silently swallows every failure.** Three compounding defects: (a) a non-OK `/api/whatsapp/status` response did nothing — no error, and because the auto-kick effect gated on `status !== null`, **no kick ever fired** → infinite spinner; (b) `refresh()` cleared `error` on every successful poll, so a kick failure's message (the operator's 401/404/500 cause — the most diagnostic string in the chain) vanished within 3 s, before any human could read it; (c) `/connect` flattened every operator error to a generic 502 "WhatsApp engine unreachable." and discarded the operator's QR snapshot. | `apps/main/app/(app)/dashboard/whatsapp/page.tsx` (pre-round-2), `apps/main/app/api/whatsapp/connect/route.ts` (pre-round-2) |
+| 5 | **The Vercel→Render leg was never verified end-to-end.** The round-1 evidence harness ran a LOCAL operator (`dist/` artifact) against real Neon — production `OPERATOR_URL`/`OPERATOR_API_KEY` on Vercel have never been exercised. Note: `.env.example`'s placeholder is `https://gemino-operator.onrender.com` while the real service is `https://gemino-flavourly-whatsapp.onrender.com` — a copied placeholder produces exactly this symptom. | Round-1 report §Evidence ("local operator"); `.env.example` OPERATOR_URL line |
+| 6 | **Browser-level reproduction from the agent sandbox is blocked by design** (not a code issue): the admin account signs in via email OTP / Google only, and sign-up is gated by Cloudflare Turnstile which refuses headless/datacenter browsers (submit produced ZERO Clerk API calls, `cf-turnstile-response` empty, in both headless and Xvfb-headed runs). | `scripts/qr-harness/probe4.spec.ts` runs (headless + Xvfb-headed) |
+
+**Conclusion:** with the engine, the network leg, and the operator code all proven healthy, the
+production break sits in the app-side chain (Vercel env config or the status route failing) — and
+the code's black holes were hiding which one it is. Round 2 makes the failure mode
+**self-announcing** instead of a forever-spinner, and hardens the chain.
+
+## Fixes (round 2)
+
+**`apps/main/lib/whatsapp/qr-freshness.ts`** (pure policy, +2 exported decisions)
+1. `shouldAutoKick` gains `pollAttempted` (default true): a FAILED status poll no longer
+   suppresses kicks — the kick error then names the real problem instead of an infinite spinner.
+2. New `shouldClearEngineError(...)`: engine errors persist until the linking state improves,
+   a later kick succeeds, or a 60 s TTL — never wiped by a routine 3 s poll.
+
+**`apps/main/app/api/whatsapp/status/route.ts`**
+3. Every failure path returns a structured, renderable error (was: swallowed 401/500s).
+4. While linking (no QR, not connected) the response now carries `operatorOnline` — an
+   operator `/health` probe with a 2.5 s abort timeout, module-cached 5 s so a 3 s poll can't
+   become a Render health-check storm. A Render cold start shows as "waking up", not a 500.
+
+**`apps/main/app/api/whatsapp/connect/route.ts`**
+5. Fails LOUD and specific when `OPERATOR_URL` is unset (was: `fetch("undefined/start")` → opaque 500).
+6. Network failures name the **host** ("unreachable (host: gemino-operator.onrender.com)") —
+   a copied `.env.example` placeholder now diagnoses itself on screen.
+7. Passes the **operator's own error** through (e.g. "Unauthorized: invalid x-api-key header")
+   instead of flattening to a generic 502; includes `engineStatus`.
+8. Returns the operator's QR snapshot (`qrCode`/`isConnected`/`phoneNumber`) so the page renders
+   the code immediately; the fetch is bounded at 25 s so a Render cold start can't eat
+   `maxDuration` as a platform-level error.
+
+**`apps/main/app/(app)/dashboard/whatsapp/page.tsx`**
+9. Failing status polls render a red, specific box ("Couldn't read WhatsApp status (HTTP …)").
+10. Kick errors render in a persistent `engine-error` panel (cleared only per policy #2).
+11. New distinct states: `engine-offline` amber box (Render unreachable / waking / OPERATOR_URL
+    mismatch) and `logged-out` amber box (`status: 'disconnected'` — the number was unlinked
+    phone-side; previously this also rendered as "Starting…", actively misleading).
+12. A successful kick merges the operator's snapshot into the page state immediately.
+13. The QR canvas rendering (288 px level-L, black-on-white, `data-testid="qr-frame"`,
+    `data-qr-phase`) is unchanged — round 1 proved it machine-scannable.
+
+**`apps/main/lib/operator-client.ts`** — `checkHealth(timeoutMs = 2.5 s)` bounded with
+`AbortSignal.timeout` (first caller: the status route).
+
+**Pre-existing TS error cleared:** `lib/demo/seed-data.test.ts` `for..of` over a `Set` (TS2802
+under the targetless tsconfig) → `Array.from(...)`; `tsc --noEmit` is clean again.
+
+## Evidence (round 2)
+
+| Assertion | Result |
+|---|---|
+| Bare Baileys socket (operator's exact options) emits QR from a datacenter IP, ~20 s cadence | ✅ 5 QRs in 90 s (`+0.9s` → `+80.9s`) |
+| Render operator healthy; protected routes answer the round-1 auth shape | ✅ `/health` OK, `/ready` ready, `/start`+`/status` → 401 JSON |
+| `node --test` main app (full suite) | ✅ **1699/1699 pass** (was 1679; +8 policy tests, +9 wiring tests, +3 page-contract tests incl. the seed-data TS fix) |
+| Operator suite (unchanged code) | ✅ 69/69 |
+| `tsc --noEmit` | ✅ clean |
+| `next build` (dummy throwaway `DATABASE_URL`, inline only) | ✅ 41/41 pages |
+| Browser-level proof of the live fix | ⛔ not reproducible from this sandbox (owner's account is OTP-only; sign-up is Turnstile-gated — see finding #6). The deployed page itself is the proof: on redeploy it names the failing link in plain English instead of spinning. |
+
+## What the owner should do after redeploying Vercel
+
+1. Open **Dashboard → WhatsApp Connection**. If the engine box appears, it now says exactly
+   which link is broken (unset/wrong `OPERATOR_URL`, key mismatch 401, or engine waking up).
+2. Verify Vercel env: `OPERATOR_URL` = `https://gemino-flavourly-whatsapp.onrender.com`
+   (NOT the `.env.example` placeholder `gemino-operator.onrender.com`) and `OPERATOR_API_KEY`
+   matching the Render service's value. Redeploy Vercel after any change.
+3. Render free tier sleeps after ~15 min idle — the first pairing attempt after a sleep may
+   show "engine waking up" for up to a minute, then recover automatically (kicks continue).
+4. Baileys pairing refs exhaust after several minutes per socket; the operator's linking
+   backoff (15 s) recycles sockets automatically, but a phone must eventually scan within a
+   code's ~20 s window.
