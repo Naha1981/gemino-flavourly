@@ -3,6 +3,11 @@ import { Boom } from '@hapi/boom';
 import { getWaAccount, updateWaAccount, getConnectedAccountIds, getPostgresAuthState } from '../db/client.js';
 import { forwardToMain } from '../webhook/forward.js';
 import pino from 'pino';
+import {
+  nextReconnectDelayMs,
+  isZombieLinkingSocket,
+  QR_STALE_MS,
+} from './linking-policy.js';
 
 const logger = pino({ level: process.env.LOG_LEVEL || 'info' });
 
@@ -27,13 +32,39 @@ const connectingLocks = new Map<string, Promise<StartSocketResult>>();
 
 // Per-account reconnect attempt counter, for capped exponential backoff so a
 // persistently broken account doesn't hammer WhatsApp's servers forever.
+// The CAP differs by phase — see linking-policy.ts: linked accounts back off
+// up to 5 minutes, but an account still in the QR-linking phase caps at 15s
+// because a human is standing at the connection screen with their phone out.
 const reconnectAttempts = new Map<string, number>();
-const MAX_RECONNECT_DELAY_MS = 5 * 60_000;
 
-function nextReconnectDelay(waAccountId: string): number {
+function nextReconnectDelay(waAccountId: string, linked: boolean): number {
   const attempts = (reconnectAttempts.get(waAccountId) ?? 0) + 1;
   reconnectAttempts.set(waAccountId, attempts);
-  return Math.min(5_000 * 2 ** (attempts - 1), MAX_RECONNECT_DELAY_MS);
+  return nextReconnectDelayMs(attempts, linked);
+}
+
+/**
+ * Best-effort teardown of a socket we no longer trust: deregister it first
+ * (so its events fail the identity guard and get ignored), then detach the
+ * event listeners and close the underlying WebSocket. Used by the zombie
+ * eviction path in doStartWhatsAppSocket.
+ */
+function detachSocket(waAccountId: string, sock: any): void {
+  if (sockets.get(waAccountId) === sock) {
+    sockets.delete(waAccountId);
+  }
+  openAccounts.delete(waAccountId);
+  try {
+    sock.ev?.removeAllListeners?.();
+  } catch {
+    /* best effort */
+  }
+  try {
+    const closing = sock.end?.(undefined);
+    if (closing && typeof closing.catch === 'function') closing.catch(() => {});
+  } catch {
+    /* best effort */
+  }
 }
 
 interface StartSocketResult {
@@ -110,6 +141,19 @@ async function handleConnectionUpdate(
       statusCode === DisconnectReason.connectionReplaced ||
       statusCode === DisconnectReason.badSession;
 
+    // "Was this account ever linked?" decides the reconnect cadence. A
+    // linked account resumes automatically and can afford patient
+    // backoff; a never-linked account is mid QR-pairing and a human is
+    // actively waiting — long backoff there is what froze the pairing
+    // screen on one expired code in production (2026-08-31).
+    let wasLinked = false;
+    try {
+      const acct = await getWaAccount(waAccountId);
+      wasLinked = !!(acct?.last_connected_at || acct?.session_creds);
+    } catch {
+      // DB unavailable — assume linking (faster retries, safe default).
+    }
+
     if (!permanent) {
       // Remove the dead socket from the registry NOW so /send's on-demand
       // start can build a fresh one during the backoff window instead of
@@ -117,9 +161,12 @@ async function handleConnectionUpdate(
       sockets.delete(waAccountId);
       await updateWaAccount(waAccountId, {
         isConnected: false,
+        // Clear the stored QR too: during the backoff window the code is
+        // expired, and the dashboard used to keep showing it as scannable.
+        qrCode: null,
         status: 'connecting',
       });
-      const delay = nextReconnectDelay(waAccountId);
+      const delay = nextReconnectDelay(waAccountId, wasLinked);
       logger.warn(
         `Connection closed for account ${waAccountId}. Status: ${statusCode}. Reconnecting in ${delay}ms.`
       );
@@ -178,7 +225,37 @@ async function doStartWhatsAppSocket(waAccountId: string): Promise<StartSocketRe
     if (openAccounts.has(waAccountId) && account.is_connected) {
       return { success: true, isConnected: true, qrCode: null, phoneNumber: account.phone_number };
     }
-    return waitForStartResult(waAccountId);
+
+    // ZOMBIE EVICTION (linking phase only): a registered socket that never
+    // opened and whose account row shows no QR activity for >QR_STALE_MS
+    // is silently dead — waiting for it (the old behaviour) froze the
+    // pairing screen on one expired code while every /start politely
+    // waited on the corpse. Evict it and build a fresh socket so the user
+    // gets a live QR. Linked/mid-resume sockets are never evicted here.
+    let fresh: Awaited<ReturnType<typeof getWaAccount>> = account;
+    try {
+      fresh = await getWaAccount(waAccountId);
+    } catch {
+      // fall back to the account read at function entry
+    }
+    const zombie = isZombieLinkingSocket({
+      socketRegistered: true,
+      open: openAccounts.has(waAccountId),
+      linked: !!(fresh?.last_connected_at || fresh?.session_creds),
+      qrCode: fresh?.qr_code ?? null,
+      qrUpdatedAt: fresh?.updated_at ? new Date(fresh.updated_at) : null,
+      now: new Date(),
+    });
+    if (!zombie) {
+      return waitForStartResult(waAccountId);
+    }
+    logger.warn(
+      `Evicting ZOMBIE linking socket for account ${waAccountId} (no QR activity >${Math.round(
+        QR_STALE_MS / 1000
+      )}s). Building a fresh socket for a live QR.`
+    );
+    detachSocket(waAccountId, existingSock);
+    // fall through: create a replacement socket below.
   }
 
   const { state, saveCreds } = await getPostgresAuthState(waAccountId);
@@ -191,6 +268,14 @@ async function doStartWhatsAppSocket(waAccountId: string): Promise<StartSocketRe
     browser: ['Gemino Business OS', 'Chrome', '120.0.0.0'], // Prevents Meta device flagging
     syncFullHistory: false,
     markOnlineOnConnect: true,
+    // Baileys' default lets the FIRST QR live 60s (qrTimeout || 60000 in
+    // Socket/socket.js's genPairQR) with subsequent codes every 20s. A
+    // 60s first code pairs badly with a dashboard that promises "new one
+    // every ~20s" and flags staleness at 40s — the user would be told the
+    // code is stale while it is still the only valid one. Pin the full
+    // cadence to 20s: the pairing refs still last multiple cycles, and
+    // ref exhaustion falls through to the normal linking reconnect.
+    qrTimeout: 20_000,
     logger,
   });
 

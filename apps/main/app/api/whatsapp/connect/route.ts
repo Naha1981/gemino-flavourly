@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getOrCreateTenant } from '@/lib/tenant';
-import { db } from '@/lib/db';
-import { waAccounts } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { ensureWaAccount } from '@/lib/whatsapp/ensure-account';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -11,8 +9,13 @@ export async function POST() {
   const tenant = await getOrCreateTenant();
   if (!tenant) return NextResponse.json({ error: 'Sign in first.' }, { status: 401 });
 
-  const [account] = await db.select().from(waAccounts).where(eq(waAccounts.tenantId, tenant.id)).limit(1);
-  if (!account) return NextResponse.json({ error: 'No WhatsApp account found.' }, { status: 404 });
+  // Auto-provisions the row for tenants created before the row-per-tenant
+  // invariant existed — /connect used to 404 for them, so linking could
+  // never even start (2026-08-31 gate finding).
+  const account = await ensureWaAccount(tenant.id);
+  if (!account) {
+    return NextResponse.json({ error: 'Could not provision WhatsApp account row.' }, { status: 500 });
+  }
 
   const resp = await fetch(`${process.env.OPERATOR_URL}/start`, {
     method: 'POST',
