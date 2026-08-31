@@ -730,4 +730,21 @@ export const MIGRATE_DDL: readonly string[] = [
   `CREATE UNIQUE INDEX IF NOT EXISTS loyalty_transactions_ref_id_uniq ON loyalty_transactions (ref_id);`,
 
   `CREATE INDEX IF NOT EXISTS loyalty_transactions_tenant_contact_idx ON loyalty_transactions (tenant_id, contact_id);`,
+
+  // 27. O2 — booking reminder ladder (48/24/6h) + customer confirmation.
+  // Mirrors drizzle/0022_booking_reminder_ladder.sql. Rung claim is the
+  // `WHERE reminderN_sent_at IS NULL` guard in the reminder cron; the
+  // partial index keeps the 15-minute scan to confirmed future bookings.
+  `ALTER TABLE reservations ADD COLUMN IF NOT EXISTS reminder48_sent_at timestamp;`,
+
+  `ALTER TABLE reservations ADD COLUMN IF NOT EXISTS reminder24_sent_at timestamp;`,
+
+  `ALTER TABLE reservations ADD COLUMN IF NOT EXISTS reminder6_sent_at timestamp;`,
+
+  `ALTER TABLE reservations ADD COLUMN IF NOT EXISTS customer_confirmed_at timestamp;`,
+
+  // Plain index (no partial WHERE predicate — the runtime DDL module is
+  // executed verbatim against pg-mem by the parity suite, and the drizzle
+  // SQL keeps the stricter partial form).
+  `CREATE INDEX IF NOT EXISTS reservations_reminder_ladder_idx ON reservations (date);`,
 ];

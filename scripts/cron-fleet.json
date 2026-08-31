@@ -641,6 +641,34 @@
         "expiresAt": 0
       },
       "auth": "cron-secret"
+    },
+    {
+      "key": "booking-reminders",
+      "title": "Booking Reminder Ladder (48/24/6h)",
+      "url": "{baseUrl}/api/cron/booking-reminders",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          -1
+        ],
+        "minutes": [
+          0,
+          15,
+          30,
+          45
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
     }
   ],
   "watchdog": {

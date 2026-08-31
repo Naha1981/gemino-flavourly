@@ -25,9 +25,9 @@ describe('canonical fleet — scripts/cron-fleet.json on disk', () => {
     assert.match(loaded.path ?? '', /scripts\/cron-fleet\.json$/);
   });
 
-  test('contains exactly 21 canonical jobs plus the hourly system watchdog', () => {
+  test('contains exactly 22 canonical jobs plus the hourly system watchdog', () => {
     const { fleet } = loadCanonicalFleet(REPO_ROOT);
-    assert.equal(fleet.jobs.length, 21, 'canonical fleet must have exactly 21 jobs');
+    assert.equal(fleet.jobs.length, 22, 'canonical fleet must have exactly 22 jobs');
     assert.ok(fleet.watchdog, 'watchdog job must exist');
     assert.equal(fleet.watchdog.key, 'system-watchdog');
     // Hourly: every hour, minute 0.
@@ -93,7 +93,7 @@ describe('canonical fleet — fs fallback + validation', () => {
       const empty = mkdtempSync(join(tmpdir(), 'fleet-'));
       const loaded = loadCanonicalFleet(empty);
       assert.equal(loaded.source, 'embedded');
-      assert.equal(loaded.fleet.jobs.length, 21);
+      assert.equal(loaded.fleet.jobs.length, 22);
       assert.equal(loaded.fleet.watchdog.key, 'system-watchdog');
     } finally {
       if (prev === undefined) delete process.env.FLEET_JSON_DISABLE_FS;
@@ -172,10 +172,10 @@ describe('canonical fleet — URL resolution', () => {
     assert.equal(op, 'https://op.example.com/health');
   });
 
-  test('resolveFleetJobs yields 21 canonical jobs + watchdog = 22 resolved jobs', () => {
+  test('resolveFleetJobs yields 22 canonical jobs + watchdog = 23 resolved jobs', () => {
     const loaded = loadCanonicalFleet(REPO_ROOT);
     const resolved = resolveFleetJobs(loaded, {});
-    assert.equal(resolved.length, 22);
+    assert.equal(resolved.length, 23);
     assert.equal(resolved.filter((j) => j.isWatchdog).length, 1);
     assert.ok(resolved.every((j) => j.url.startsWith('https://')));
     assert.ok(resolved.every((j) => !j.url.includes('{')));

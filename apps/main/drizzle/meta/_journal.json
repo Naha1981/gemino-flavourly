@@ -148,6 +148,13 @@
       "when": 1787702430000,
       "tag": "0021_loyalty_gps_redemption",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1787702440000,
+      "tag": "0022_booking_reminder_ladder",
+      "breakpoints": true
     }
   ]
 }

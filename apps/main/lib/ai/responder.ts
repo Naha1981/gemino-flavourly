@@ -8,7 +8,7 @@ import {
   waitlistEntries,
   loyaltyTransactions,
 } from '@/lib/db/schema';
-import { eq, and, or, desc } from 'drizzle-orm';
+import { eq, and, or, desc, asc, gt } from 'drizzle-orm';
 import { isOptInMessage, isOptOutMessage } from '@/lib/opt-in-out';
 import { isCancellationRequest, handleCancellationIntent, type CancelIntentStore, type CancelIntentReservation } from './cancel-intent';
 import { markReservationCancelled } from '@/lib/revenue/cancellation-followup';
@@ -28,6 +28,7 @@ import {
   createPendingRewardEvent,
   listRewardCatalog,
 } from '@/lib/customer/reward-claim-store';
+import { buildConfirmationReply } from '@/lib/revenue/reminder-ladder';
 
 const SUPER_ADMIN_EMAILS = `${process.env.SUPER_ADMIN_EMAILS ?? ''},${process.env.ADMIN_EMAIL ?? ''}`
   .split(',')
@@ -255,6 +256,52 @@ export async function processInboundAIResponse(ctx: InboundContext): Promise<str
       { tenantId, contactId, phone, conversationId },
       drizzleCancelIntentStore
     );
+  }
+
+  // 4b. Booking CONFIRM / YES — self-service confirmation. The reminder
+  // ladder asks the guest to reply CONFIRM; this stamps the customer-
+  // confirmed flag on their next upcoming booking (informational for staff
+  // dashboards; the ladder itself keeps running). Runs BEFORE the booking
+  // intent because "confirm my booking" contains the word "book", and
+  // AFTER the cancellation intent because that owns any cancel phrasing.
+  if (
+    ['confirm', 'confirmed', 'yes', 'y', 'c'].includes(lower) ||
+    lower.startsWith('confirm ')
+  ) {
+    const upcoming = await db
+      .select({
+        id: reservations.id,
+        date: reservations.date,
+        partySize: reservations.partySize,
+      })
+      .from(reservations)
+      .where(
+        and(
+          eq(reservations.tenantId, tenantId),
+          eq(reservations.status, 'confirmed'),
+          gt(reservations.date, new Date()),
+          or(eq(reservations.contactId, contactId), eq(reservations.customerPhone, phone))
+        )
+      )
+      .orderBy(asc(reservations.date))
+      .limit(1);
+
+    const next = upcoming[0] ?? null;
+    if (next) {
+      // Idempotent stamp: re-confirming just refreshes the timestamp on the
+      // same booking — never creates rows, never re-sends anything.
+      await db
+        .update(reservations)
+        .set({ customerConfirmedAt: new Date() })
+        .where(eq(reservations.id, next.id))
+        .catch(() => undefined);
+    }
+
+    return buildConfirmationReply({
+      restaurantName: tenant.name,
+      reservationDate: next?.date ?? null,
+      partySize: next?.partySize ?? null,
+    });
   }
 
   // 5. Booking / Reservation Intent

@@ -319,6 +319,21 @@ export const reservations = pgTable(
     // within the last ~26 hours, so backfill noise is impossible).
     reviewRequestSent: boolean('review_request_sent').default(false).notNull(),
     reviewRequestSentAt: timestamp('review_request_sent_at'),
+    // ── O2: 48/24/6h reminder ladder ─────────────────────────────────────
+    //
+    // One nullable timestamp per rung: NULL = not sent, non-NULL = when it
+    // went out. The reminder cron claims a rung atomically
+    // (`WHERE reminderN_sent_at IS NULL`), so overlapping runs can never
+    // double-message a guest. Nullable, no default: every pre-existing row
+    // keeps NULL and is eligible from its next booking onwards.
+    reminder48SentAt: timestamp('reminder48_sent_at'),
+    reminder24SentAt: timestamp('reminder24_sent_at'),
+    reminder6SentAt: timestamp('reminder6_sent_at'),
+    // When the guest replied CONFIRM/YES to a reminder (self-service
+    // confirmation flow). Purely informational for staff dashboards — it
+    // does not stop the ladder, because a confirmation today can still be
+    // followed by a "see you in 6 hours" nudge the guest expects.
+    customerConfirmedAt: timestamp('customer_confirmed_at'),
   },
   (table) => ({
     // The follow-up cron runs every 6 hours against a table that only ever
