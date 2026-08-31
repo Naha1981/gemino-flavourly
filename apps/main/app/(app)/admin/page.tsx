@@ -23,6 +23,12 @@ import { countAllOpportunities } from '@/lib/market/opportunity-store';
 import { toggleGlobalAiAction } from './actions';
 import { CronFleetManager } from '@/components/cron-fleet-manager';
 import { DemoControls } from '@/components/demo-controls';
+import { DemoModeBar } from '@/components/demo-mode-bar';
+import { isDemoModeActive } from '@/lib/demo/demo-mode';
+import {
+  DEMO_PLATFORM_KPIS,
+  DEMO_TENANTS,
+} from '@/lib/demo/seed-data';
 import { cronKeyConfigured } from '@/lib/cron/key-store-server';
 import { loadCanonicalFleet } from '@/lib/cron/canonical-fleet';
 
@@ -38,21 +44,36 @@ export default async function SuperAdminDashboard() {
     redirect('/sign-in');
   }
 
-  // Global metrics from Neon / Drizzle
-  const totalTenantsResult = await db.select({ count: count() }).from(tenants).catch(() => [{ count: 0 }]);
-  const activeConnectionsResult = await db
-    .select({ count: count() })
-    .from(waAccounts)
-    .where(eq(waAccounts.isConnected, true))
-    .catch(() => [{ count: 0 }]);
+  // GATE 2 — Demo Mode: when the (super-admin-gated) demo cookie is on,
+  // every metric below comes from the deterministic seed dataset in
+  // lib/demo/seed-data.ts instead of Neon. The database is never written
+  // to and never read from in this branch — view-only by construction.
+  const demoMode = await isDemoModeActive();
 
-  const totalMessagesResult = await db.select({ count: count() }).from(messages).catch(() => [{ count: 0 }]);
-  const missedRevenueResult = await db
-    .select({ value: sql<number>`COALESCE(SUM(${conversations.estimatedValueCents}), 0)` })
-    .from(conversations)
-    .where(eq(conversations.outcome, 'missed'))
-    .catch(() => [{ value: 0 }]);
-  const recentTenants = await db.select().from(tenants).orderBy(desc(tenants.createdAt)).limit(10).catch(() => []);
+  // Global metrics from Neon / Drizzle — skipped entirely in Demo Mode
+  // (the branch below replaces every business metric with seed values;
+  // only infrastructure controls — kill-switch, cron key, fleet — stay
+  // live so the page remains operable while demoing).
+  const totalTenantsResult = demoMode ? [{ count: 0 }] : await db.select({ count: count() }).from(tenants).catch(() => [{ count: 0 }]);
+  const activeConnectionsResult = demoMode
+    ? [{ count: 0 }]
+    : await db
+        .select({ count: count() })
+        .from(waAccounts)
+        .where(eq(waAccounts.isConnected, true))
+        .catch(() => [{ count: 0 }]);
+
+  const totalMessagesResult = demoMode ? [{ count: 0 }] : await db.select({ count: count() }).from(messages).catch(() => [{ count: 0 }]);
+  const missedRevenueResult = demoMode
+    ? [{ value: 0 }]
+    : await db
+        .select({ value: sql<number>`COALESCE(SUM(${conversations.estimatedValueCents}), 0)` })
+        .from(conversations)
+        .where(eq(conversations.outcome, 'missed'))
+        .catch(() => [{ value: 0 }]);
+  const recentTenantsLive = demoMode
+    ? []
+    : await db.select().from(tenants).orderBy(desc(tenants.createdAt)).limit(10).catch(() => []);
   const settings = await db.query.systemSettings.findFirst().catch(() => null);
   const cronKeyState = await cronKeyConfigured().catch(() => ({ configured: false, source: 'none' as const }));
   // Canonical fleet size for the manager's copy — read from the same loader
@@ -82,12 +103,10 @@ export default async function SuperAdminDashboard() {
   // and both degrade to 0 together when the fetch fails (an empty map is
   // "no data", and 0 is the honest number to show).
   const slowDayWindow = computeSlowDayWindow();
-  const slowDayAggregates = await fetchSlowDayAggregatesByTenant(slowDayWindow.historyStart, slowDayWindow.weekEnd)
-    .catch(() => new Map<string, DayAggregate[]>());
-  const slowDaysDetected = totalSlowDays(
-    Array.from(slowDayAggregates.values()).map((aggregates) => analyzeDayAggregates(aggregates, { now: new Date() }))
-  );
-  const totalPriorityValueCents = totalTopPriorityValueCents(slowDayAggregates, { now: new Date() });
+  const slowDayAggregates = demoMode
+    ? new Map<string, DayAggregate[]>()
+    : await fetchSlowDayAggregatesByTenant(slowDayWindow.historyStart, slowDayWindow.weekEnd)
+        .catch(() => new Map<string, DayAggregate[]>());
 
   // Gate #6 — "Platform Total Opportunity": the sum of every tenant's
   // own total opportunity value (missed enquiries + slow days +
@@ -101,51 +120,111 @@ export default async function SuperAdminDashboard() {
   // a transient query failure rather than crashing.
   const now = new Date();
   const opportunityWindowStart = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const opportunityInputsByTenant = await fetchCrossTenantOpportunityInputs(opportunityWindowStart, now).catch(
-    () => new Map<string, OpportunityInputs>()
-  );
-  const platformOpportunity = calculatePlatformOpportunity(opportunityInputsByTenant, {
-    now,
-    slowDayAggregatesByTenant: slowDayAggregates,
-  });
+  const opportunityInputsByTenant = demoMode
+    ? new Map<string, OpportunityInputs>()
+    : await fetchCrossTenantOpportunityInputs(opportunityWindowStart, now).catch(
+        () => new Map<string, OpportunityInputs>()
+      );
 
   // Gate #8 — one grouped read for the platform-wide segmentation metric.
   // This page is already behind the Super Admin gate, and the store returns
   // zeroes for missing segments so a sparse platform still renders a stable
   // KPI. A transient read failure should not take down the entire overview.
-  const platformSegmentCounts = await fetchCrossTenantSegmentCounts().catch(() => emptySegmentCounts());
+  const platformSegmentCountsLive = demoMode
+    ? emptySegmentCounts()
+    : await fetchCrossTenantSegmentCounts().catch(() => emptySegmentCounts());
 
   // Gate #10 — platform-wide VIP walk-in alerts raised so far today. Staff
   // facing only; degrades to 0 so a transient read failure never takes down
   // the Super Admin overview.
-  const vipAlertsToday = await countVipAlertsToday().catch(() => 0);
+  const vipAlertsTodayLive = demoMode ? 0 : await countVipAlertsToday().catch(() => 0);
 
   // Gate #14 — reputation engine, platform-wide: how many competitors are
   // being tracked across all tenants, and how many rating-drop alerts the
   // daily 7am sweep raised this week. Same degrade-to-0 contract as above.
-  const ratingDropAlertsThisWeek = await countRatingDropAlertsThisWeek().catch(() => 0);
+  const ratingDropAlertsThisWeekLive = demoMode ? 0 : await countRatingDropAlertsThisWeek().catch(() => 0);
 
   // Gates #15-#18 — market intelligence engine, platform-wide: competitors
   // tracked across all tenants, how many of those the rating sweep can poll
   // (they have a Google place id), opportunities detected by the daily sweep,
   // and menu/promotion alerts raised this week. Same degrade-to-0 contract.
-  const competitorsTracked = await countAllMarketCompetitors().catch(() => 0);
-  const ratingMonitoredCompetitors = await countCompetitorsWithPlaceId().catch(() => 0);
-  const marketOpportunities = await countAllOpportunities().catch(() => 0);
-  const marketAlertsThisWeek = await countMarketAlertsThisWeek().catch(() => 0);
+  const competitorsTrackedLive = demoMode ? 0 : await countAllMarketCompetitors().catch(() => 0);
+  const ratingMonitoredCompetitorsLive = demoMode ? 0 : await countCompetitorsWithPlaceId().catch(() => 0);
+  const marketOpportunitiesLive = demoMode ? 0 : await countAllOpportunities().catch(() => 0);
+  const marketAlertsThisWeekLive = demoMode ? 0 : await countMarketAlertsThisWeek().catch(() => 0);
 
-  const totalTenants = totalTenantsResult[0]?.count ?? 0;
-  const activeConnections = activeConnectionsResult[0]?.count ?? 0;
-  const totalMessages = totalMessagesResult[0]?.count ?? 0;
-  const aggregateMissedRevenueCents = Number(missedRevenueResult[0]?.value ?? 0);
+  const totalTenants = demoMode ? DEMO_PLATFORM_KPIS.totalTenants : totalTenantsResult[0]?.count ?? 0;
+  const activeConnections = demoMode ? DEMO_PLATFORM_KPIS.activeSockets : activeConnectionsResult[0]?.count ?? 0;
+  const totalMessages = demoMode ? DEMO_PLATFORM_KPIS.messagesProcessed : totalMessagesResult[0]?.count ?? 0;
+  const aggregateMissedRevenueCents = demoMode
+    ? DEMO_PLATFORM_KPIS.missedRevenueCents
+    : Number(missedRevenueResult[0]?.value ?? 0);
   const aggregateMissedRevenue = aggregateMissedRevenueCents / 100;
   const isMasterAiOn = settings?.masterAiSwitch ?? true;
 
-  // Calculate MRR ($49/month per active tenant)
-  const estMrr = totalTenants * 49;
+  // Demo branch for the computed engines (slow days, opportunity,
+  // segmentation, reputation, market intelligence): the seed dataset
+  // replaces every aggregate wholesale. Live branch: unchanged queries.
+  const slowDaysDetected = demoMode
+    ? DEMO_PLATFORM_KPIS.slowDaysDetected
+    : totalSlowDays(
+        Array.from(slowDayAggregates.values()).map((aggregates) => analyzeDayAggregates(aggregates, { now: new Date() }))
+      );
+  const totalPriorityValueCents = demoMode
+    ? DEMO_PLATFORM_KPIS.totalPriorityValueCents
+    : totalTopPriorityValueCents(slowDayAggregates, { now: new Date() });
+
+  const platformOpportunity = demoMode
+    ? { total_opportunity_cents: DEMO_PLATFORM_KPIS.platformOpportunityCents }
+    : calculatePlatformOpportunity(opportunityInputsByTenant, {
+        now,
+        slowDayAggregatesByTenant: slowDayAggregates,
+      });
+
+  const platformSegmentCounts = demoMode
+    ? {
+        vip: DEMO_PLATFORM_KPIS.segmentVip,
+        regular: DEMO_PLATFORM_KPIS.segmentRegular,
+        at_risk: DEMO_PLATFORM_KPIS.segmentAtRisk,
+        dormant: DEMO_PLATFORM_KPIS.segmentDormant,
+        new: DEMO_PLATFORM_KPIS.segmentNew,
+      }
+    : platformSegmentCountsLive;
+
+  const vipAlertsToday = demoMode ? DEMO_PLATFORM_KPIS.vipAlertsToday : vipAlertsTodayLive;
+  const ratingDropAlertsThisWeek = demoMode
+    ? DEMO_PLATFORM_KPIS.ratingDropAlertsThisWeek
+    : ratingDropAlertsThisWeekLive;
+  const competitorsTracked = demoMode ? DEMO_PLATFORM_KPIS.competitorsTracked : competitorsTrackedLive;
+  const ratingMonitoredCompetitors = demoMode
+    ? DEMO_PLATFORM_KPIS.ratingMonitoredCompetitors
+    : ratingMonitoredCompetitorsLive;
+  const marketOpportunities = demoMode ? DEMO_PLATFORM_KPIS.marketOpportunities : marketOpportunitiesLive;
+  const marketAlertsThisWeek = demoMode ? DEMO_PLATFORM_KPIS.marketAlertsThisWeek : marketAlertsThisWeekLive;
+
+  // Recent tenants table: seed dataset (SA restaurants) or live rows.
+  const recentTenants = demoMode
+    ? DEMO_TENANTS.map((t) => ({
+        id: t.slug,
+        name: t.name,
+        slug: t.slug,
+        aiEnabled: t.aiEnabled,
+        manualMode: t.manualMode,
+        createdAt: new Date(t.joinedDate),
+      }))
+    : recentTenantsLive;
+
+  // MRR display: live uses the $49 pricing copy; demo shows the seed
+  // dataset's ZAR economics (R699/tenant, 24 tenants).
+  const estMrr = demoMode ? DEMO_PLATFORM_KPIS.mrrZar : totalTenants * 49;
+  const mrrDisplay = demoMode ? `R${estMrr.toLocaleString()}` : `$${estMrr.toLocaleString()}`;
+  const mrrTrend = demoMode ? 'R699/mo per tenant' : '$49/mo per tenant';
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6 md:p-10 selection:bg-zinc-800">
+      {/* GATE 2 — Demo Mode banner (only the Super Admin ever gets
+          active=true from the server; the cookie alone fails closed). */}
+      <DemoModeBar active={demoMode} />
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Navigation Bar */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-zinc-800">
@@ -219,7 +298,16 @@ export default async function SuperAdminDashboard() {
         <CronFleetManager initialKeyConfigured={cronKeyState.configured} fleetSize={fleetSize} />
 
         {/* Demo Mode — busy-restaurant seed for screenshots/videos */}
-        <DemoControls initialActive={Boolean(settings?.demoSeedActive)} />
+        {!demoMode && <DemoControls initialActive={Boolean(settings?.demoSeedActive)} />}
+        {demoMode && (
+          <div className="rounded-xl border border-amber-700/40 bg-amber-950/20 p-5 text-sm text-amber-300">
+            <span className="font-semibold">Demo Mode active.</span> Every business metric and tenant row on this
+            page renders from the deterministic seed dataset (lib/demo/seed-data.ts) — the live database is neither
+            read for metrics nor written to. Infrastructure controls (kill-switch, cron fleet) stay live so the page
+            remains operable. The row-seeding Demo Controls are hidden in this mode to keep the two demo tools
+            unambiguous.
+          </div>
+        )}
 
         {/* KPI Grid */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-10">
@@ -243,9 +331,9 @@ export default async function SuperAdminDashboard() {
           />
           <StatCard
             title="Estimated MRR"
-            value={`$${estMrr.toLocaleString()}`}
+            value={mrrDisplay}
             icon={DollarSign}
-            trend="$49/mo per tenant"
+            trend={mrrTrend}
           />
           <StatCard
             title="Missed Revenue Detected"

@@ -6,6 +6,9 @@ import { eq, desc } from 'drizzle-orm';
 import { MessageSquare, Phone, Star, Mail, Instagram, Facebook, Globe, Radio, Check } from 'lucide-react';
 import { getOrCreateTenant } from '@/lib/tenant';
 import { listVipAlerts } from '@/lib/customer/vip-store';
+import { isDemoModeActive } from '@/lib/demo/demo-mode';
+import { DEMO_CONVERSATIONS, DEMO_VIPS } from '@/lib/demo/seed-data';
+import { DemoModeBar } from '@/components/demo-mode-bar';
 
 import Link from 'next/link';
 
@@ -92,30 +95,73 @@ export default async function InboxPage({
 
   const activeChannel = searchParams?.channel ?? '';
 
-  const convos = await db
-    .select({
-      id: conversations.id,
-      contactId: conversations.contactId,
-      contactPhone: contacts.phone,
-      contactName: contacts.name,
-      channel: conversations.channel,
-      outcome: conversations.outcome,
-      lastMessageAt: conversations.lastMessageAt,
-    })
-    .from(conversations)
-    .leftJoin(contacts, eq(conversations.contactId, contacts.id))
-    .where(eq(conversations.tenantId, tenantId))
-    .orderBy(desc(conversations.lastMessageAt))
-    .catch(() => []);
+  // GATE 2 — Demo Mode (super-admin gated; standard tenants always get
+  // the live branch and never even see the banner).
+  const demoMode = await isDemoModeActive();
+
+  const convos = demoMode
+    ? DEMO_CONVERSATIONS.map((c) => ({
+        id: c.id,
+        contactId: null as string | null,
+        contactPhone: c.phone,
+        contactName: c.contactName,
+        channel: c.channel as string,
+        // Seed statuses map onto the live outcome vocabulary the
+        // ConvoBadge already renders: pending → needs action, closed →
+        // AI answered, open/waiting → draft ready.
+        outcome: c.status === 'pending' ? 'missed' : c.status === 'closed' ? 'handled' : null,
+        lastMessageAt: null as Date | null,
+        demoLastActive: c.lastActive,
+      }))
+    : (
+        await db
+          .select({
+            id: conversations.id,
+            contactId: conversations.contactId,
+            contactPhone: contacts.phone,
+            contactName: contacts.name,
+            channel: conversations.channel,
+            outcome: conversations.outcome,
+            lastMessageAt: conversations.lastMessageAt,
+          })
+          .from(conversations)
+          .leftJoin(contacts, eq(conversations.contactId, contacts.id))
+          .where(eq(conversations.tenantId, tenantId))
+          .orderBy(desc(conversations.lastMessageAt))
+          .catch(
+            () =>
+              [] as Array<{
+                id: string;
+                contactId: string | null;
+                contactPhone: string | null;
+                contactName: string | null;
+                channel: string | null;
+                outcome: string | null;
+                lastMessageAt: Date | null;
+              }>
+          )
+      ).map((r) => ({ ...r, demoLastActive: undefined as string | undefined }));
 
   const filtered = activeChannel
     ? convos.filter((c) => (c.channel ?? 'whatsapp') === activeChannel)
     : convos;
 
-  const vipAlerts = await listVipAlerts(tenantId, 5, 0).catch(() => []);
+  const vipAlerts = demoMode
+    ? DEMO_VIPS.map((v) => ({
+        id: `demo-vip-${v.phone}`,
+        customerName: v.name,
+        customerPhone: v.phone,
+        totalVisits: v.visits,
+        totalSpendCents: v.lifetimeSpendCents,
+        preferences: { dietary: [] as string[], favorites: [v.favourite] },
+        lastVisitAt: new Date(v.lastVisit),
+      }))
+    : await listVipAlerts(tenantId, 5, 0).catch(() => []);
 
   return (
     <div className="space-y-4">
+      {/* GATE 2 — demo banner (super-admin demo mode only) */}
+      {demoMode && <DemoModeBar active />}
       {/* Header row: AI Revenue Employee status */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
@@ -224,7 +270,7 @@ export default async function InboxPage({
                             {c.contactName || c.contactPhone}
                           </span>
                           <span className="label-sm shrink-0 text-app-faint dark:text-zinc-500">
-                            {c.lastMessageAt?.toLocaleDateString()}
+                            {c.demoLastActive ?? c.lastMessageAt?.toLocaleDateString() ?? ''}
                           </span>
                         </div>
                         <div className="mt-1 flex items-center justify-between gap-2">
@@ -262,11 +308,33 @@ export default async function InboxPage({
                 <h3 className="text-sm font-semibold text-app-fg dark:text-zinc-100">
                   {filtered[0].contactName || filtered[0].contactPhone}
                 </h3>
+                {demoMode && (
+                  <span className="label-sm ml-auto truncate text-app-faint dark:text-zinc-500">
+                    {DEMO_CONVERSATIONS[0].subject}
+                  </span>
+                )}
               </div>
               <div className="flex-1 space-y-4 overflow-y-auto p-4">
-                <div className="py-8 text-center text-xs text-app-faint dark:text-zinc-500">
-                  Conversation thread active. AI is auto-replying to customer inquiries.
-                </div>
+                {demoMode ? (
+                  DEMO_CONVERSATIONS[0].transcript.map((m, i) => (
+                    <div key={i} className={`flex ${m.from === 'customer' ? 'justify-start' : 'justify-end'}`}>
+                      <div
+                        className={`max-w-[80%] rounded-2xl px-3.5 py-2.5 text-xs leading-relaxed ${
+                          m.from === 'customer'
+                            ? 'bg-app-surface-2 text-app-fg dark:bg-zinc-800 dark:text-zinc-100'
+                            : 'bg-app-secondary-container text-app-on-secondary-container dark:bg-emerald-900/40 dark:text-emerald-100'
+                        }`}
+                      >
+                        <p>{m.text}</p>
+                        <span className="mt-1 block text-right text-[10px] opacity-60">{m.at}</span>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="py-8 text-center text-xs text-app-faint dark:text-zinc-500">
+                    Conversation thread active. AI is auto-replying to customer inquiries.
+                  </div>
+                )}
               </div>
               <div className="border-t border-app-border bg-app-surface-0 p-4 dark:border-zinc-800 dark:bg-zinc-950">
                 <input

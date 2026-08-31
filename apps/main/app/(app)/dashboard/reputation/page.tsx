@@ -11,6 +11,9 @@ import {
 } from '@/lib/reputation/review-store';
 import type { ReviewSentiment } from '@/lib/reputation/google-places-client';
 import { ReviewCard } from './review-card';
+import { isDemoModeActive } from '@/lib/demo/demo-mode';
+import { DEMO_REVIEWS } from '@/lib/demo/seed-data';
+import { DemoModeBar } from '@/components/demo-mode-bar';
 
 export const dynamic = 'force-dynamic';
 
@@ -56,16 +59,53 @@ export default async function ReputationPage({ searchParams }: ReputationPagePro
       ? (rawSentiment as ReviewSentiment)
       : undefined;
 
-  const [reviews, total, average, byRating, bySentiment] = await Promise.all([
-    getReviews(tenant.id, 50, 0, { rating, sentiment }),
-    countReviews(tenant.id, { rating, sentiment }),
-    getAverageRating(tenant.id),
-    countByRating(tenant.id),
-    sentimentBreakdown(tenant.id),
-  ]);
+  // GATE 2 — Demo Mode (super-admin gated): every metric and review row
+  // renders from the deterministic seed dataset; the live review store is
+  // neither queried nor written. Standard tenants always get the live
+  // branch (and never see the banner).
+  const demoMode = await isDemoModeActive();
+
+  const [reviews, total, average, byRating, bySentiment] = demoMode
+    ? (() => {
+        const demoAll = DEMO_REVIEWS.filter(
+          (r) => (!rating || r.rating === rating) && (!sentiment || r.sentiment === sentiment)
+        );
+        const dist: Record<number, number> = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+        for (const r of DEMO_REVIEWS) dist[r.rating] = (dist[r.rating] ?? 0) + 1;
+        const sent = { positive: 0, neutral: 0, negative: 0 };
+        for (const r of DEMO_REVIEWS) sent[r.sentiment] += 1;
+        const avg =
+          DEMO_REVIEWS.reduce((a, r) => a + r.rating, 0) / (DEMO_REVIEWS.length || 1);
+        return [
+          demoAll.map((r, i) => ({
+            id: `demo-review-${i}`,
+            reviewId: `demo-review-${i}`,
+            authorName: r.reviewer,
+            rating: r.rating,
+            sentiment: r.sentiment,
+            text: r.text,
+            time: new Date(r.date),
+            responseText: r.replied ? 'Thank you for the feedback — see you again soon! — Marble' : '',
+            responseSentAt: r.replied ? new Date(r.date) : null,
+          })),
+          demoAll.length,
+          avg,
+          dist,
+          sent,
+        ] as const;
+      })()
+    : await Promise.all([
+        getReviews(tenant.id, 50, 0, { rating, sentiment }),
+        countReviews(tenant.id, { rating, sentiment }),
+        getAverageRating(tenant.id),
+        countByRating(tenant.id),
+        sentimentBreakdown(tenant.id),
+      ]);
 
   return (
     <div className="space-y-6">
+      {/* GATE 2 — demo banner (super-admin demo mode only) */}
+      {demoMode && <DemoModeBar active />}
       <div className="flex flex-col gap-4 border-b border-zinc-800 pb-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-zinc-50">
