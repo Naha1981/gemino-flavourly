@@ -49,6 +49,16 @@ const PUBLIC_PREFIXES: string[] = [
   // watchdog. They expose no tenant data, so they must never be behind
   // auth() — an auth-gated health endpoint reports a healthy app as down.
   '/api/health',
+  // PayFast ITN (Instant Transaction Notification) posts here directly from
+  // PayFast's servers with no Clerk session. The route's comment says "NO
+  // Clerk auth: PayFast posts here directly" and authenticates via the
+  // MD5 signature instead — but this list is what middleware actually
+  // consults, and /api/billing was missing from it, so `auth().protect()`
+  // answered PayFast's unauthenticated server-to-server POST with a 404:
+  // every payment notification was dropped before the signature check
+  // could ever run. Scoped to the webhook path ONLY — checkout/cancel
+  // under /api/billing/* still require a signed-in tenant.
+  '/api/billing/webhook',
 ];
 
 /**

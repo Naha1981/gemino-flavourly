@@ -1,4 +1,4 @@
-import { createHash, randomUUID } from 'crypto';
+import { createHash, randomUUID, timingSafeEqual } from 'crypto';
 import { and, eq, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { tenants } from '@/lib/db/schema';
@@ -64,29 +64,75 @@ interface PayFastField {
   value: string;
 }
 
+/**
+ * PayFast signs with PHP `urlencode()` semantics (RFC 1738), which differs
+ * from JS `encodeURIComponent` in exactly the ways below. Any signed value
+ * containing a space — `item_name` always does — produced a different MD5
+ * digest with the JS encoder, so PayFast rejected the form / we rejected
+ * the ITN even though "the same" algorithm appeared to run on both sides.
+ *
+ *   PHP urlencode: space -> '+', and ! ' ( ) * ~ are percent-encoded
+ *   JS encodeURICompoent: space -> '%20', ! ' ( ) * ~ left as-is
+ */
+function phpUrlEncode(value: string): string {
+  return encodeURIComponent(value)
+    .replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase())
+    .replace(/%20/g, '+')
+    .replace(/~/g, '%7E');
+}
+
+/**
+ * PayFast's documented signing input: every NON-EMPTY field, keys sorted
+ * alphabetically, PHP-style urlencoded, ampersand-joined, with the
+ * passphrase appended (also urlencoded) when one is set.
+ *
+ * Empty fields are OMITTED (their PHP reference skips empty values);
+ * including them as `key=` changed the digest whenever PayFast sent an
+ * unset custom_str field or a blank name field, so a valid ITN failed
+ * verification.
+ */
+function payfastSignatureInput(data: Record<string, string>, passphrase: string): string {
+  const keys = Object.keys(data)
+    .filter((k) => data[k] !== undefined && data[k] !== '')
+    .sort();
+  const pairs = keys.map((k) => `${phpUrlEncode(k)}=${phpUrlEncode(data[k] ?? '')}`);
+  const raw = pairs.join('&') + (passphrase ? `&passphrase=${phpUrlEncode(passphrase)}` : '');
+  return raw;
+}
+
+function md5Hex(input: string): string {
+  return createHash('md5').update(input).digest('hex');
+}
+
+function signaturesEqual(expected: string, provided: string): boolean {
+  const a = Buffer.from(expected, 'utf8');
+  const b = Buffer.from(provided, 'utf8');
+  return a.length === b.length && timingSafeEqual(a, b);
+}
+
+/**
+ * PayFast ITN signature: md5 of the signature input (see above).
+ */
+function buildSignature(data: Record<string, string>, passphrase: string): string {
+  return md5Hex(payfastSignatureInput(data, passphrase));
+}
+
+/**
+ * Build the signature the payment/redirect path uses. PayFast requires the
+ * passphrase in the signature for BOTH the payment form and the ITN
+ * whenever a passphrase is set on the merchant account — the previous
+ * version omitted it here only, so PayFast rejected every checkout form
+ * with "signature mismatch" while the ITN verifier (which did include it)
+ * stayed internally consistent. Both paths now share one algorithm.
+ */
+function buildPaymentSignature(data: Record<string, string>): string {
+  return md5Hex(payfastSignatureInput(data, PASSPHRASE));
+}
+
 function payfastFields(fields: PayFastField[]): string {
   return fields
     .map(({ name, value }) => `${encodeURIComponent(name)}=${encodeURIComponent(value)}`)
     .join('&');
-}
-
-/**
- * PayFast ITN signature: md5 of the urlencoded query string (fields sorted,
- * ampersand-joined) + the passphrase appended verbatim.
- */
-function buildSignature(data: Record<string, string>, passphrase: string): string {
-  const keys = Object.keys(data).sort();
-  const pairs = keys.map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(data[k] ?? '')}`);
-  const raw = pairs.join('&') + (passphrase ? `&passphrase=${encodeURIComponent(passphrase)}` : '');
-  return createHash('md5').update(raw).digest('hex');
-}
-
-/** Build the signature the payment/redirect path uses (no passphrase in URL). */
-function buildPaymentSignature(data: Record<string, string>): string {
-  const keys = Object.keys(data).sort();
-  const pairs = keys.map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(data[k] ?? '')}`);
-  const raw = pairs.join('&');
-  return createHash('md5').update(raw).digest('hex');
 }
 
 export class PayFastProvider implements BillingProvider {
@@ -111,20 +157,22 @@ export class PayFastProvider implements BillingProvider {
       return_url: returnUrl,
       cancel_url: `${appUrl}/dashboard/billing?cancel=1`,
       notify_url: `${appUrl}/api/billing/webhook`,
-      name_first: '',
-      name_last: '',
-      email_address: '',
-      cell_number: '',
       m_payment_id: mPaymentId,
       amount: (amountCents / 100).toFixed(2),
       item_name: `Gemino ${tier} — monthly subscription`,
       item_description: `Gemino ${tier} plan${setupCents ? ` (setup R${(setupCents / 100).toFixed(2)})` : ''}`,
-      // Tokenization + recurring: subscription=true, recurring_type=1 (subscription),
-      // frequency=3 (monthly), cycles=0 (indefinite).
-      custom_int1: '1',
-      custom_int2: String(INTERVAL_MONTHLY),
-      custom_int3: '0',
-      custom_int4: '0',
+      // Recurring billing per PayFast's subscription spec. The previous
+      // payload invented `subscription=true` / `recurring_type` (not PayFast
+      // fields) and stuffed the intent into `custom_int1..4`, which are
+      // inert passthrough variables — so every checkout was a plain ONCE-OFF
+      // payment: no recurring charge ever ran, and the ITN carried no
+      // `token`, so `payfastSubscriptionToken` was never recorded.
+      // subscription_type=1 (frequency-based), recurring_amount = the
+      // monthly fee, frequency=3 (monthly), cycles=0 (until cancelled).
+      subscription_type: '1',
+      recurring_amount: (amountCents / 100).toFixed(2),
+      frequency: String(INTERVAL_MONTHLY),
+      cycles: '0',
       custom_str1: tenantId,
       custom_str2: tier,
       custom_str3: mPaymentId,
@@ -199,12 +247,15 @@ export class PayFastProvider implements BillingProvider {
     }
 
     const expected = buildSignature(data, PASSPHRASE);
-    if (expected !== signature) {
+    if (!signaturesEqual(expected, signature)) {
       throw new Error('PayFast ITN signature mismatch — webhook rejected.');
     }
 
-    // merchant_id must match our own.
-    if (data.merchant_id && data.merchant_id !== MERCHANT_ID) {
+    // merchant_id must match our own — unconditionally. An ITN that omits
+    // merchant_id used to skip this check; now it is rejected instead
+    // (the signature already proves the sender knows the passphrase, so a
+    // missing merchant_id here can only be malformed or hostile).
+    if (data.merchant_id !== MERCHANT_ID) {
       throw new Error('PayFast ITN merchant_id mismatch.');
     }
 
@@ -251,6 +302,20 @@ export class PayFastProvider implements BillingProvider {
     }
 
     if (paymentStatus === 'failed' || paymentStatus === 'cancelled') {
+      // A failed/cancelled payment only dethrones a tenant that actually has
+      // a subscription (or was already activated) — i.e. a failed RENEWAL.
+      // A still-trialing tenant with no token is a prospect whose FIRST
+      // payment attempt failed (card declined) or who aborted the PayFast
+      // page (CANCELLED). Flipping them to past_due/canceled used to destroy
+      // the remaining trial they had already been granted — a conversion
+      // killer, not a compliance requirement.
+      const isSubscriber = !!existing.payfastSubscriptionToken || existing.planStatus === 'active';
+      if (!isSubscriber) {
+        console.warn(
+          `[Billing] Tenant ${tenantId} first payment ${paymentStatus} (PayFast ${pfPaymentId}) — trial left intact.`
+        );
+        return { ok: true };
+      }
       const newStatus = paymentStatus === 'cancelled' ? 'canceled' : 'past_due';
       await db
         .update(tenants)

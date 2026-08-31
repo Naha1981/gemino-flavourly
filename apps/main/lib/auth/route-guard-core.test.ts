@@ -119,6 +119,27 @@ describe('route guard — /api/health is public and unauthenticated', () => {
   });
 });
 
+describe('route guard — PayFast ITN webhook is public, the rest of billing is not', () => {
+  // PayFast POSTs the ITN server-to-server with no Clerk session; the route
+  // authenticates via the MD5 signature. If the middleware protects this
+  // path, auth().protect() answers the unauthenticated POST with a 404 and
+  // every payment notification is silently dropped.
+  test('/api/billing/webhook is public', () => {
+    assert.equal(isPublicPath('/api/billing/webhook'), true);
+    assert.deepEqual(guardRequest({ rawPath: '/api/billing/webhook', clerkConfigured: true }), {
+      action: 'pass',
+    });
+  });
+
+  test('/api/billing/checkout and /api/billing/cancel stay protected', () => {
+    assert.equal(isPublicPath('/api/billing/checkout'), false);
+    assert.equal(isPublicPath('/api/billing/cancel'), false);
+    assert.deepEqual(guardRequest({ rawPath: '/api/billing/checkout', clerkConfigured: true }), {
+      action: 'protect',
+    });
+  });
+});
+
 describe('route guard — clerkIsConfigured', () => {
   test('accepts well-formed pk_test_ / pk_live_ keys', () => {
     assert.equal(clerkIsConfigured({ NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: 'pk_test_ZHVtbXk' }), true);

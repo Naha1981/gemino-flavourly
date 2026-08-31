@@ -72,14 +72,28 @@ const clerkAwareMiddleware = clerkMiddleware((auth, request) => {
   auth().protect();
 
   // S4 — forward the explicit ?tenant= selection to server components as a
-  // request header: App Router layouts never receive searchParams, and the
+  // REQUEST header: App Router layouts never receive searchParams, and the
   // dashboard layout resolves its tenant through lib/tenant-resolver, which
   // reads this header as priority #1.
-  const response = NextResponse.next();
+  //
+  // The forwarding must go through NextResponse.next({ request: { headers } })
+  // — that is the documented contract for mutating what the downstream
+  // handler sees. The previous form (setting `x-tenant-param` as a RESPONSE
+  // header on a plain NextResponse.next()) only worked by accident: `next
+  // start`'s router happens to copy middleware response headers into the
+  // request, which nothing guarantees on other deployment targets (Vercel).
+  // The header is also DELETED when there is no ?tenant= so a client cannot
+  // spoof priority-1 selection by sending `x-tenant-param` directly — the
+  // resolver's isolation guard still gates any id on an actual grant, but
+  // the priority itself shouldn't be client-settable either.
+  const headers = new Headers(request.headers);
   const tenantParam = request.nextUrl.searchParams.get('tenant');
   if (tenantParam) {
-    response.headers.set('x-tenant-param', tenantParam);
+    headers.set('x-tenant-param', tenantParam);
+  } else {
+    headers.delete('x-tenant-param');
   }
+  const response = NextResponse.next({ request: { headers } });
   response.headers.set('x-route-guard', 'protected');
   return response;
 });

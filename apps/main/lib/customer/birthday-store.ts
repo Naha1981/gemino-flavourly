@@ -1,4 +1,4 @@
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { contacts, marketingCampaigns, tenants, waAccounts, jobs } from '@/lib/db/schema';
 import { selectBirthdayRewards, type BirthdayContactLike } from './birthday-rewards';
@@ -23,10 +23,14 @@ export async function runBirthdayRewards(now = new Date()): Promise<BirthdayCron
   const result: BirthdayCronResult = { candidates: 0, rewarded: 0, skippedBlocked: 0, samples: [] };
 
   for (const tenant of allTenants) {
+    // POPIA: only contacts that are NOT blocklisted. `contacts.blocklisted`
+    // is boolean NOT NULL DEFAULT false, so `isNull(...)` matched zero rows
+    // and silently killed the whole birthday cron — every other store uses
+    // eq(contacts.blocklisted, false), which is the correct form.
     const rows = await db
       .select()
       .from(contacts)
-      .where(and(eq(contacts.tenantId, tenant.id), isNull(contacts.blocklisted)));
+      .where(and(eq(contacts.tenantId, tenant.id), eq(contacts.blocklisted, false)));
 
     const like: BirthdayContactLike[] = rows.map((c) => ({
       id: c.id,

@@ -34,7 +34,15 @@ COPY --from=builder /app/dist ./dist
 
 EXPOSE 3001
 
+# busybox wget (node:20-alpine) does NOT support GNU wget's --no-verbose /
+# --tries long flags — the check exited non-zero on every run, leaving the
+# container permanently "unhealthy" in plain Docker deployments (Render
+# ignores Docker HEALTHCHECK and uses its own health path, which is why
+# production never noticed). Use busybox-compatible short flags.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget --no-verbose --tries=1 --spider http://localhost:3001/health || exit 1
+  CMD wget -q -T 4 -O /dev/null http://localhost:3001/health || exit 1
+
+# Don't run the WhatsApp engine as root.
+USER node
 
 CMD ["node", "dist/index.js"]

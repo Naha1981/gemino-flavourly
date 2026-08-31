@@ -12,6 +12,20 @@ const pool = new Pool({
   ssl: process.env.DATABASE_URL?.includes('neon.tech') || process.env.DATABASE_URL?.includes('sslmode=require')
     ? { rejectUnauthorized: false }
     : undefined,
+  // Fail fast instead of queueing forever when the DB is slow/unreachable —
+  // during a mass reconnect, 100 sockets × creds/keys writes would otherwise
+  // pile up unboundedly on a saturated pool.
+  connectionTimeoutMillis: 10_000,
+});
+
+// MANDATORY per node-postgres: an error on an IDLE pooled client (Neon
+// auto-suspend dropping the connection, a network blip, a backend restart)
+// is emitted on the pool itself. With no 'error' listener, EventEmitter
+// rethrows — an uncaught exception that killed the whole operator process
+// and dropped every tenant's live socket. Log it; the pool replaces the
+// dead client on its own.
+pool.on('error', (err) => {
+  console.error('[db] idle client error (pool will recover):', err.message);
 });
 
 export async function getWaAccount(waAccountId: string) {

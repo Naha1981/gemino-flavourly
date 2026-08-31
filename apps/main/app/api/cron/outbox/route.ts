@@ -90,8 +90,8 @@ export async function GET(req: NextRequest) {
   let failCount = 0;
 
   for (const job of pendingJobs) {
-    // Atomically claim the job: only proceed if it's still 'pending' at
-    // the moment of this UPDATE. Previously this was fetch-then-write
+    // Atomically claim the job: only proceed if it's still 'pending' AND
+    // still due at the moment of this UPDATE. Previously this was fetch-then-write
     // as two separate steps (findMany above, then an unconditional
     // UPDATE ... WHERE id = job.id) — if two cron invocations
     // overlapped (a manual retrigger during a scheduled run, a slow
@@ -102,10 +102,17 @@ export async function GET(req: NextRequest) {
     // claim atomic at the database level: only one concurrent caller's
     // UPDATE actually matches a row and gets it back from RETURNING;
     // the other gets nothing and skips it.
+    //
+    // The nextRunAt condition matters for the same reason: a run whose
+    // snapshot predates a deferral (hourly tier limit → +10 min) or a
+    // failure-backoff reset would otherwise claim a job that is 'pending'
+    // but NOT due yet, collapsing the backoff and defeating the rate-limit
+    // deferral under overlapping runs. Re-checking "due" at claim time is
+    // what makes the defer actually stick.
     const [claimed] = await db
       .update(jobs)
       .set({ status: 'processing', updatedAt: new Date() })
-      .where(and(eq(jobs.id, job.id), eq(jobs.status, 'pending')))
+      .where(and(eq(jobs.id, job.id), eq(jobs.status, 'pending'), lte(jobs.nextRunAt, now)))
       .returning();
     if (!claimed) continue;
 
@@ -162,8 +169,10 @@ export async function GET(req: NextRequest) {
       const nextAttempt = job.attempts + 1;
       const isExhausted = nextAttempt >= job.maxAttempts;
 
-      // Exponential backoff: 10s, 30s, 90s, 270s...
-      const delayMs = Math.pow(3, nextAttempt) * 10000;
+      // Exponential backoff: 10s, 30s, 90s, 270s... (3^attempts × 10s,
+      // starting from the CURRENT attempt count, so the first retry after
+      // attempts=0 is the documented 10s — not 30s).
+      const delayMs = Math.pow(3, job.attempts) * 10000;
       const nextRunAt = new Date(Date.now() + delayMs);
 
       await db

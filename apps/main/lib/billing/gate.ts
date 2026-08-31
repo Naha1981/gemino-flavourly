@@ -28,6 +28,7 @@ export interface BillingGateResult {
   reason:
     | 'trial_active'
     | 'subscription_active'
+    | 'active_no_token'
     | 'lapsed'
     | 'past_due'
     | 'canceled'
@@ -86,6 +87,26 @@ export function decideBillingGate(
       allowed: true,
       readOnly: false,
       reason: 'subscription_active',
+      planStatus: status,
+      trialEndsAt,
+      hasSubscription,
+      trialDaysLeft,
+    };
+  }
+
+  // Active status, no subscription token yet, but the trial is still
+  // running → allowed. This is the state a tenant lands in the moment a
+  // payment is recorded but the token hasn't been delivered/persisted yet
+  // (or a once-off payment that carried no token). Previously it matched NO
+  // branch below and fell through to the catch-all denial — a customer who
+  // paid mid-trial was instantly cut off from sending for the rest of the
+  // trial they had already been granted, which is the single worst moment
+  // to lock a paying user out.
+  if (status === 'active' && !hasSubscription && trialActive) {
+    return {
+      allowed: true,
+      readOnly: false,
+      reason: 'active_no_token',
       planStatus: status,
       trialEndsAt,
       hasSubscription,

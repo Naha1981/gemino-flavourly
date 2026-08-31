@@ -35,7 +35,10 @@ describe('approval workflow — webhook gates AI auto-send', () => {
 
   test('an auto_send decision enqueues to the outbox', () => {
     assert.match(src, /outcome === 'auto_send'/);
-    assert.match(src, /enqueueOutboundMessage\(tenantId, waAccountId, fromPhone, aiReply\)/);
+    // The originating message row's id must ride along in the job payload so
+    // the outbox can reconcile delivery status (sent/failed) onto it —
+    // without it every AI reply stayed 'queued' forever in the inbox.
+    assert.match(src, /enqueueOutboundMessage\(tenantId, waAccountId, fromPhone, aiReply, outboundMessage\.id\)/);
   });
 
   test('a require_approval decision holds the message instead of sending it', () => {

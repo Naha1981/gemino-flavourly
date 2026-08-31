@@ -61,6 +61,21 @@ describe('decideBillingGate — subscription', () => {
     assert.equal(gate.allowed, false);
     assert.equal(gate.readOnly, true);
   });
+
+  test('active tenant without a token but with a live trial is ALLOWED (payment recorded mid-trial)', () => {
+    // Regression: this state previously matched no branch and fell through
+    // to the catch-all denial — a customer who paid during their trial was
+    // locked out immediately. The payment is recorded (active) and the trial
+    // they were granted is still running, so sending must continue.
+    const gate = decideBillingGate(
+      { planStatus: 'active', trialEndsAt: daysFromNow(7) },
+      NOW
+    );
+    assert.equal(gate.allowed, true);
+    assert.equal(gate.readOnly, false);
+    assert.equal(gate.reason, 'active_no_token');
+    assert.equal(gate.hasSubscription, false);
+  });
 });
 
 describe('decideBillingGate — past_due / canceled', () => {

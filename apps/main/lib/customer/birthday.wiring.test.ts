@@ -27,6 +27,10 @@ describe('birthday rewards — cron wiring', () => {
     const src = code(STORE);
     assert.match(src, /selectBirthdayRewards\(/);
     assert.match(src, /type: 'send_whatsapp'/); // outbox job
-    assert.match(src, /isNull\(contacts\.blocklisted\)/); // POPIA filter
+    // POPIA filter: `blocklisted` is NOT NULL, so the filter must be
+    // eq(..., false) — isNull(...) on a NOT NULL column matches zero rows
+    // (the old form silently disabled the entire birthday cron).
+    assert.match(src, /eq\(contacts\.blocklisted,\s*false\)/);
+    assert.doesNotMatch(src, /isNull\(contacts\.blocklisted\)/);
   });
 });

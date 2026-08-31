@@ -30,7 +30,13 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://flavourly.app';
+  // Same fallback domain as lib/billing/payfast.ts uses for cancel_url and
+  // notify_url. These two previously disagreed ('flavourly.app' here vs
+  // 'gemino.app' there), so with NEXT_PUBLIC_APP_URL unset the return_url
+  // pointed at a different domain than the rest of the checkout — and the
+  // notify_url fallback silently misdirected PayFast's ITN. One constant,
+  // imported, so they can never drift apart again.
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? 'https://gemino.app';
   const returnUrl =
     typeof body.return_url === 'string' && body.return_url
       ? body.return_url

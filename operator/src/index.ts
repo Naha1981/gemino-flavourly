@@ -135,3 +135,17 @@ function shutdown(signal: string) {
 process.on('SIGTERM', () => shutdown('SIGTERM'));
 process.on('SIGINT', () => shutdown('SIGINT'));
 
+// Last-resort safety nets. This process holds up to ~100 live WhatsApp
+// sockets; Node 20's default on an unhandled rejection is to TERMINATE,
+// which drops every tenant's session mid-flight for the sake of one bad
+// promise. The known async gaps (Baileys ev handlers, route handlers, the
+// pg pool) are each wrapped at their source now — these handlers exist so
+// the NEXT unknown gap produces a loud log line instead of a mass
+// disconnect.
+process.on('unhandledRejection', (reason) => {
+  logger.error({ err: reason }, 'Unhandled rejection — logged, process kept alive for tenant sockets');
+});
+process.on('uncaughtException', (err) => {
+  logger.error({ err }, 'Uncaught exception — logged; attempting to continue');
+});
+

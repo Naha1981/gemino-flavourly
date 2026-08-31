@@ -11,7 +11,7 @@ import {
 } from '@/lib/db/schema';
 import { and, eq, gte, count } from 'drizzle-orm';
 import { processInboundAIResponse } from '@/lib/ai/responder';
-import { isOptInMessage } from '@/lib/opt-in-out';
+import { isOptInMessage, isOptOutMessage } from '@/lib/opt-in-out';
 import { verifyWebhookSignature } from '@/lib/webhook/verify';
 import { isReactivationBookingReply } from '@/lib/customer/reactivation';
 import { markLatestCampaignResponded } from '@/lib/customer/reactivation-store';
@@ -28,11 +28,21 @@ export const maxDuration = 30;
 // WEBHOOK_SECRET is unset, replacing the previous
 // `NODE_ENV !== 'production'` bypass — see that file for the rationale.
 
-async function enqueueOutboundMessage(tenantId: string, waAccountId: string, to: string, text: string) {
+async function enqueueOutboundMessage(
+  tenantId: string,
+  waAccountId: string,
+  to: string,
+  text: string,
+  messageId?: string
+) {
   await db.insert(jobs).values({
     tenantId,
     type: 'send_whatsapp',
-    payload: { waAccountId, to, text },
+    // messageId links the job back to the originating messages row so the
+    // outbox can mirror 'sent'/'failed' onto it. Without it the row stays
+    // 'queued' forever in the inbox even after successful delivery — the
+    // manual-reply route already passes it, this is the path that didn't.
+    payload: { waAccountId, to, text, messageId },
     status: 'pending',
     nextRunAt: new Date(),
   });
@@ -165,6 +175,29 @@ export async function POST(req: NextRequest) {
   // into a buggier word-boundary version.
   if (contact.blocklisted && !isOptInMessage(textContent)) {
     return NextResponse.json({ ok: true, note: 'User is blocklisted / unsubscribed' });
+  }
+
+  // 4b. POPIA compliance commands are honoured UNCONDITIONALLY — before the
+  // manual-takeover, AI-suppressed, rate-limit and billing gates below.
+  // Previously the ONLY writer of contacts.blocklisted was
+  // processInboundAIResponse, which returns early (before its opt-out
+  // branch) when the tenant has AI off, is in manual mode, is past-due, or
+  // when this thread is in manual takeover or tripped the inbound rate
+  // limit. In every one of those states a customer texting STOP was still
+  // recorded as an ordinary message and NEVER blocklisted — while every
+  // automated sender (reactivation, birthday, campaigns) kept messaging
+  // them. A compliance command must be honoured regardless of whether the
+  // tenant can currently afford to send a confirmation; the responder's
+  // own opt-out branch below remains as the (idempotent) second writer on
+  // the path where a confirmation reply is actually generated.
+  if (isOptOutMessage(textContent)) {
+    await db.update(contacts).set({ blocklisted: true }).where(eq(contacts.id, contact.id));
+    contact.blocklisted = true;
+    console.log(`[POPIA] ${fromPhone} opted out (tenant ${tenantId}) — blocklisted.`);
+  } else if (isOptInMessage(textContent)) {
+    await db.update(contacts).set({ blocklisted: false }).where(eq(contacts.id, contact.id));
+    contact.blocklisted = false;
+    console.log(`[POPIA] ${fromPhone} opted back in (tenant ${tenantId}).`);
   }
 
   // 5. Upsert Conversation
@@ -338,8 +371,9 @@ export async function POST(req: NextRequest) {
       .returning();
 
     if (decision.outcome === 'auto_send') {
-      // Enqueue to Outbox table for immediate delivery
-      await enqueueOutboundMessage(tenantId, waAccountId, fromPhone, aiReply);
+      // Enqueue to Outbox table for immediate delivery. Pass the originating
+      // message row's id so the outbox can reconcile its delivery status.
+      await enqueueOutboundMessage(tenantId, waAccountId, fromPhone, aiReply, outboundMessage.id);
     } else {
       // Drop it into the approval queue instead of sending. The outbound
       // message row above is the source of truth the owner reviews.

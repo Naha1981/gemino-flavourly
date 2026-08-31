@@ -4,24 +4,45 @@ import { createHash } from 'crypto';
 import type { BillingProvider, WebhookResult } from './provider.ts';
 
 /**
- * PayFast checkout payload wiring tests.
+ * PayFast checkout payload + signature wiring tests.
  *
  * The real PayFastProvider.verifyAndParseWebhook needs DB + env. We test the
- * security-critical signature math directly against the documented PayFast
- * algorithm (md5 of sorted urlencoded fields + passphrase), then exercise the
- * provider's decision through a fake that reuses the same building blocks.
+ * security-critical signature math directly against PayFast's DOCUMENTED
+ * algorithm (md5 of sorted, non-empty, PHP-urlencoded fields + passphrase),
+ * then exercise the provider's decision through a fake that reuses the same
+ * building blocks.
+ *
+ * The mirrors below intentionally encode the rules that are easy to get
+ * wrong and that the production code previously got wrong:
+ *   - empty fields are EXCLUDED from the signature input
+ *   - values are encoded with PHP urlencode semantics (space -> '+')
+ *   - the passphrase is appended for BOTH the payment form and the ITN
  */
 
 const PASSPHRASE = 'gemino-passphrase';
 const MERCHANT_ID = '10000100';
 
+/** PHP urlencode() semantics — see payfast.ts phpUrlEncode(). */
+function phpUrlEncode(value: string): string {
+  return encodeURIComponent(value)
+    .replace(/[!'()*]/g, (c) => '%' + c.charCodeAt(0).toString(16).toUpperCase())
+    .replace(/%20/g, '+')
+    .replace(/~/g, '%7E');
+}
+
+/** PayFast's documented signature input: sorted NON-EMPTY fields + passphrase. */
+function payfastSignatureInput(data: Record<string, string>, passphrase: string): string {
+  const keys = Object.keys(data)
+    .filter((k) => data[k] !== undefined && data[k] !== '')
+    .sort();
+  const pairs = keys.map((k) => `${phpUrlEncode(k)}=${phpUrlEncode(data[k] ?? '')}`);
+  return pairs.join('&') + (passphrase ? `&passphrase=${phpUrlEncode(passphrase)}` : '');
+}
+
 /** Mirrors payfast.ts buildSignature — kept here so a drift between the
  * production code and the test's expectation is caught. */
 function buildSignature(data: Record<string, string>, passphrase: string): string {
-  const keys = Object.keys(data).sort();
-  const pairs = keys.map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(data[k] ?? '')}`);
-  const raw = pairs.join('&') + (passphrase ? `&passphrase=${encodeURIComponent(passphrase)}` : '');
-  return createHash('md5').update(raw).digest('hex');
+  return createHash('md5').update(payfastSignatureInput(data, passphrase)).digest('hex');
 }
 
 describe('PayFast ITN signature algorithm', () => {
@@ -37,6 +58,24 @@ describe('PayFast ITN signature algorithm', () => {
     const a = buildSignature({ b: '2', a: '1' }, '');
     const b = buildSignature({ a: '1', b: '2' }, '');
     assert.equal(a, b);
+  });
+
+  test('EMPTY fields are excluded from the signature input (PayFast skips !empty(val))', () => {
+    // PayFast's PHP reference omits unset/blank fields. Including them as
+    // `key=` produced a different digest for any ITN that carried an empty
+    // variable (blank name, unset custom_str*), so a valid payment failed
+    // verification.
+    const withEmpty = buildSignature({ amount: '100', name_first: '' }, 'pass');
+    const withoutEmpty = buildSignature({ amount: '100' }, 'pass');
+    assert.equal(withEmpty, withoutEmpty);
+  });
+
+  test('values containing spaces encode as "+" (PHP urlencode), not "%20"', () => {
+    // item_name always contains spaces; a %20 encoding produced a different
+    // digest than PayFast computes, breaking the form and ITN signatures.
+    const input = payfastSignatureInput({ item_name: 'Gemino starter — monthly subscription' }, 'pass');
+    assert.ok(input.includes('Gemino+starter'), `expected "+"-encoded spaces in: ${input}`);
+    assert.ok(!input.includes('Gemino%20starter'), `did not expect %20-encoded spaces in: ${input}`);
   });
 
   test('passphrase changes the signature', () => {
@@ -208,6 +247,7 @@ describe('PayFast checkout payload wiring', () => {
   function buildCheckoutPayload(env: Record<string, string | undefined>): string {
     const MERCHANT_ID = env.PAYFAST_MERCHANT_ID ?? '';
     const MERCHANT_KEY = env.PAYFAST_MERCHANT_KEY ?? '';
+    const PASSPHRASE = env.PAYFAST_PASSPHRASE ?? '';
     const appUrl = env.NEXT_PUBLIC_APP_URL ?? 'https://gemino.app';
     const amountCents = 499_00; // starter
 
@@ -217,28 +257,25 @@ describe('PayFast checkout payload wiring', () => {
       return_url: 'https://example.com/return',
       cancel_url: `${appUrl}/dashboard/billing?cancel=1`,
       notify_url: `${appUrl}/api/billing/webhook`,
-      name_first: '',
-      name_last: '',
-      email_address: '',
-      cell_number: '',
       m_payment_id: 'tenant-test:starter:abc12345',
       amount: (amountCents / 100).toFixed(2),
       item_name: 'Gemino starter — monthly subscription',
       item_description: 'Gemino starter plan',
-      custom_int1: '1',
-      custom_int2: '3',
-      custom_int3: '0',
-      custom_int4: '0',
+      // PayFast's actual subscription fields (the old custom_int1..4
+      // passthroughs configured nothing — every checkout was once-off).
+      subscription_type: '1',
+      recurring_amount: (amountCents / 100).toFixed(2),
+      frequency: '3',
+      cycles: '0',
       custom_str1: 'tenant-test',
       custom_str2: 'starter',
       custom_str3: 'tenant-test:starter:abc12345',
     };
 
-    // Build signature (sorted keys, urlencoded pairs, md5)
-    const keys = Object.keys(data).sort();
-    const pairs = keys.map((k) => `${encodeURIComponent(k)}=${encodeURIComponent(data[k] ?? '')}`);
-    const raw = pairs.join('&');
-    const signature = createHash('md5').update(raw).digest('hex');
+    // Build signature — same algorithm as the ITN (sorted non-empty fields,
+    // PHP-style urlencoding, passphrase included: PayFast requires it for
+    // BOTH the payment form and the ITN whenever one is set).
+    const signature = createHash('md5').update(payfastSignatureInput(data, PASSPHRASE)).digest('hex');
 
     const fields = Object.entries(data).map(([name, value]) => ({ name, value }));
     fields.push({ name: 'signature', value: signature });
@@ -247,9 +284,41 @@ describe('PayFast checkout payload wiring', () => {
       .join('&');
   }
 
+  test('checkout payload carries REAL PayFast subscription fields', () => {
+    process.env.PAYFAST_MERCHANT_ID = '10000100';
+    process.env.PAYFAST_MERCHANT_KEY = 'merchant-key';
+    process.env.PAYFAST_PASSPHRASE = 'pass';
+    process.env.NEXT_PUBLIC_APP_URL = 'https://gemino-flavourly-whatsapp.vercel.app';
+
+    const payload = buildCheckoutPayload(process.env as Record<string, string>);
+
+    // The old payload stuffed subscription intent into custom_int1..4 —
+    // inert passthrough variables — so no recurring billing ever happened
+    // and the ITN never carried a token.
+    assert.ok(payload.includes('subscription_type=1'), 'must set subscription_type');
+    assert.ok(payload.includes('recurring_amount=499.00'), 'must set recurring_amount');
+    assert.ok(payload.includes('frequency=3'), 'monthly frequency');
+    assert.ok(payload.includes('cycles=0'), 'cycles=0 (until cancelled)');
+    assert.ok(!payload.includes('custom_int1'), 'custom_int passthroughs are not subscription config');
+  });
+
+  test('checkout signature includes the passphrase (PayFast requires it on the form too)', () => {
+    process.env.PAYFAST_MERCHANT_ID = '10000100';
+    process.env.PAYFAST_MERCHANT_KEY = 'merchant-key';
+    process.env.NEXT_PUBLIC_APP_URL = 'https://gemino-flavourly-whatsapp.vercel.app';
+
+    const withPhrase = buildCheckoutPayload({ ...process.env, PAYFAST_PASSPHRASE: 'secret-pass' } as Record<string, string>);
+    const withoutPhrase = buildCheckoutPayload({ ...process.env, PAYFAST_PASSPHRASE: '' } as Record<string, string>);
+
+    const sigOf = (payload: string) => new URLSearchParams(payload).get('signature') ?? '';
+    assert.notEqual(sigOf(withPhrase), sigOf(withoutPhrase),
+      'the passphrase must change the checkout signature — omitting it (the old behaviour) meant PayFast rejected every form');
+  });
+
   test('checkout payload includes notify_url with /api/billing/webhook', () => {
     process.env.PAYFAST_MERCHANT_ID = '10000100';
     process.env.PAYFAST_MERCHANT_KEY = 'merchant-key';
+    process.env.PAYFAST_PASSPHRASE = 'pass';
     process.env.NEXT_PUBLIC_APP_URL = 'https://gemino-flavourly-whatsapp.vercel.app';
 
     const payload = buildCheckoutPayload(process.env as Record<string, string>);
@@ -269,6 +338,7 @@ describe('PayFast checkout payload wiring', () => {
     delete process.env.NEXT_PUBLIC_APP_URL;
     process.env.PAYFAST_MERCHANT_ID = '10000100';
     process.env.PAYFAST_MERCHANT_KEY = 'merchant-key';
+    process.env.PAYFAST_PASSPHRASE = 'pass';
 
     const payload = buildCheckoutPayload(process.env as Record<string, string>);
 
