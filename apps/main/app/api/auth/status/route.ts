@@ -18,6 +18,12 @@ import { safeAuth } from '@/lib/auth/safe-auth';
  * Public by design (see lib/auth/route-guard-core.ts PUBLIC_PREFIXES):
  * an unauthenticated visitor calling this must get `{ signedIn: false }`
  * back, not a redirect — the marketing pages that call it are public too.
+ *
+ * Depends on middleware.ts routing public paths THROUGH clerkMiddleware
+ * (not around it) once Clerk is configured — see middleware.ts's
+ * "fix(auth-flash)" comment. Without that, `safeAuth()` here would always
+ * report signed-out regardless of the visitor's actual session, same bug
+ * that caused /sign-in to flash for an already-signed-in visitor.
  */
 export async function GET() {
   const { userId } = await safeAuth();
