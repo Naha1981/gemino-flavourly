@@ -141,6 +141,13 @@
       "when": 1787702420000,
       "tag": "0020_cron_key_demo_mode",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1787702430000,
+      "tag": "0021_loyalty_gps_redemption",
+      "breakpoints": true
     }
   ]
 }

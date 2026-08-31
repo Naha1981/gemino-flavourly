@@ -29,6 +29,8 @@ describe('route guard — public routes survive with no Clerk config', () => {
     '/claim/deadbeef-token',
     '/claim/redeem',
     '/m/the-rusty-pan',
+    '/geo-claim/deadbeef-token',
+    '/api/loyalty/geo-claim/deadbeef-token',
   ];
 
   for (const path of PUBLIC) {

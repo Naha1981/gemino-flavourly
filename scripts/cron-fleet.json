@@ -613,6 +613,34 @@
         "expiresAt": 0
       },
       "auth": "cron-secret"
+    },
+    {
+      "key": "reward-expiry",
+      "title": "Reward Events Expiry Sweep",
+      "url": "{baseUrl}/api/cron/reward-expiry",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          -1
+        ],
+        "minutes": [
+          0,
+          15,
+          30,
+          45
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
     }
   ],
   "watchdog": {

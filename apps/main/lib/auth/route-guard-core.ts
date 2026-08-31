@@ -40,6 +40,14 @@ const PUBLIC_PREFIXES: string[] = [
   '/claim/',
   '/m/',
   '/s/',
+  // O1 — guest-facing geo-claim page (the redemption link a customer
+  // receives over WhatsApp). Auth is the single-use claim token itself,
+  // exactly like /claim/[token]; it must render on any phone browser.
+  '/geo-claim/',
+  // O1 — the geo-claim verification POST. Scoped prefix ONLY:
+  // /api/loyalty/complete-visit stays behind Clerk auth (staff endpoint).
+  // The token in the path is the credential.
+  '/api/loyalty/geo-claim',
   '/api/auth/status',
   '/api/webhooks',
   '/api/cron',

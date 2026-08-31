@@ -34,6 +34,7 @@ export const MIGRATE_TABLES = [
   "prospects",
   "reactivation_campaigns",
   "revenue_events",
+  "reward_events",
   "staff_members",
   "tenant_claim_tokens",
   "vip_alerts",
@@ -694,4 +695,39 @@ export const MIGRATE_DDL: readonly string[] = [
   `ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS cronjob_api_key text;`,
 
   `ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS demo_seed_active boolean DEFAULT false NOT NULL;`,
+
+  // 26. O1 — Loyalty GPS-gated redemption.
+  // Mirrors drizzle/0021_loyalty_gps_redemption.sql. reward_events carries
+  // the single-use claim_token a guest redeems at the table via
+  // /geo-claim/[token]; loyalty_transactions.ref_id is the idempotency key
+  // that makes welcome bonuses / visit earns / verified redemptions
+  // exactly-once under webhook retries and overlapping cron runs.
+  `CREATE TABLE IF NOT EXISTS reward_events (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        contact_id uuid NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+        conversation_id uuid REFERENCES conversations(id) ON DELETE SET NULL,
+        reward_name text NOT NULL,
+        points_cost integer NOT NULL,
+        status text DEFAULT 'pending' NOT NULL,
+        claim_token text NOT NULL,
+        gps_lat double precision,
+        gps_lng double precision,
+        distance_m integer,
+        rejection_reason text,
+        claimed_at timestamp,
+        expires_at timestamp NOT NULL,
+        created_at timestamp DEFAULT NOW() NOT NULL,
+        verified_at timestamp
+      );`,
+
+  `CREATE UNIQUE INDEX IF NOT EXISTS reward_events_claim_token_uniq ON reward_events (claim_token);`,
+
+  `CREATE INDEX IF NOT EXISTS reward_events_tenant_status_idx ON reward_events (tenant_id, status);`,
+
+  `ALTER TABLE loyalty_transactions ADD COLUMN IF NOT EXISTS ref_id text;`,
+
+  `CREATE UNIQUE INDEX IF NOT EXISTS loyalty_transactions_ref_id_uniq ON loyalty_transactions (ref_id);`,
+
+  `CREATE INDEX IF NOT EXISTS loyalty_transactions_tenant_contact_idx ON loyalty_transactions (tenant_id, contact_id);`,
 ];

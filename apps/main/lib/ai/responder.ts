@@ -15,6 +15,19 @@ import { markReservationCancelled } from '@/lib/revenue/cancellation-followup';
 import { drizzleCancellationFollowupStore } from '@/lib/revenue/cancellation-followup-store';
 import { decideBillingGate, type BillingTenantLike } from '@/lib/billing/gate';
 import { loyaltyBalanceMessage } from '@/lib/customer/loyalty';
+import {
+  REWARD_EVENT_TTL_MINUTES,
+  buildGeoClaimUrl,
+  buildJoinReply,
+  buildRedeemInsufficientReply,
+  buildRedeemNoLocationReply,
+  buildRedeemReply,
+} from '@/lib/customer/reward-claim';
+import {
+  awardWelcomeBonusOnce,
+  createPendingRewardEvent,
+  listRewardCatalog,
+} from '@/lib/customer/reward-claim-store';
 
 const SUPER_ADMIN_EMAILS = `${process.env.SUPER_ADMIN_EMAILS ?? ''},${process.env.ADMIN_EMAIL ?? ''}`
   .split(',')
@@ -141,7 +154,11 @@ export async function processInboundAIResponse(ctx: InboundContext): Promise<str
     return `Welcome back to ${tenant.name}! How can we assist you today? (e.g. Menu, Bookings, Waitlist, Loyalty points)`;
   }
 
-  // 2. Loyalty Keywords: POINTS, BALANCE, REWARDS
+  // 2. Loyalty Keywords: POINTS, BALANCE, REWARDS, JOIN, REDEEM
+  //
+  // Order per the O1 gate spec: loyalty keywords run BEFORE the AI
+  // concierge (a deterministic reply must never depend on an LLM being
+  // reachable) and AFTER the STOP/kill-switch/billing gates above.
   if (['points', 'balance', 'loyalty', 'my rewards'].includes(lower)) {
     const contact = await db.query.contacts.findFirst({
       where: eq(contacts.id, contactId),
@@ -151,6 +168,59 @@ export async function processInboundAIResponse(ctx: InboundContext): Promise<str
     // offered a dessert at 100 pts / R100 at 250 pts — a mismatch with the
     // documented rewards program.
     return loyaltyBalanceMessage(tenant.name, pts);
+  }
+
+  // 2a. Loyalty JOIN — one-time welcome bonus. `awardWelcomeBonusOnce` is
+  // idempotent on the loyalty_transactions ref_id unique index, so a
+  // double-tap or a retried webhook awards exactly 50 points, once, ever.
+  // Exact-match only: "join waitlist" must keep falling through to the
+  // waitlist handler below.
+  if (lower === 'join' || lower === 'join loyalty') {
+    const outcome = await awardWelcomeBonusOnce(tenantId, contactId);
+    return buildJoinReply({
+      restaurantName: tenant.name,
+      awarded: outcome.awarded,
+      points: outcome.points,
+    });
+  }
+
+  // 2b. Loyalty REDEEM — GPS-gated reward claim. Creates a pending
+  // reward_event with a single-use token and replies with the geo-claim
+  // link the guest opens at the table; points are only deducted when the
+  // browser-submitted coordinates verify within 500m of the restaurant.
+  if (lower === 'redeem' || lower.startsWith('redeem ')) {
+    const contact = await db.query.contacts.findFirst({
+      where: eq(contacts.id, contactId),
+      columns: { loyaltyPoints: true },
+    });
+    const pts = contact?.loyaltyPoints ?? 0;
+    const catalog = await listRewardCatalog(tenantId);
+    const result = await createPendingRewardEvent({
+      tenantId,
+      contactId,
+      conversationId,
+      pointsBalance: pts,
+      catalog,
+    });
+    if (!result.ok) {
+      if (result.reason === 'restaurant_location_missing') {
+        return buildRedeemNoLocationReply(tenant.name);
+      }
+      return buildRedeemInsufficientReply({
+        restaurantName: tenant.name,
+        points: result.points,
+        needed: result.needed,
+      });
+    }
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://gemino.app';
+    return buildRedeemReply({
+      restaurantName: tenant.name,
+      rewardName: result.reward.name,
+      pointsCost: result.reward.pointsCost,
+      remainingPoints: result.remainingPoints,
+      claimUrl: buildGeoClaimUrl(appUrl, result.token),
+      ttlMinutes: REWARD_EVENT_TTL_MINUTES,
+    });
   }
 
   // 3. Waitlist Keyword

@@ -3,8 +3,9 @@ import { db } from '@/lib/db';
 import { contacts, loyaltyRewards } from '@/lib/db/schema';
 import { desc, eq } from 'drizzle-orm';
 import Link from 'next/link';
-import { ArrowLeft, Sparkles, Gift, Award, TrendingUp } from 'lucide-react';
+import { ArrowLeft, Sparkles, Gift, Award, TrendingUp, MapPin } from 'lucide-react';
 import { getOrCreateTenant } from '@/lib/tenant';
+import { listRecentRewardEvents } from '@/lib/customer/reward-claim-store';
 
 export const dynamic = 'force-dynamic';
 
@@ -29,6 +30,15 @@ export default async function LoyaltyPage() {
     .where(eq(loyaltyRewards.tenantId, tenant.id))
     .catch(() => []);
 
+  // O1 — pending + recently-finalised geo-claims. The pending list is the
+  // floor view: a waiter can glance at which rewards are waiting for the
+  // guest to verify at the table, and the verified rows carry their
+  // distance proof ("verified at 120m").
+  const rewardEventViews = await listRecentRewardEvents(tenant.id, 12).catch(() => []);
+  const pendingEvents = rewardEventViews.filter((e) => e.status === 'pending');
+  const locationConfigured =
+    tenant.latitude !== null && tenant.longitude !== null && tenant.latitude !== undefined;
+
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6 md:p-10 selection:bg-zinc-800">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -46,6 +56,80 @@ export default async function LoyaltyPage() {
               <p className="text-xs text-zinc-400">Automate customer points balance lookups and reward redemptions.</p>
             </div>
           </div>
+        </div>
+
+        {/* O1 — GPS redemption status */}
+        <div className="bg-zinc-900/70 border border-zinc-800 rounded-lg p-6 space-y-4">
+          <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
+            <h2 className="text-sm font-semibold text-zinc-100 flex items-center gap-2">
+              <MapPin className="w-4 h-4 text-sky-400" />
+              GPS Reward Verifications
+            </h2>
+            {!locationConfigured && (
+              <span className="px-2.5 py-1 rounded bg-amber-950/80 border border-amber-800 text-amber-400 text-[10px] font-semibold uppercase tracking-wide">
+                Set restaurant location
+              </span>
+            )}
+          </div>
+          {!locationConfigured && (
+            <p className="text-[11px] text-zinc-400">
+              Add your restaurant address (Settings) so REDEEM links can verify guests within 500m.
+              Until then, redemptions fall back to the counter.
+            </p>
+          )}
+          <div className="divide-y divide-zinc-800/60">
+            {rewardEventViews.length === 0 ? (
+              <div className="py-8 text-center text-xs text-zinc-500">
+                No redemption requests yet. When a guest texts <span className="text-zinc-300 font-semibold">REDEEM</span>, their
+                geo-verified claim appears here.
+              </div>
+            ) : (
+              rewardEventViews.map((event) => (
+                <div key={event.id} className="py-3 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-xs font-semibold text-zinc-100 truncate">
+                      {event.contactName || event.contactPhone || 'Guest'}
+                      <span className="text-zinc-500 font-normal"> · {event.rewardName}</span>
+                    </p>
+                    <p className="text-[11px] text-zinc-500 font-mono truncate">
+                      {event.contactPhone ? `+${event.contactPhone.replace(/^\+/, '')}` : '—'}
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {event.status === 'pending' && (
+                      <span className="px-2.5 py-1 rounded bg-sky-950/80 border border-sky-800 text-sky-400 text-[10px] font-semibold uppercase tracking-wide">
+                        At table
+                      </span>
+                    )}
+                    {event.status === 'verified' && (
+                      <span className="px-2.5 py-1 rounded bg-emerald-950/80 border border-emerald-800 text-emerald-400 text-[10px] font-semibold uppercase tracking-wide">
+                        Verified{event.distanceM !== null ? ` · ${event.distanceM}m` : ''}
+                      </span>
+                    )}
+                    {event.status === 'rejected' && (
+                      <span className="px-2.5 py-1 rounded bg-red-950/80 border border-red-800 text-red-400 text-[10px] font-semibold uppercase tracking-wide">
+                        Rejected{event.distanceM !== null ? ` · ${event.distanceM}m` : ''}
+                      </span>
+                    )}
+                    {event.status === 'expired' && (
+                      <span className="px-2.5 py-1 rounded bg-zinc-800/80 border border-zinc-700 text-zinc-400 text-[10px] font-semibold uppercase tracking-wide">
+                        Expired
+                      </span>
+                    )}
+                    <span className="text-[11px] text-zinc-600 font-mono">
+                      {event.pointsCost} pts
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+          {pendingEvents.length > 0 && (
+            <p className="text-[10px] text-zinc-600">
+              {pendingEvents.length} live claim link{pendingEvents.length === 1 ? '' : 's'} — each is
+              single-use and expires 30 minutes after issue.
+            </p>
+          )}
         </div>
 
         {/* 2 Column Layout: Rewards & Top Members */}

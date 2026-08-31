@@ -9,6 +9,7 @@ import {
   boolean,
   decimal,
   numeric,
+  doublePrecision,
   uniqueIndex,
   index,
 } from 'drizzle-orm/pg-core';
@@ -370,19 +371,75 @@ export const leads = pgTable('leads', {
 // -----------------------------------------------------------------------------
 // 9. Loyalty Program & Rewards
 // -----------------------------------------------------------------------------
-export const loyaltyTransactions = pgTable('loyalty_transactions', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  tenantId: uuid('tenant_id')
-    .notNull()
-    .references(() => tenants.id, { onDelete: 'cascade' }),
-  contactId: uuid('contact_id')
-    .notNull()
-    .references(() => contacts.id, { onDelete: 'cascade' }),
-  type: text('type', { enum: ['earn', 'redeem', 'bonus', 'adjustment'] }).notNull(),
-  amount: integer('amount').notNull(),
-  description: text('description'),
-  createdAt: timestamp('created_at').defaultNow().notNull(),
-});
+export const loyaltyTransactions = pgTable(
+  'loyalty_transactions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    contactId: uuid('contact_id')
+      .notNull()
+      .references(() => contacts.id, { onDelete: 'cascade' }),
+    type: text('type', { enum: ['earn', 'redeem', 'bonus', 'adjustment'] }).notNull(),
+    amount: integer('amount').notNull(),
+    description: text('description'),
+    // O1 — idempotency key. Every programmatic loyalty write (welcome bonus,
+    // visit earn, geo-verified redemption) carries a deterministic ref_id so
+    // a retried webhook or an overlapping cron run can never double-award or
+    // double-deduct: the unique index turns the second insert into a no-op.
+    // Nullable + unique: rows written before the column existed (and manual
+    // adjustments) keep NULL, and Postgres treats NULLs as distinct.
+    refId: text('ref_id'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    refIdUniq: uniqueIndex('loyalty_transactions_ref_id_uniq').on(table.refId),
+    tenantContactIdx: index('loyalty_transactions_tenant_contact_idx').on(
+      table.tenantId,
+      table.contactId
+    ),
+  })
+);
+
+// -----------------------------------------------------------------------------
+// 9b. Reward Events — GPS-gated redemption (O1)
+// -----------------------------------------------------------------------------
+export const rewardEvents = pgTable(
+  'reward_events',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    contactId: uuid('contact_id')
+      .notNull()
+      .references(() => contacts.id, { onDelete: 'cascade' }),
+    conversationId: uuid('conversation_id').references(() => conversations.id, { onDelete: 'set null' }),
+    rewardName: text('reward_name').notNull(),
+    pointsCost: integer('points_cost').notNull(),
+    // pending  -> the geo-claim link is live, waiting for the guest at the table
+    // verified -> guest submitted coords within 500m, points deducted
+    // rejected -> coords submitted but too far (distance_m recorded)
+    // expired  -> TTL elapsed (or superseded by a newer claim) before verify
+    status: text('status', { enum: ['pending', 'verified', 'rejected', 'expired'] })
+      .default('pending')
+      .notNull(),
+    claimToken: text('claim_token').notNull(),
+    gpsLat: doublePrecision('gps_lat'),
+    gpsLng: doublePrecision('gps_lng'),
+    distanceM: integer('distance_m'),
+    rejectionReason: text('rejection_reason'),
+    claimedAt: timestamp('claimed_at'),
+    expiresAt: timestamp('expires_at').notNull(),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    verifiedAt: timestamp('verified_at'),
+  },
+  (table) => ({
+    claimTokenUniq: uniqueIndex('reward_events_claim_token_uniq').on(table.claimToken),
+    tenantStatusIdx: index('reward_events_tenant_status_idx').on(table.tenantId, table.status),
+  })
+);
 
 export const loyaltyRewards = pgTable('loyalty_rewards', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -995,6 +1052,7 @@ export const contactRelations = relations(contacts, ({ one, many }) => ({
   reservations: many(reservations),
   waitlistEntries: many(waitlistEntries),
   loyaltyTransactions: many(loyaltyTransactions),
+  rewardEvents: many(rewardEvents),
   customerProfiles: many(customerProfiles),
 }));
 
