@@ -8,8 +8,11 @@ import { KeyRound, Loader2, RefreshCw } from 'lucide-react';
  *
  * 100% UI-driven cron lifecycle: paste the cron-job.org API key once (saved
  * encrypted to the database — no Vercel env vars, no redeploy), then sync
- * the canonical 21-job fleet with one button. The status list shows every
+ * the whole canonical fleet with one button. The status list shows every
  * canonical job green (enabled on cron-job.org) or red (missing/disabled).
+ * The job count is passed in from the server (which reads the canonical
+ * fleet) so the copy can never drift from cron-fleet.json again — it said
+ * "20 jobs" after the fleet grew to 22.
  */
 
 interface FleetJobRow {
@@ -32,7 +35,14 @@ interface FleetResponse {
   summary?: { active?: number; total?: number };
 }
 
-export function CronFleetManager({ initialKeyConfigured }: { initialKeyConfigured: boolean }) {
+export function CronFleetManager({
+  initialKeyConfigured,
+  fleetSize,
+}: {
+  initialKeyConfigured: boolean;
+  /** Canonical jobs (excluding the watchdog) — from scripts/cron-fleet.json. */
+  fleetSize: number;
+}) {
   const [apiKey, setApiKey] = useState('');
   const [keyConfigured, setKeyConfigured] = useState(initialKeyConfigured);
   const [saving, setSaving] = useState(false);
@@ -110,7 +120,7 @@ export function CronFleetManager({ initialKeyConfigured }: { initialKeyConfigure
         <div>
           <h2 className="headline-md text-app-fg dark:text-zinc-50">Cron Fleet Manager</h2>
           <p className="mt-1 text-sm text-app-muted dark:text-zinc-400">
-            The canonical fleet: 20 jobs + hourly system watchdog. Sync creates, updates, enables
+            The canonical fleet: {fleetSize} jobs + hourly system watchdog. Sync creates, updates, enables
             and de-duplicates every job on cron-job.org — without leaving Flavourly.
           </p>
         </div>
@@ -182,7 +192,7 @@ export function CronFleetManager({ initialKeyConfigured }: { initialKeyConfigure
         className="mt-6 inline-flex w-full items-center justify-center gap-3 rounded-xl bg-app-secondary px-6 py-4 text-base font-semibold text-white shadow-md transition-transform hover:scale-[1.01] disabled:opacity-60 dark:bg-emerald-600"
       >
         {syncing ? <Loader2 className="h-5 w-5 animate-spin" /> : <RefreshCw className="h-5 w-5" />}
-        {syncing ? 'Syncing fleet…' : 'Sync All 21 Cron Jobs Now'}
+        {syncing ? 'Syncing fleet…' : `Sync All ${fleetSize} Cron Jobs Now`}
       </button>
 
       {/* Live status list */}

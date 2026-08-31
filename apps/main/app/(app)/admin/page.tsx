@@ -24,6 +24,7 @@ import { toggleGlobalAiAction } from './actions';
 import { CronFleetManager } from '@/components/cron-fleet-manager';
 import { DemoControls } from '@/components/demo-controls';
 import { cronKeyConfigured } from '@/lib/cron/key-store-server';
+import { loadCanonicalFleet } from '@/lib/cron/canonical-fleet';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,6 +55,16 @@ export default async function SuperAdminDashboard() {
   const recentTenants = await db.select().from(tenants).orderBy(desc(tenants.createdAt)).limit(10).catch(() => []);
   const settings = await db.query.systemSettings.findFirst().catch(() => null);
   const cronKeyState = await cronKeyConfigured().catch(() => ({ configured: false, source: 'none' as const }));
+  // Canonical fleet size for the manager's copy — read from the same loader
+  // the sync endpoint uses (fs file, embedded snapshot fallback), so the
+  // "N jobs" label can never drift from scripts/cron-fleet.json again.
+  const fleetSize = (() => {
+    try {
+      return loadCanonicalFleet().fleet.jobs.length;
+    } catch {
+      return 0;
+    }
+  })();
 
   // Gate #2 — slow days across the whole platform, this week.
   //
@@ -205,7 +216,7 @@ export default async function SuperAdminDashboard() {
         </div>
 
         {/* Cron Fleet Manager — UI-driven cron lifecycle (no Vercel env needed) */}
-        <CronFleetManager initialKeyConfigured={cronKeyState.configured} />
+        <CronFleetManager initialKeyConfigured={cronKeyState.configured} fleetSize={fleetSize} />
 
         {/* Demo Mode — busy-restaurant seed for screenshots/videos */}
         <DemoControls initialActive={Boolean(settings?.demoSeedActive)} />
