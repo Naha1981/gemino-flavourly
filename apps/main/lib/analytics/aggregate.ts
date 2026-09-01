@@ -9,7 +9,11 @@ import {
   type EngineSummary,
   type DailyPoint,
 } from './engine';
-import { fetchAllEngineSeries } from './store';
+import {
+  fetchAllEngineSeries,
+  type EngineSeriesBundle,
+} from './store';
+import type { QueryScopeOptions } from '../demo/query-scope';
 
 export interface TenantAnalytics {
   overview: PlatformOverview;
@@ -30,8 +34,8 @@ export interface TenantAnalytics {
  * forecast and customer cohorts. One function, called by every analytics
  * route so the six engines are always computed the same way.
  */
-export async function buildTenantAnalytics(tenantId: string): Promise<TenantAnalytics> {
-  const s = await fetchAllEngineSeries(tenantId);
+export async function buildTenantAnalytics(tenantId: string, scope: QueryScopeOptions = {}): Promise<TenantAnalytics> {
+  const s = await fetchAllEngineSeries(tenantId, scope);
   const cohorts = cohortRetention(s.cohorts);
 
   const customerSeries: DailyPoint[] = cohorts.map((c) => ({

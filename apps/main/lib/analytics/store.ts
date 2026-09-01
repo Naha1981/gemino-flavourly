@@ -9,6 +9,7 @@ import {
   customerProfiles,
 } from '@/lib/db/schema';
 import { type DailyPoint, type CohortInput } from './engine';
+import { liveRowsOnly, type QueryScopeOptions } from '../demo/query-scope';
 
 /**
  * Tenant-scoped analytics data access.
@@ -17,6 +18,12 @@ import { type DailyPoint, type CohortInput } from './engine';
  * to an empty series on failure so the dashboard renders rather than 500s.
  * The engine module turns these raw series into KPIs — this file only ever
  * reads and buckets.
+ *
+ * UI-3R / F2 (S13): every fetch also carries the live/demo scope — LIVE
+ * views exclude deadbeef-marked demo rows (the "25 000" 30-day revenue the
+ * owner saw on a disconnected tenant came from exactly those rows).
+ * Demo Mode ON passes includeDemoRows so the seed dataset renders WITH
+ * the amber banner and SAMPLE chips instead of wearing live clothes.
  */
 
 const DEFAULT_DAYS = 120;
@@ -25,7 +32,7 @@ function dayBucket(table: any, column: any) {
   return sql<string>`to_char(${column}, 'YYYY-MM-DD')`;
 }
 
-export async function fetchRevenueSeries(tenantId: string, days = DEFAULT_DAYS): Promise<DailyPoint[]> {
+export async function fetchRevenueSeries(tenantId: string, days = DEFAULT_DAYS, scope: QueryScopeOptions = {}): Promise<DailyPoint[]> {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   return db
     .select({
@@ -33,13 +40,13 @@ export async function fetchRevenueSeries(tenantId: string, days = DEFAULT_DAYS):
       value: sql<number>`COALESCE(SUM(${revenueEvents.realizedCents}), 0)`,
     })
     .from(revenueEvents)
-    .where(and(eq(revenueEvents.tenantId, tenantId), gte(revenueEvents.occurredAt, since)))
+    .where(and(eq(revenueEvents.tenantId, tenantId), gte(revenueEvents.occurredAt, since), liveRowsOnly(revenueEvents.id, scope)))
     .groupBy(sql`to_char(${revenueEvents.occurredAt}, 'YYYY-MM-DD')`)
     .then((rows) => rows.map((r) => ({ date: r.date, value: Number(r.value) })))
     .catch(() => []);
 }
 
-export async function fetchOperationsSeries(tenantId: string, days = DEFAULT_DAYS): Promise<DailyPoint[]> {
+export async function fetchOperationsSeries(tenantId: string, days = DEFAULT_DAYS, scope: QueryScopeOptions = {}): Promise<DailyPoint[]> {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   return db
     .select({
@@ -47,13 +54,13 @@ export async function fetchOperationsSeries(tenantId: string, days = DEFAULT_DAY
       value: sql<number>`COALESCE(COUNT(*), 0)`,
     })
     .from(messages)
-    .where(and(eq(messages.tenantId, tenantId), gte(messages.createdAt, since)))
+    .where(and(eq(messages.tenantId, tenantId), gte(messages.createdAt, since), liveRowsOnly(messages.id, scope)))
     .groupBy(sql`to_char(${messages.createdAt}, 'YYYY-MM-DD')`)
     .then((rows) => rows.map((r) => ({ date: r.date, value: Number(r.value) })))
     .catch(() => []);
 }
 
-export async function fetchReputationSeries(tenantId: string, days = DEFAULT_DAYS): Promise<DailyPoint[]> {
+export async function fetchReputationSeries(tenantId: string, days = DEFAULT_DAYS, scope: QueryScopeOptions = {}): Promise<DailyPoint[]> {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   return db
     .select({
@@ -61,13 +68,13 @@ export async function fetchReputationSeries(tenantId: string, days = DEFAULT_DAY
       value: sql<number>`COALESCE(COUNT(*), 0)`,
     })
     .from(googleReviews)
-    .where(and(eq(googleReviews.tenantId, tenantId), gte(googleReviews.time, since)))
+    .where(and(eq(googleReviews.tenantId, tenantId), gte(googleReviews.time, since), liveRowsOnly(googleReviews.id, scope)))
     .groupBy(sql`to_char(${googleReviews.time}, 'YYYY-MM-DD')`)
     .then((rows) => rows.map((r) => ({ date: r.date, value: Number(r.value) })))
     .catch(() => []);
 }
 
-export async function fetchMarketSeries(tenantId: string, days = DEFAULT_DAYS): Promise<DailyPoint[]> {
+export async function fetchMarketSeries(tenantId: string, days = DEFAULT_DAYS, scope: QueryScopeOptions = {}): Promise<DailyPoint[]> {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   return db
     .select({
@@ -75,13 +82,13 @@ export async function fetchMarketSeries(tenantId: string, days = DEFAULT_DAYS): 
       value: sql<number>`COALESCE(COUNT(*), 0)`,
     })
     .from(marketOpportunities)
-    .where(and(eq(marketOpportunities.tenantId, tenantId), gte(marketOpportunities.detectedAt, since)))
+    .where(and(eq(marketOpportunities.tenantId, tenantId), gte(marketOpportunities.detectedAt, since), liveRowsOnly(marketOpportunities.id, scope)))
     .groupBy(sql`to_char(${marketOpportunities.detectedAt}, 'YYYY-MM-DD')`)
     .then((rows) => rows.map((r) => ({ date: r.date, value: Number(r.value) })))
     .catch(() => []);
 }
 
-export async function fetchMarketingSeries(tenantId: string, days = DEFAULT_DAYS): Promise<DailyPoint[]> {
+export async function fetchMarketingSeries(tenantId: string, days = DEFAULT_DAYS, scope: QueryScopeOptions = {}): Promise<DailyPoint[]> {
   const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
   return db
     .select({
@@ -93,7 +100,8 @@ export async function fetchMarketingSeries(tenantId: string, days = DEFAULT_DAYS
       and(
         eq(marketingCampaigns.tenantId, tenantId),
         gte(marketingCampaigns.launchedAt, since),
-        sql`${marketingCampaigns.launchedAt} IS NOT NULL`
+        sql`${marketingCampaigns.launchedAt} IS NOT NULL`,
+        liveRowsOnly(marketingCampaigns.id, scope)
       )
     )
     .groupBy(sql`to_char(${marketingCampaigns.launchedAt}, 'YYYY-MM-DD')`)
@@ -101,15 +109,14 @@ export async function fetchMarketingSeries(tenantId: string, days = DEFAULT_DAYS
     .catch(() => []);
 }
 
-/** Customer cohort inputs derived from first/last visit months. */
-export async function fetchCustomerCohorts(tenantId: string): Promise<CohortInput[]> {
+export async function fetchCustomerCohorts(tenantId: string, scope: QueryScopeOptions = {}): Promise<CohortInput[]> {
   const rows = await db
     .select({
       firstVisitAt: customerProfiles.firstVisitAt,
       lastVisitAt: customerProfiles.lastVisitAt,
     })
     .from(customerProfiles)
-    .where(eq(customerProfiles.tenantId, tenantId))
+    .where(and(eq(customerProfiles.tenantId, tenantId), liveRowsOnly(customerProfiles.id, scope)))
     .catch(() => []);
 
   const out: CohortInput[] = [];
@@ -143,14 +150,14 @@ export interface EngineSeriesBundle {
   cohorts: CohortInput[];
 }
 
-export async function fetchAllEngineSeries(tenantId: string): Promise<EngineSeriesBundle> {
+export async function fetchAllEngineSeries(tenantId: string, scope: QueryScopeOptions = {}): Promise<EngineSeriesBundle> {
   const [revenue, operations, reputation, market, marketing, cohorts] = await Promise.all([
-    fetchRevenueSeries(tenantId),
-    fetchOperationsSeries(tenantId),
-    fetchReputationSeries(tenantId),
-    fetchMarketSeries(tenantId),
-    fetchMarketingSeries(tenantId),
-    fetchCustomerCohorts(tenantId),
+    fetchRevenueSeries(tenantId, DEFAULT_DAYS, scope),
+    fetchOperationsSeries(tenantId, DEFAULT_DAYS, scope),
+    fetchReputationSeries(tenantId, DEFAULT_DAYS, scope),
+    fetchMarketSeries(tenantId, DEFAULT_DAYS, scope),
+    fetchMarketingSeries(tenantId, DEFAULT_DAYS, scope),
+    fetchCustomerCohorts(tenantId, scope),
   ]);
   return { revenue, operations, reputation, market, marketing, cohorts };
 }
