@@ -413,23 +413,65 @@ export interface DemoReview {
 
 export function generateReviews(tenantId: string, now: Date, rng: () => number = makeRng(55)): DemoReview[] {
   const rows: DemoReview[] = [];
-  const praise = [
-    'Incredible food and warm service. The lamb was perfect!',
-    'Best breakfast in the neighbourhood — will be back.',
-    'The waiter knew the menu inside out. Lovely evening.',
-    'Great wine list and the portions are generous.',
-    'Cosy spot for date night. The desserts are outstanding.',
-    'Quick booking over WhatsApp and a warm welcome. Five stars.',
+  // UI-3R / F7 (S12) — seed reviews must read like real humans: the old
+  // arrays cycled 6 praise sentences across 36 positive reviews, so the
+  // same sentence appeared under five different names. Every review now
+  // composes a DISTINCT text (base + specific detail), deterministically.
+  const praiseBases = [
+    'Incredible food and warm service',
+    'Best breakfast in the neighbourhood',
+    'The waiter knew the menu inside out',
+    'Great wine list and generous portions',
+    'Cosy spot for date night',
+    'Quick booking over WhatsApp and a warm welcome',
+    'The lamb shoulder is worth the trip alone',
+    'Consistently excellent, visit after visit',
+    'Beautiful plating and honest prices',
+    'The Sunday roast proper rivalled my gran’s',
   ];
-  const mid = [
-    'Food was good, service a little slow on a busy night.',
-    'Lovely ambience, mains slightly salty for my taste.',
-    'Nice spot — parking is tricky on weekends.',
+  const praiseTails = [
+    '— the lamb was perfect!',
+    '— will definitely be back.',
+    '— lovely evening from start to finish.',
+    '— desserts were the highlight.',
+    '— five stars, easily.',
+    '— staff remembered our usual table.',
+    '— even the bread course felt special.',
+    '— booking to table took two minutes.',
+    '— we lingered long past dessert.',
+    '— already recommended it to friends.',
+  ];
+  const fourBases = [
+    'Great food, slight wait for mains on a busy night — the kitchen recovered well.',
+    'Lovely ambience and attentive staff; mains were a touch under-seasoned.',
+    'Solid neighbourhood spot. The specials board is where the kitchen shines.',
+    'Good value set menu, though the room gets loud after eight.',
+    'Service was friendly and fast; the seafood starter stole the show.',
+    'Enjoyable evening overall — parking remains the only headache.',
+  ];
+  const midBases = [
+    'Food was good, service a little slow on a busy night',
+    'Lovely ambience, mains slightly salty for my taste',
+    'Nice spot, but parking is tricky on weekends',
+    'Decent meal, though the music drowned our conversation',
+    'Pleasant lunch, the starter outshone the main',
+    'Mixed feelings — great dessert, forgettable starter',
+  ];
+  const midTails = [
+    '— staff apologised for the wait.',
+    '— we would return off-peak.',
+    '— the manager handled it well.',
+    '— worth another try on a quieter night.',
+    '— portion sizes were fair.',
+    '— the wine pairing helped.',
   ];
   let ratingBag: number[] = [];
   // avg ≈ 4.6: 30×5★, 6×4★, 3×3★, 1×1★ = (150+24+9+1)/40 = 4.6
   ratingBag = ratingBag.concat(Array(30).fill(5), Array(6).fill(4), Array(3).fill(3), [1]);
 
+  let fiveIdx = 0;
+  let fourIdx = 0;
+  let midIdx = 0;
   for (let k = 0; k < 40; k++) {
     const rating = ratingBag[k];
     const author = saName(rng);
@@ -437,8 +479,12 @@ export function generateReviews(tenantId: string, now: Date, rng: () => number =
       rating === 1
         ? 'Terrible service. We waited 40 minutes and the order arrived wrong. Disappointed.'
         : rating === 3
-          ? mid[k % mid.length]
-          : praise[k % praise.length];
+          ? `${midBases[midIdx % midBases.length]} ${midTails[midIdx % midTails.length]}`
+          : rating === 4
+            ? fourBases[fourIdx++ % fourBases.length]
+            : `${praiseBases[fiveIdx % praiseBases.length]} ${praiseTails[Math.floor(fiveIdx / 10) % praiseTails.length]}`;
+    if (rating === 5) fiveIdx += 1;
+    if (rating === 3) midIdx += 1;
     const unanswered = k >= 37; // last three unanswered with AI drafts
     rows.push({
       id: deadId('review', k),

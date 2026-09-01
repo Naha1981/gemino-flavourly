@@ -14,6 +14,7 @@ import { ReviewCard } from './review-card';
 import { isDemoModeActive } from '@/lib/demo/demo-mode';
 import { DEMO_REVIEWS } from '@/lib/demo/seed-data';
 import { DemoModeBar } from '@/components/demo-mode-bar';
+import { ensureReviewDrafts } from '@/lib/reputation/ensure-drafts';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,6 +65,19 @@ export default async function ReputationPage({ searchParams }: ReputationPagePro
   // neither queried nor written. Standard tenants always get the live
   // branch (and never see the banner).
   const demoMode = await isDemoModeActive();
+
+  // UI-3R / F6 (S11) — drafts must be READY on arrival, not a chore. The
+  // ingest cron already drafts brand-new reviews, but anything that
+  // predates that path rendered "No draft yet — press Regenerate" forever.
+  // Backfill draft-less reviews before the read below (idempotent: the
+  // steady state performs zero writes; sent responses are never touched;
+  // the AI kill-switch and tenant aiEnabled flag fall back to the clearly
+  // labelled deterministic template).
+  if (!demoMode) {
+    await ensureReviewDrafts(tenant.id).catch((err) => {
+      console.error('[reputation] ensureReviewDrafts failed:', (err as Error)?.message);
+    });
+  }
 
   const [reviews, total, average, byRating, bySentiment] = demoMode
     ? (() => {
