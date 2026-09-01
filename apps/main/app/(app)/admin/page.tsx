@@ -24,6 +24,8 @@ import { toggleGlobalAiAction } from './actions';
 import { CronFleetManager } from '@/components/cron-fleet-manager';
 import { DemoControls } from '@/components/demo-controls';
 import { DemoModeBar } from '@/components/demo-mode-bar';
+import { AdminNotifications } from '@/components/admin-notifications';
+import { listRecentAdminNotifications, countUnreadAdminNotifications } from '@/lib/qa/alerts';
 import { isDemoModeActive } from '@/lib/demo/demo-mode';
 import {
   DEMO_PLATFORM_KPIS,
@@ -86,6 +88,13 @@ export default async function SuperAdminDashboard() {
       return 0;
     }
   })();
+
+  // QA-2 — the failure-alert inbox: rows written by the alert pipeline
+  // (10-min sweep + scheduled persona runs), unread count for the badge.
+  // Both reads degrade to empty/0 so a DB hiccup can never take the
+  // portal down — the rest of the page stays operable during incidents.
+  const qaNotifications = await listRecentAdminNotifications(15);
+  const qaUnread = await countUnreadAdminNotifications();
 
   // Gate #2 — slow days across the whole platform, this week.
   //
@@ -234,6 +243,18 @@ export default async function SuperAdminDashboard() {
                 <Shield className="w-4 h-4 text-emerald-400" />
               </span>
               <h1 className="text-xl font-semibold text-zinc-50 tracking-tight">Super Admin Platform Overview</h1>
+              {/* QA-2 — unread failure-alert badge (email twin lives in the
+                  owner's inbox). Clicking scrolls to the alert panel. */}
+              {qaUnread > 0 && (
+                <Link
+                  href="#qa-notifications"
+                  data-testid="qa-unread-badge"
+                  className="inline-flex items-center gap-1.5 rounded-full border border-rose-900/60 bg-rose-950/60 px-2.5 py-1 text-[11px] font-bold text-rose-300 transition-colors hover:bg-rose-900/50"
+                >
+                  <BellRing className="h-3.5 w-3.5" />
+                  {qaUnread} unread alert{qaUnread === 1 ? '' : 's'}
+                </Link>
+              )}
             </div>
             <p className="text-xs text-zinc-400 mt-1">
               Global system health, tenant isolation registry, and Baileys WhatsApp socket fleet.
@@ -296,6 +317,11 @@ export default async function SuperAdminDashboard() {
 
         {/* Cron Fleet Manager — UI-driven cron lifecycle (no Vercel env needed) */}
         <CronFleetManager initialKeyConfigured={cronKeyState.configured} fleetSize={fleetSize} />
+
+        {/* QA-2 — failure-alert inbox (email + this panel, deduped 6h) */}
+        <div id="qa-notifications" className="scroll-mt-6">
+          <AdminNotifications notifications={qaNotifications} unreadCount={qaUnread} />
+        </div>
 
         {/* Demo Mode — busy-restaurant seed for screenshots/videos */}
         {!demoMode && <DemoControls initialActive={Boolean(settings?.demoSeedActive)} />}
