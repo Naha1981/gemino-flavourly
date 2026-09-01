@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 // Clerk components would throw on the client and blank the landing page.
 // See components/clerk-shell.
 import { SignedIn, SignedOut, SignInButton, SignUpButton, UserButton } from '@/components/clerk-shell';
+import { AdminPortalGesture } from '@/components/brand/admin-portal-gesture';
 import {
   ArrowRight,
   BellRing,
@@ -60,8 +61,6 @@ function ExampleBadge({ dark = false }: { dark?: boolean }) {
 }
 
 export default function LandingClient() {
-  const router = useRouter();
-
   return (
     <div className="min-h-screen bg-[#FFFBF5] text-[#4B463D] antialiased">
       <SignedIn>
@@ -71,14 +70,11 @@ export default function LandingClient() {
       {/* ── Nav ─────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 border-b border-[#EADFCF] bg-[#FFFBF5]/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <button
-            type="button"
-            onDoubleClick={() => router.push('/admin')}
-            className="flex select-none items-center transition-transform active:scale-95 text-left"
-            title="Flavourly (Double-click for Admin)"
-          >
+          {/* QA-2 — same Super Admin affordance as the dashboard: double-click
+              on desktop, press-and-hold 3s on mobile. /admin fails closed. */}
+          <AdminPortalGesture className="text-left">
             <Image src="/logo.png" alt="Flavourly" width={144} height={89} className="h-9 w-auto" priority />
-          </button>
+          </AdminPortalGesture>
 
           <nav className="flex items-center gap-3">
             <Link

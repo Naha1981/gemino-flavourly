@@ -841,6 +841,25 @@ CREATE TABLE IF NOT EXISTS campaign_simulation_feedback (
 CREATE INDEX IF NOT EXISTS campaign_simulation_feedback_sim_idx
   ON campaign_simulation_feedback (simulation_id)
 -- @@GATE-STATEMENT@@
+CREATE TABLE IF NOT EXISTS admin_notifications (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        severity text DEFAULT 'info' NOT NULL,
+        "check" text NOT NULL,
+        message text NOT NULL,
+        report_url text,
+        read_at timestamp,
+        created_at timestamp DEFAULT NOW() NOT NULL
+)
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS admin_notifications_created_idx
+      ON admin_notifications (created_at)
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS admin_notifications_check_created_idx
+      ON admin_notifications ("check", created_at)
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS admin_notifications_unread_idx
+      ON admin_notifications (read_at)
+-- @@GATE-STATEMENT@@
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS description text;
 -- @@GATE-STATEMENT@@
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS opening_hours text;
@@ -1496,4 +1515,20 @@ CREATE TABLE IF NOT EXISTS campaign_simulation_feedback (
         recorded_at timestamp DEFAULT NOW()
       );
 -- @@GATE-STATEMENT@@
-CREATE INDEX IF NOT EXISTS campaign_simulation_feedback_sim_idx ON campaign_simulation_feedback (simulation_id);`;
+CREATE INDEX IF NOT EXISTS campaign_simulation_feedback_sim_idx ON campaign_simulation_feedback (simulation_id);
+-- @@GATE-STATEMENT@@
+CREATE TABLE IF NOT EXISTS admin_notifications (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        severity text DEFAULT 'info' NOT NULL,
+        "check" text NOT NULL,
+        message text NOT NULL,
+        report_url text,
+        read_at timestamp,
+        created_at timestamp DEFAULT NOW() NOT NULL
+      );
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS admin_notifications_created_idx ON admin_notifications (created_at);
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS admin_notifications_check_created_idx ON admin_notifications ("check", created_at);
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS admin_notifications_unread_idx ON admin_notifications (read_at);`;

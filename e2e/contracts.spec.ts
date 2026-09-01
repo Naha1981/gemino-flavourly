@@ -30,8 +30,10 @@ test.describe('anonymous contract gates', () => {
 
   test('/api/admin/sync-crons is gated for anonymous callers', async ({ request }) => {
     const res = await request.get(`${BASE_URL}/api/admin/sync-crons`, { maxRedirects: 0 });
-    // Clerk middleware redirects anonymous API callers or the route 401/403s.
-    expect([302, 307, 401, 403]).toContain(res.status());
+    // Clerk middleware redirects anonymous API callers or the route
+    // 401/403s. 404 is Clerk v5 protect() semantics for anonymous API
+    // requests (pinned by e2e/gate-v4-v5.spec.ts J2.2) — equally gated.
+    expect([302, 307, 401, 403, 404]).toContain(res.status());
   });
 
   test('/api/tenant/switch requires a session and a valid body', async ({ request }) => {
@@ -39,12 +41,13 @@ test.describe('anonymous contract gates', () => {
       data: { tenantId: '00000000-0000-0000-0000-000000000000' },
       maxRedirects: 0,
     });
-    expect([302, 307, 401, 403]).toContain(res.status());
+    expect([302, 307, 401, 403, 404]).toContain(res.status());
   });
 
   test('/api/tenant/list requires a session', async ({ request }) => {
     const res = await request.get(`${BASE_URL}/api/tenant/list`, { maxRedirects: 0 });
-    expect([302, 307, 401]).toContain(res.status());
+    // 404 included: Clerk v5 protect() answers anonymous API calls with 404.
+    expect([302, 307, 401, 404]).toContain(res.status());
   });
 
   test('/claim/[token] is public; unknown token renders the invalid state', async ({ page }) => {

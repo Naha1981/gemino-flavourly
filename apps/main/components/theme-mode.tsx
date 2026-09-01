@@ -89,11 +89,19 @@ export function ThemeToggle({ label = 'Toggle dark mode' }: { label?: string }) 
   );
 }
 
-/** Flavourly logo chip: light-surface treatment keeps the dark-green + gold
- *  mark legible in dark mode. Never replaces the logo asset itself. */
-export function LogoChip({ src = '/logo.png', alt = 'Flavourly', className = 'h-9' }: { src?: string; alt?: string; className?: string }) {
+/**
+ * Flavourly logo chip: light-surface treatment keeps the dark-green + gold
+ * mark legible in dark mode. Never replaces the logo asset itself.
+ *
+ * QA-2 / owner spec "make the app logo bigger, clear, readable, visually
+ * visible": default height bumped h-9 → h-11 (44px — the 579×357 wordmark
+ * renders ~71px wide, comfortably readable), the surface padding and ring
+ * enlarged to match, and the dashboard sidebar/mobile header pass their own
+ * larger sizes on top (h-12 / h-9).
+ */
+export function LogoChip({ src = '/logo.png', alt = 'Flavourly', className = 'h-11' }: { src?: string; alt?: string; className?: string }) {
   return (
-    <span className="inline-flex items-center rounded-xl bg-white/95 px-2 py-1 shadow-sm dark:bg-[#fff8f0]">
+    <span className="inline-flex items-center rounded-xl bg-white/95 px-2.5 py-1.5 shadow-sm ring-1 ring-black/[0.04] dark:bg-[#fff8f0]">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={src} alt={alt} className={`${className} w-auto`} />
     </span>

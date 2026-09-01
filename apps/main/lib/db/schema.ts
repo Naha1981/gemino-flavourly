@@ -1510,3 +1510,38 @@ export const campaignSimulationRelations = relations(campaignSimulations, ({ one
   }),
   segments: many(campaignSimulationSegments),
 }));
+
+// -----------------------------------------------------------------------------
+// GATE QA-2 — Super Admin notification inbox (failure alerts).
+// -----------------------------------------------------------------------------
+// Written by the alert pipeline (lib/qa/alerts.ts) when the 10-minute QA
+// smoke sweep (/api/cron/qa-sweep) or the 6-hourly Playwright persona run
+// (GitHub Actions) reports a failing check. Rendered in the Super Admin
+// portal with an unread badge (read_at IS NULL); the same alert is emailed
+// to the owner via Resend, deduped to once per 6 hours per check.
+export const adminNotifications = pgTable(
+  'admin_notifications',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    // critical -> platform broken (DB down, routes 5xx, HMAC failing)
+    // warning  -> degraded (operator offline, cron fleet misconfigured)
+    // info     -> recovered / informational follow-ups
+    severity: text('severity', { enum: ['info', 'warning', 'critical'] })
+      .default('info')
+      .notNull(),
+    // Stable check identity ("qa-sweep/database", "persona-suite/...") —
+    // the dedupe key: the same failing check alerts once per 6h, not per run.
+    check: text('check').notNull(),
+    message: text('message').notNull(),
+    // Evidence/report link (Playwright HTML report artifact, run URL, …).
+    reportUrl: text('report_url'),
+    // NULL = unread (drives the badge); set by the portal's mark-read action.
+    readAt: timestamp('read_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    createdIdx: index('admin_notifications_created_idx').on(table.createdAt),
+    checkCreatedIdx: index('admin_notifications_check_created_idx').on(table.check, table.createdAt),
+    unreadIdx: index('admin_notifications_unread_idx').on(table.readAt),
+  })
+);

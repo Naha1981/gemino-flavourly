@@ -15,6 +15,7 @@
 
 /** Tables this DDL creates (26 total). */
 export const MIGRATE_TABLES = [
+  "admin_notifications",
   "approval_requests",
   "brand_profiles",
   "campaign_simulation_feedback",
@@ -812,4 +813,25 @@ export const MIGRATE_DDL: readonly string[] = [
       );`,
 
   `CREATE INDEX IF NOT EXISTS campaign_simulation_feedback_sim_idx ON campaign_simulation_feedback (simulation_id);`,
+  // 29. GATE QA-2 — Super Admin notification inbox (failure alerts).
+  // Mirrors drizzle/0024_admin_notifications.sql. Written only by the
+  // alert pipeline (lib/qa/alerts.ts): severity/check/message/report_url +
+  // read_at (NULL = unread, drives the portal badge). `check` doubles as
+  // the 6h dedupe key. No tenant scope — platform health only.
+  `CREATE TABLE IF NOT EXISTS admin_notifications (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        severity text DEFAULT 'info' NOT NULL,
+        "check" text NOT NULL,
+        message text NOT NULL,
+        report_url text,
+        read_at timestamp,
+        created_at timestamp DEFAULT NOW() NOT NULL
+      );`,
+
+  `CREATE INDEX IF NOT EXISTS admin_notifications_created_idx ON admin_notifications (created_at);`,
+
+  `CREATE INDEX IF NOT EXISTS admin_notifications_check_created_idx ON admin_notifications ("check", created_at);`,
+
+  `CREATE INDEX IF NOT EXISTS admin_notifications_unread_idx ON admin_notifications (read_at);`,
 ];
+

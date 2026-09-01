@@ -78,11 +78,30 @@ describe('tenant dashboard wiring (Inbox + Reputation)', () => {
 });
 
 describe('toggle component contract', () => {
-  test('persists via cookie and refreshes server components (no API route)', () => {
+  test('persists via cookie and refreshes server components', () => {
     assert.match(demoBar, /document\.cookie/);
     assert.match(demoBar, /router\.refresh/);
     assert.match(demoBar, /gemino_demo_mode=on/);
     assert.match(demoBar, /data-testid="demo-mode-toggle"/);
+  });
+
+  test('QA-2: switching ON ensures the busy-restaurant seed via /api/admin/demo-view first', () => {
+    // Owner spec: the toggle inside the Super Admin portal must fill the
+    // dashboards with seed data — not just flip the view cookie over
+    // whatever happens to be loaded.
+    assert.match(demoBar, /\/api\/admin\/demo-view/);
+    assert.match(demoBar, /enabled: true/);
+    // Fail-open to the cookie flip: a dead route must not brick the toggle.
+    assert.match(demoBar, /catch/);
+  });
+
+  test('the ensure-seed route is super-admin gated and idempotent', () => {
+    const route = readFileSync(join(APP, 'api', 'admin', 'demo-view', 'route.ts'), 'utf8');
+    assert.match(route, /isSuperAdmin/);
+    assert.match(route, /403/);
+    assert.match(route, /seedDemoData/);
+    // Only seeds when the dataset is not already loaded.
+    assert.match(route, /demoSeedActive/);
   });
 
   test('banner carries the demo warning and the switch-to-live action', () => {

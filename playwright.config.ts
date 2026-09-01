@@ -6,7 +6,11 @@ import { defineConfig, devices } from '@playwright/test';
 const BASE_URL = process.env.GATE_BASE_URL || process.env.BASE_URL || 'https://gemino-flavourly-whatsapp.vercel.app';
 
 export default defineConfig({
-  testDir: './e2e',
+  // QA-2: two spec trees — the original API/SSR suites (e2e/) and the
+  // persona suite (tests/e2e/). testDir must stay a single directory, so
+  // the root is used with an explicit testMatch covering both.
+  testDir: '.',
+  testMatch: ['e2e/**/*.spec.ts', 'tests/e2e/**/*.spec.ts'],
   timeout: 30 * 1000,
   expect: {
     timeout: 10000,

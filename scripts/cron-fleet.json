@@ -1,7 +1,7 @@
 {
   "$schema": "./cron-fleet.schema.md",
   "version": 1,
-  "description": "Canonical Flavourly cron fleet (S5). 20 jobs + hourly system watchdog. Read by lib/cron/canonical-fleet.ts (fs), scripts/setup-cronjobs.mjs, and GET /api/admin/sync-crons.",
+  "description": "Canonical Flavourly cron fleet (S5). 23 jobs + hourly system watchdog. Read by lib/cron/canonical-fleet.ts (fs), scripts/setup-cronjobs.mjs, and GET /api/admin/sync-crons.",
   "baseUrl": "https://gemino-flavourly-whatsapp.vercel.app",
   "operatorUrl": "https://gemino-flavourly-whatsapp.onrender.com",
   "timezone": "Africa/Johannesburg",
@@ -664,6 +664,36 @@
           15,
           30,
           45
+        ],
+        "timezone": "Africa/Johannesburg",
+        "expiresAt": 0
+      },
+      "auth": "cron-secret"
+    },
+    {
+      "key": "qa-sweep",
+      "title": "QA Smoke Sweep (self-test + Render keep-alive)",
+      "url": "{baseUrl}/api/cron/qa-sweep",
+      "schedule": {
+        "mdays": [
+          -1
+        ],
+        "months": [
+          -1
+        ],
+        "wdays": [
+          -1
+        ],
+        "hours": [
+          -1
+        ],
+        "minutes": [
+          0,
+          10,
+          20,
+          30,
+          40,
+          50
         ],
         "timezone": "Africa/Johannesburg",
         "expiresAt": 0

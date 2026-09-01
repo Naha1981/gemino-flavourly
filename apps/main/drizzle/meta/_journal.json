@@ -162,6 +162,13 @@
       "when": 1787800000000,
       "tag": "0023_pulsemap_simulations",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1788249243009,
+      "tag": "0024_admin_notifications",
+      "breakpoints": true
     }
   ]
 }

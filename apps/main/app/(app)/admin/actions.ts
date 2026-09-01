@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { systemSettings } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import { isSuperAdmin } from '@/lib/auth/is-super-admin';
+import { markAllAdminNotificationsRead } from '@/lib/qa/alerts';
 
 /**
  * Bound directly to the kill-switch <form>'s `action` prop in
@@ -35,6 +36,23 @@ export async function toggleGlobalAiAction(formData: FormData) {
       .set({ masterAiSwitch: enabled, updatedAt: new Date() })
       .where(eq(systemSettings.id, settings.id));
   }
+
+  revalidatePath('/admin');
+}
+
+/**
+ * QA-2 — "Mark all read" for the Super Admin notification inbox (the QA
+ * failure-alert panel). Sets read_at on every unread admin_notifications
+ * row, which clears the unread badge. The action is bound from the portal
+ * page; the isSuperAdmin() re-check below keeps it safe even if a
+ * non-admin ever posts the form action directly.
+ */
+export async function markNotificationsReadAction() {
+  if (!(await isSuperAdmin())) {
+    throw new Error('Unauthorized: Super Admin access required');
+  }
+
+  await markAllAdminNotificationsRead();
 
   revalidatePath('/admin');
 }

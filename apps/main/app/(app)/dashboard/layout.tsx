@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
 import { ReactNode } from 'react';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { brandProfiles } from '@/lib/db/schema';
+import { brandProfiles, staffMembers } from '@/lib/db/schema';
 import { getOrCreateTenant } from '@/lib/tenant';
 import { resolveActiveTenant, listManagedTenants } from '@/lib/tenant-resolver';
 import { isDemoModeActive } from '@/lib/demo/demo-mode';
@@ -77,7 +77,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
       // just loop. Render the shell with a banner instead.
       return (
         <ThemeProvider brand={null}>
-          <DashboardChrome switcherTenants={[]} activeTenantId="" demoActive={false}>
+          <DashboardChrome switcherTenants={[]} activeTenantId="" demoActive={false} adminHint={false}>
             <ReconnectingBanner />
             {children}
           </DashboardChrome>
@@ -121,6 +121,22 @@ export default async function DashboardLayout({ children }: { children: ReactNod
   // demo data, and demo rows must only ever be visible with the banner up.
   const demoActive = await isDemoModeActive();
 
+  // QA-2 — cheap hint for the mobile drawer's visible "Super Admin" entry.
+  // Staff-row-only check (NO Clerk API call — that would add an external
+  // HTTP round-trip to every dashboard render for every tenant). The logo
+  // gesture itself is always mounted; /admin authorizes for real. A demo
+  // cookie implies the server already proved super admin, so it counts.
+  const adminHint =
+    demoActive ||
+    (userId
+      ? await db.query.staffMembers
+          .findFirst({
+            where: and(eq(staffMembers.clerkUserId, userId), eq(staffMembers.role, 'super_admin')),
+          })
+          .then((row) => Boolean(row))
+          .catch(() => false)
+      : false);
+
   // Pass only the plain serialisable branding fields to the client Provider.
   const themeBrand = brand
     ? {
@@ -140,6 +156,7 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         switcherTenants={switcherTenants}
         activeTenantId={tenant.id}
         demoActive={demoActive}
+        adminHint={adminHint}
       >
         {/* F2 — the amber banner wraps EVERY dashboard page while demo mode
             is on, so sample data can never render unlabeled. */}

@@ -213,10 +213,10 @@ describe('S4 — tenant resolver, switcher, switch endpoint', () => {
 describe('S5 — canonical cron fleet', () => {
   const fleetPath = join(ROOT, 'scripts/cron-fleet.json');
 
-  test('scripts/cron-fleet.json exists with 22 jobs + hourly watchdog', () => {
+  test('scripts/cron-fleet.json exists with 23 jobs + hourly watchdog', () => {
     assert.ok(existsSync(fleetPath));
     const fleet = JSON.parse(readFileSync(fleetPath, 'utf8'));
-    assert.equal(fleet.jobs.length, 22);
+    assert.equal(fleet.jobs.length, 23);
     assert.equal(fleet.watchdog.key, 'system-watchdog');
     assert.deepEqual(fleet.watchdog.schedule.minutes, [0]);
     assert.deepEqual(fleet.watchdog.schedule.hours, [-1]);

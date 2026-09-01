@@ -73,11 +73,31 @@ export async function GET() {
     operatorOnline = await checkOperatorOnline();
   }
 
+  // QA-2 (QR verification, task 1): while NOT connected, merge the
+  // operator's LIVE socket snapshot over the DB row. The DB row is the
+  // operator's persisted copy, but pairing codes rotate every ~20s —
+  // reading the live /status (bounded 5s) keeps the displayed code as
+  // fresh as the engine itself and lets the full linking lifecycle be
+  // asserted end-to-end (the QA harness drives a rotating mock operator).
+  // Unreachable engine → null → the DB values stand (round-2 behaviour).
+  const live = !account.isConnected
+    ? await operatorClient.getStatus(account.id).catch(() => null)
+    : null;
+  if (live) {
+    operatorOnline = true;
+  }
+
   return NextResponse.json({
-    isConnected: account.isConnected,
-    phoneNumber: account.phoneNumber,
-    qrCode: account.qrCode,
-    status: account.status ?? 'unlinked',
+    isConnected: live ? live.isConnected : account.isConnected,
+    phoneNumber: live?.phoneNumber ?? account.phoneNumber ?? null,
+    qrCode: live?.qrCode ?? account.qrCode ?? null,
+    status: live
+      ? live.isConnected
+        ? 'connected'
+        : live.qrCode
+          ? 'connecting'
+          : (account.status ?? 'unlinked')
+      : (account.status ?? 'unlinked'),
     operatorOnline,
   });
 }
