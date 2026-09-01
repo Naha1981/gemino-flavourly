@@ -106,9 +106,15 @@ export const operatorClient = {
   },
 
   /**
-   * Check connection status of a WhatsApp account
+   * Check connection status of a WhatsApp account.
+   *
+   * `timeoutMs` (default 5s): this is polled every 3s by the linking page
+   * via /api/whatsapp/status, and since QA-2 that route ALSO merges the
+   * live snapshot into its response — an unbounded fetch here would hang
+   * the poll until the platform kills the route. Bounded = the page falls
+   * back to the DB row (round-2 behaviour) when the engine is slow.
    */
-  async getStatus(waAccountId: string): Promise<SocketStatusResponse | null> {
+  async getStatus(waAccountId: string, timeoutMs: number = 5_000): Promise<SocketStatusResponse | null> {
     try {
       const res = await fetch(`${OPERATOR_URL}/status?waAccountId=${waAccountId}`, {
         method: 'GET',
@@ -116,6 +122,7 @@ export const operatorClient = {
           'x-api-key': OPERATOR_API_KEY,
         },
         cache: 'no-store',
+        signal: AbortSignal.timeout(timeoutMs),
       });
 
       if (!res.ok) return null;
