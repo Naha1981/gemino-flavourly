@@ -63,6 +63,19 @@ export const GATE_PERSONAS = {
     email: 'tenantb.owner@flavourly.test',
     name: 'Ben Okafor',
   },
+  /**
+   * UI-3R evidence persona — owner of Tenant C (Rosebank Corner Bistro),
+   * the DISCONNECTED + EMPTY live tenant: connected WhatsApp once (so the
+   * Overview renders rather than redirecting to the QR page) but is now
+   * disconnected, and has no contacts, conversations, reviews, revenue or
+   * reservations. This is exactly the state the owner's screenshots were
+   * taken in: banner up, every widget must show honest zeros.
+   */
+  tenantCOwner: {
+    userId: 'user_gate_tenantc',
+    email: 'tenantc.owner@flavourly.test',
+    name: 'Carol van Wyk',
+  },
   /** A would-be claimant arriving through the magic link (J4). */
   prospectClaimer: {
     userId: 'user_gate_prospect',
@@ -89,12 +102,16 @@ export const GATE_IDS = {
 
   tenantA: 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa',
   tenantB: 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb',
+  tenantC: 'cccccccc-3333-4333-8333-cccccccccccc',
 
   membershipA: '33333333-3333-4333-8333-333333333301',
   membershipB: '33333333-3333-4333-8333-333333333302',
+  membershipC: '33333333-3333-4333-8333-333333333303',
 
   waAccountA: 'aaaaaa01-0001-4001-8001-000000000001',
   waAccountB: 'bbbbbb01-0001-4001-8001-000000000001',
+  // Tenant C's disconnected account (isConnected: false, has connected once).
+  waAccountC: 'cccccc01-0001-4001-8001-000000000001',
 
   contactA1: '44444444-4444-4444-8444-444444444401',
   contactA2: '44444444-4444-4444-8444-444444444402',

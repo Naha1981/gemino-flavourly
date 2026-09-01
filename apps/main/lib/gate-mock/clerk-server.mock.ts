@@ -69,7 +69,9 @@ function mockClerkUser(userId: string) {
         ? { tenantId: 'aaaaaaaa-1111-4111-8111-aaaaaaaaaaaa' }
         : persona.userId === GATE_PERSONAS.tenantBOwner.userId
           ? { tenantId: 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb' }
-          : {}),
+          : persona.userId === GATE_PERSONAS.tenantCOwner.userId
+            ? { tenantId: 'cccccccc-3333-4333-8333-cccccccccccc' }
+            : {}),
     },
     privateMetadata: {},
   };

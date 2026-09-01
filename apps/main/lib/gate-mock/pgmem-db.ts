@@ -344,6 +344,25 @@ function buildGateDb(): GateDbModule {
         onboardingComplete: true,
       }),
     ),
+    // UI-3R — Tenant C: the disconnected, EMPTY live tenant (the exact state
+    // the owner's screenshots were taken in). Connected once (so the Overview
+    // renders rather than redirecting to the QR page) but now disconnected,
+    // with no data rows at all: every widget must show honest zeros.
+    track(
+      db.insert(schema.tenants).values({
+        id: GATE_IDS.tenantC,
+        name: 'Rosebank Corner Bistro',
+        slug: 'rosebank-corner-bistro',
+        ownerEmail: GATE_PERSONAS.tenantCOwner.email,
+        ownerUserId: GATE_PERSONAS.tenantCOwner.userId,
+        tenantMode: 'live',
+        aiEnabled: true,
+        manualMode: false,
+        planStatus: 'trialing',
+        trialEndsAt,
+        onboardingComplete: true,
+      }),
+    ),
   );
 
   // Staff — the super admin row (isSuperAdmin() path 1). The ADMIN_EMAIL
@@ -379,6 +398,14 @@ function buildGateDb(): GateDbModule {
         role: 'owner',
       }),
     ),
+    track(
+      db.insert(schema.memberships).values({
+        id: GATE_IDS.membershipC,
+        userId: GATE_PERSONAS.tenantCOwner.userId,
+        tenantId: GATE_IDS.tenantC,
+        role: 'owner',
+      }),
+    ),
   );
 
   // WhatsApp accounts (connected, so dispatch is not blocked on linkage).
@@ -401,6 +428,19 @@ function buildGateDb(): GateDbModule {
         isConnected: true,
         status: 'connected',
         lastConnectedAt: new Date(now),
+      }),
+    ),
+    // UI-3R — Tenant C's account: connected once (lastConnectedAt set, so the
+    // Overview renders rather than redirecting to onboarding) but now
+    // disconnected — the honest-banner + honest-zeros state.
+    track(
+      db.insert(schema.waAccounts).values({
+        id: GATE_IDS.waAccountC,
+        tenantId: GATE_IDS.tenantC,
+        phoneNumber: '+27821110003',
+        isConnected: false,
+        status: 'disconnected',
+        lastConnectedAt: new Date(now - 3 * 24 * 3600_000),
       }),
     ),
   );
