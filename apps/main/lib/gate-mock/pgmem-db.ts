@@ -579,6 +579,144 @@ function buildGateDb(): GateDbModule {
     ),
   );
 
+  // ---------------------------------------------------------------------
+  // GATE PM-1 — PulseMap fixtures.
+  //
+  // (a) Tenant A: one DRAFT campaign + one COMPLETE seeded simulation with
+  //     per-segment rows. The simulation's input_hash is a fixture value
+  //     (never matches a live compute) so POST simulate on this campaign
+  //     actually RUNS the live path — and, with no AI key in this harness,
+  //     honestly reports "unavailable" instead of replaying the fixture.
+  //     POST apply, however, works against the fixture (tenant-isolated).
+  // (b) Demo tenant (deadbeef namespace): The Grand Bistro + a DRAFT
+  //     campaign + customer profiles across all five segments, so the
+  //     super admin with Demo Mode ON gets a real deterministic forecast
+  //     from sample data (no external calls, no live data).
+  // ---------------------------------------------------------------------
+  seededInserts.push(
+    track(
+      db.insert(schema.marketingCampaigns).values({
+        id: GATE_IDS.campaignADraft,
+        tenantId: GATE_IDS.tenantA,
+        name: 'Winter Special Thursdays',
+        type: 'promotion',
+        targetSegment: 'regular',
+        offer: 'R150 off mains',
+        message:
+          'Winter is here! Join us any Thursday this month and enjoy R150 off your mains. Reply BOOK and we will sort your table.',
+        status: 'draft',
+        estimatedReach: 120,
+      }),
+    ),
+    track(
+      db.insert(schema.campaignSimulations).values({
+        id: GATE_IDS.simulationA,
+        tenantId: GATE_IDS.tenantA,
+        campaignId: GATE_IDS.campaignADraft,
+        inputHash: 'gate-fixture-seeded-hash',
+        source: 'ai',
+        status: 'complete',
+        score: 63,
+        readiness: 'improve',
+        bestSegment: 'regular',
+        purchaseIntent:
+          'About 14 of 120 reachable guests expected to reply; roughly 8 could turn into bookings if the message stays concrete.',
+        objections: [
+          'Price is unclear — guests will ask "how much?" before booking.',
+          'The offer has no clear date — guests cannot tell when it is valid.',
+        ],
+        likelyReplies: [
+          'Does this include drinks?',
+          'Can we book for 4 at 7pm?',
+          'How much is it?',
+        ],
+        riskFlags: ['No validity window — replies may arrive after the offer ends.'],
+        improvedCopy:
+          'The Copper Pot · This Thursday\nR150 off mains — for two, menu included.\nJoin us for a proper winter dinner — made easy.\nLimited tables. Reply BOOK with your party size and we will confirm on WhatsApp.',
+        explanation:
+          'GATE FIXTURE — a seeded forecast standing in for the AI provider in this offline harness (model tag below says so). In production this row is produced by the approved Groq/Gemini chain.',
+        confidence: 'medium',
+        assumptions: [
+          'Gate harness fixture — not a live AI prediction.',
+          'Real results are measured after launch.',
+        ],
+        segmentSummaries: { source: 'gate-fixture', segments: [] },
+        model: 'gate-fixture:seeded',
+      }),
+    ),
+    track(
+      db.insert(schema.campaignSimulationSegments).values(
+        (['vip', 'regular', 'at_risk', 'dormant', 'new'] as const).map((segment, i) => ({
+          id: `99999999-9999-4999-8999-9999999999${String(10 + i)}`,
+          simulationId: GATE_IDS.simulationA,
+          segment,
+          reaction:
+            segment === 'regular'
+              ? 'Likely to respond (120 regulars) — concrete price, a named day and a clear next step are exactly what regulars act on.'
+              : segment === 'vip'
+                ? 'On the fence (2 VIPs) — an experience-framed offer lands better than a discount blast.'
+                : 'Likely to ignore — this segment needs a stronger dated incentive.',
+          purchaseIntent: segment === 'regular' ? 68 : segment === 'vip' ? 46 : 24,
+          primaryObjection: segment === 'regular' ? 'Price is unclear before booking.' : null,
+        })),
+      ),
+    ),
+    // (b) The demo tenant + its draft campaign + segment profiles.
+    track(
+      db.insert(schema.tenants).values({
+        id: GATE_IDS.demoTenant,
+        name: 'The Grand Bistro',
+        slug: 'demo-grand-bistro',
+        ownerEmail: GATE_PERSONAS.superAdmin.email,
+        ownerUserId: GATE_PERSONAS.superAdmin.userId,
+        tenantMode: 'live',
+        aiEnabled: true,
+        manualMode: false,
+        plan: 'premium',
+        planStatus: 'active',
+        onboardingComplete: true,
+        description: 'Fine-casual bistro in Johannesburg (demo dataset).',
+      }),
+    ),
+    track(
+      db.insert(schema.marketingCampaigns).values({
+        id: GATE_IDS.demoDraftCampaign,
+        tenantId: GATE_IDS.demoTenant,
+        name: 'Thursday Date Night',
+        type: 'promotion',
+        targetSegment: 'regular',
+        offer: 'R299 for two',
+        message:
+          'R299 date-night meal for two this Thursday — 3 courses, menu included. Reply BOOK and we will sort your table.',
+        status: 'draft',
+        estimatedReach: 380,
+      }),
+    ),
+    // Demo profiles: six across the five segments (deadbeef ids — Demo
+    // Mode scope only; explicit defaults dodge any pg-mem DEFAULT gap).
+    track(
+      db.insert(schema.customerProfiles).values(
+        (['vip', 'regular', 'regular', 'at_risk', 'dormant', 'new'] as const).map((segment, i) => ({
+          id: `deadbeef-c002-4${String(100 + i).slice(0, 3).padStart(3, '0')}-8000-${String(i).padStart(12, '0')}`,
+          tenantId: GATE_IDS.demoTenant,
+          customerPhone: `+2782999${String(1000 + i).padStart(4, '0')}`,
+          customerName: null,
+          segment,
+          totalVisits: segment === 'vip' ? 14 : segment === 'regular' ? 8 : segment === 'at_risk' ? 5 : 3,
+          totalSpendCents:
+            segment === 'vip' ? 260000 : segment === 'regular' ? 110000 : segment === 'at_risk' ? 70000 : 45000,
+          lastVisitAt: new Date(now - (segment === 'vip' ? 25 : segment === 'regular' ? 40 : 150) * 86_400_000),
+          firstVisitAt: new Date(now - 400 * 86_400_000),
+          avgPartySize: '2',
+          segmentConfidence: '0.9',
+          preferences: {},
+          createdAt: new Date(now),
+          updatedAt: new Date(now),
+        })),
+      ),
+    ),
+  );
+
   // All insert mutations above have already happened synchronously at call
   // time; the promise chain is only for surfacing errors in the report.
   Promise.allSettled(seededInserts).then((results) => {
