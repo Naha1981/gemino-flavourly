@@ -2,9 +2,11 @@ import { redirect } from 'next/navigation';
 import { ReactNode } from 'react';
 import { eq } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { brandProfiles, systemSettings } from '@/lib/db/schema';
+import { brandProfiles } from '@/lib/db/schema';
 import { getOrCreateTenant } from '@/lib/tenant';
 import { resolveActiveTenant, listManagedTenants } from '@/lib/tenant-resolver';
+import { isDemoModeActive } from '@/lib/demo/demo-mode';
+import { DemoModeBar } from '@/components/demo-mode-bar';
 import { auth } from '@clerk/nextjs/server';
 import { ThemeProvider } from '@/components/theme-provider';
 import { DashboardChrome } from './dashboard-chrome';
@@ -113,9 +115,11 @@ export default async function DashboardLayout({ children }: { children: ReactNod
     .findFirst({ where: eq(brandProfiles.tenantId, tenant.id) })
     .catch(() => null);
 
-  // Demo mode chip: visible while the deadbeef seed dataset is loaded.
-  const settings = await db.query.systemSettings.findFirst().catch(() => null);
-  const demoActive = Boolean(settings?.demoSeedActive);
+  // UI-3R / F2 — the demo chip + amber banner follow VIEW-TIME demo mode
+  // (super-admin cookie, fails closed), not merely whether the seed dataset
+  // happens to be loaded: a seeded database must never brand a LIVE view as
+  // demo data, and demo rows must only ever be visible with the banner up.
+  const demoActive = await isDemoModeActive();
 
   // Pass only the plain serialisable branding fields to the client Provider.
   const themeBrand = brand
@@ -137,6 +141,9 @@ export default async function DashboardLayout({ children }: { children: ReactNod
         activeTenantId={tenant.id}
         demoActive={demoActive}
       >
+        {/* F2 — the amber banner wraps EVERY dashboard page while demo mode
+            is on, so sample data can never render unlabeled. */}
+        {demoActive && <DemoModeBar active />}
         {degraded && <ReconnectingBanner />}
         {children}
       </DashboardChrome>

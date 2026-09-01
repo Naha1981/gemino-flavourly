@@ -6,6 +6,7 @@ import { UserButton } from '@clerk/nextjs';
 import { type ReactNode } from 'react';
 import { ThemeToggle, LogoChip } from '@/components/theme-mode';
 import { TenantSwitcher } from '@/components/tenant-switcher';
+import { resolveActiveNavHref } from '@/lib/nav/active-route';
 
 /**
  * Stitch design system shell for /dashboard:
@@ -49,10 +50,13 @@ const BOTTOM_LINKS: NavItem[] = [
   { href: '/dashboard/market/competitors', label: 'Market', symbol: 'storefront' },
 ];
 
-function isActive(pathname: string, href: string): boolean {
-  if (href === '/dashboard') return pathname === '/dashboard';
-  return pathname === href || pathname.startsWith(`${href}/`);
-}
+/**
+ * UI-3R / F8 — exactly ONE nav item may be active per route. The old
+ * startsWith matcher lit up every ancestor (S9: Customers + VIP Today both
+ * green on /customers/vip-today; S24: Marketing + Calendar on
+ * /marketing/calendar). resolveActiveNavHref picks the single most-specific
+ * match — used for BOTH the desktop sidebar and the mobile bottom nav.
+ */
 
 export function DashboardChrome({
   children,
@@ -66,6 +70,14 @@ export function DashboardChrome({
   demoActive: boolean;
 }) {
   const pathname = usePathname();
+  const activeSidebarHref = resolveActiveNavHref(
+    pathname,
+    SIDEBAR_LINKS.map((l) => l.href)
+  );
+  const activeBottomHref = resolveActiveNavHref(
+    pathname,
+    BOTTOM_LINKS.map((l) => l.href)
+  );
 
   return (
     <div className="flex min-h-screen bg-app-bg text-app-fg">
@@ -82,7 +94,7 @@ export function DashboardChrome({
 
         <nav className="flex-1 space-y-1.5">
           {SIDEBAR_LINKS.map((link) => {
-            const active = isActive(pathname, link.href);
+            const active = activeSidebarHref === link.href;
             return (
               <Link
                 key={link.href}
@@ -148,7 +160,7 @@ export function DashboardChrome({
       {/* Mobile bottom nav */}
       <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-app-border bg-app-surface-0/95 backdrop-blur md:hidden dark:border-zinc-800 dark:bg-zinc-950/95">
         {BOTTOM_LINKS.map((link) => {
-          const active = isActive(pathname, link.href);
+          const active = activeBottomHref === link.href;
           return (
             <Link
               key={link.href}

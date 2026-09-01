@@ -67,7 +67,9 @@ describe('demo mode — safety wiring', () => {
     assert.match(page, /<DemoControls/);
     assert.match(page, /demoSeedActive/);
     const layout = stripComments(src('app/(app)/dashboard/layout.tsx'));
-    assert.match(layout, /demoSeedActive/);
+    // UI-3R/F2: the chip follows VIEW-TIME demo mode (super-admin cookie),
+    // not merely whether the seed dataset is loaded.
+    assert.match(layout, /isDemoModeActive/);
     assert.match(layout, /demoActive/);
   });
 });
