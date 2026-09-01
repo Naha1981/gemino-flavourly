@@ -747,6 +747,108 @@ ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS cronjob_api_key text
 -- @@GATE-STATEMENT@@
 ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS demo_seed_active boolean DEFAULT false NOT NULL
 -- @@GATE-STATEMENT@@
+CREATE TABLE IF NOT EXISTS reward_events (
+      id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+      tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+      contact_id uuid NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+      conversation_id uuid REFERENCES conversations(id) ON DELETE SET NULL,
+      reward_name text NOT NULL,
+      points_cost integer NOT NULL,
+      status text DEFAULT 'pending' NOT NULL,
+      claim_token text NOT NULL,
+      gps_lat double precision,
+      gps_lng double precision,
+      distance_m integer,
+      rejection_reason text,
+      claimed_at timestamp,
+      expires_at timestamp NOT NULL,
+      created_at timestamp DEFAULT NOW() NOT NULL,
+      verified_at timestamp
+    )
+-- @@GATE-STATEMENT@@
+CREATE UNIQUE INDEX IF NOT EXISTS reward_events_claim_token_uniq ON reward_events (claim_token)
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS reward_events_tenant_status_idx ON reward_events (tenant_id, status)
+-- @@GATE-STATEMENT@@
+ALTER TABLE loyalty_transactions ADD COLUMN IF NOT EXISTS ref_id text
+-- @@GATE-STATEMENT@@
+CREATE UNIQUE INDEX IF NOT EXISTS loyalty_transactions_ref_id_uniq ON loyalty_transactions (ref_id)
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS loyalty_transactions_tenant_contact_idx ON loyalty_transactions (tenant_id, contact_id)
+-- @@GATE-STATEMENT@@
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS reminder48_sent_at timestamp
+-- @@GATE-STATEMENT@@
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS reminder24_sent_at timestamp
+-- @@GATE-STATEMENT@@
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS reminder6_sent_at timestamp
+-- @@GATE-STATEMENT@@
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS customer_confirmed_at timestamp
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS reservations_reminder_ladder_idx
+      ON reservations (date)
+      WHERE status = 'confirmed'
+-- @@GATE-STATEMENT@@
+CREATE TABLE IF NOT EXISTS campaign_simulations (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  campaign_id uuid REFERENCES marketing_campaigns(id) ON DELETE CASCADE,
+  input_hash text NOT NULL,
+  source text NOT NULL DEFAULT 'ai',
+  status text NOT NULL DEFAULT 'complete',
+  score integer,
+  readiness text,
+  best_segment text,
+  purchase_intent text,
+  objections jsonb,
+  likely_replies jsonb,
+  risk_flags jsonb,
+  improved_copy text,
+  explanation text,
+  confidence text,
+  assumptions jsonb,
+  segment_summaries jsonb,
+  model text,
+  applied_at timestamp,
+  applied_to_campaign_id uuid REFERENCES marketing_campaigns(id) ON DELETE SET NULL,
+  created_at timestamp DEFAULT NOW()
+)
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS campaign_simulations_tenant_idx
+  ON campaign_simulations (tenant_id)
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS campaign_simulations_campaign_idx
+  ON campaign_simulations (campaign_id)
+-- @@GATE-STATEMENT@@
+CREATE TABLE IF NOT EXISTS campaign_simulation_segments (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  simulation_id uuid NOT NULL REFERENCES campaign_simulations(id) ON DELETE CASCADE,
+  segment text NOT NULL,
+  reaction text,
+  purchase_intent integer,
+  primary_objection text
+)
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS campaign_simulation_segments_sim_idx
+  ON campaign_simulation_segments (simulation_id)
+-- @@GATE-STATEMENT@@
+CREATE TABLE IF NOT EXISTS campaign_simulation_feedback (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  simulation_id uuid NOT NULL REFERENCES campaign_simulations(id) ON DELETE CASCADE,
+  campaign_id uuid REFERENCES marketing_campaigns(id) ON DELETE CASCADE,
+  predicted_replies integer,
+  predicted_bookings integer,
+  predicted_objections jsonb,
+  actual_replies integer,
+  actual_bookings integer,
+  actual_recovered_cents integer,
+  notes text,
+  recorded_at timestamp DEFAULT NOW()
+)
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS campaign_simulation_feedback_sim_idx
+  ON campaign_simulation_feedback (simulation_id)
+-- @@GATE-STATEMENT@@
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS description text;
 -- @@GATE-STATEMENT@@
 ALTER TABLE tenants ADD COLUMN IF NOT EXISTS opening_hours text;
@@ -1307,3 +1409,99 @@ CREATE INDEX IF NOT EXISTS memberships_tenant_idx ON memberships (tenant_id);
 ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS cronjob_api_key text;
 -- @@GATE-STATEMENT@@
 ALTER TABLE system_settings ADD COLUMN IF NOT EXISTS demo_seed_active boolean DEFAULT false NOT NULL;
+-- @@GATE-STATEMENT@@
+CREATE TABLE IF NOT EXISTS reward_events (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        contact_id uuid NOT NULL REFERENCES contacts(id) ON DELETE CASCADE,
+        conversation_id uuid REFERENCES conversations(id) ON DELETE SET NULL,
+        reward_name text NOT NULL,
+        points_cost integer NOT NULL,
+        status text DEFAULT 'pending' NOT NULL,
+        claim_token text NOT NULL,
+        gps_lat double precision,
+        gps_lng double precision,
+        distance_m integer,
+        rejection_reason text,
+        claimed_at timestamp,
+        expires_at timestamp NOT NULL,
+        created_at timestamp DEFAULT NOW() NOT NULL,
+        verified_at timestamp
+      );
+-- @@GATE-STATEMENT@@
+CREATE UNIQUE INDEX IF NOT EXISTS reward_events_claim_token_uniq ON reward_events (claim_token);
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS reward_events_tenant_status_idx ON reward_events (tenant_id, status);
+-- @@GATE-STATEMENT@@
+ALTER TABLE loyalty_transactions ADD COLUMN IF NOT EXISTS ref_id text;
+-- @@GATE-STATEMENT@@
+CREATE UNIQUE INDEX IF NOT EXISTS loyalty_transactions_ref_id_uniq ON loyalty_transactions (ref_id);
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS loyalty_transactions_tenant_contact_idx ON loyalty_transactions (tenant_id, contact_id);
+-- @@GATE-STATEMENT@@
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS reminder48_sent_at timestamp;
+-- @@GATE-STATEMENT@@
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS reminder24_sent_at timestamp;
+-- @@GATE-STATEMENT@@
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS reminder6_sent_at timestamp;
+-- @@GATE-STATEMENT@@
+ALTER TABLE reservations ADD COLUMN IF NOT EXISTS customer_confirmed_at timestamp;
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS reservations_reminder_ladder_idx ON reservations (date);
+-- @@GATE-STATEMENT@@
+CREATE TABLE IF NOT EXISTS campaign_simulations (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        campaign_id uuid REFERENCES marketing_campaigns(id) ON DELETE CASCADE,
+        input_hash text NOT NULL,
+        source text NOT NULL DEFAULT 'ai',
+        status text NOT NULL DEFAULT 'complete',
+        score integer,
+        readiness text,
+        best_segment text,
+        purchase_intent text,
+        objections jsonb,
+        likely_replies jsonb,
+        risk_flags jsonb,
+        improved_copy text,
+        explanation text,
+        confidence text,
+        assumptions jsonb,
+        segment_summaries jsonb,
+        model text,
+        applied_at timestamp,
+        applied_to_campaign_id uuid REFERENCES marketing_campaigns(id) ON DELETE SET NULL,
+        created_at timestamp DEFAULT NOW()
+      );
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS campaign_simulations_tenant_idx ON campaign_simulations (tenant_id);
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS campaign_simulations_campaign_idx ON campaign_simulations (campaign_id);
+-- @@GATE-STATEMENT@@
+CREATE TABLE IF NOT EXISTS campaign_simulation_segments (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        simulation_id uuid NOT NULL REFERENCES campaign_simulations(id) ON DELETE CASCADE,
+        segment text NOT NULL,
+        reaction text,
+        purchase_intent integer,
+        primary_objection text
+      );
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS campaign_simulation_segments_sim_idx ON campaign_simulation_segments (simulation_id);
+-- @@GATE-STATEMENT@@
+CREATE TABLE IF NOT EXISTS campaign_simulation_feedback (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        simulation_id uuid NOT NULL REFERENCES campaign_simulations(id) ON DELETE CASCADE,
+        campaign_id uuid REFERENCES marketing_campaigns(id) ON DELETE CASCADE,
+        predicted_replies integer,
+        predicted_bookings integer,
+        predicted_objections jsonb,
+        actual_replies integer,
+        actual_bookings integer,
+        actual_recovered_cents integer,
+        notes text,
+        recorded_at timestamp DEFAULT NOW()
+      );
+-- @@GATE-STATEMENT@@
+CREATE INDEX IF NOT EXISTS campaign_simulation_feedback_sim_idx ON campaign_simulation_feedback (simulation_id);

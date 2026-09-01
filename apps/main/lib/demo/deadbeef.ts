@@ -31,6 +31,8 @@ const NAMESPACES: Record<string, string> = {
   revenue: '9001',
   brand: '7001',
   wa: '8001',
+  pulsemap: 'f004',
+  pulseseg: 'f005',
 };
 
 function hex(n: number, width: number): string {

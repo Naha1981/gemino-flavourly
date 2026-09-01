@@ -71,7 +71,12 @@ function mockClerkUser(userId: string) {
           ? { tenantId: 'bbbbbbbb-2222-4222-8222-bbbbbbbbbbbb' }
           : persona.userId === GATE_PERSONAS.tenantCOwner.userId
             ? { tenantId: 'cccccccc-3333-4333-8333-cccccccccccc' }
-            : {}),
+            : persona.userId === GATE_PERSONAS.demoOwner.userId
+              // The demo tenant — mirrors production, where the owner's
+              // account is linked to The Grand Bistro (the seed's owner-link
+              // path), so their dashboard pages render the demo dataset.
+              ? { tenantId: 'deadbeef-0100-4000-8000-000000000000' }
+              : {}),
     },
     privateMetadata: {},
   };
@@ -193,11 +198,21 @@ export function createRouteMatcher(matchers: (string | RegExp)[]) {
  * identity. Note the mock enforces NOTHING on its own: /dashboard reached
  * while signed out is bounced by the app's `auth().protect()` call, which
  * is exactly what J2 verifies end-to-end.
+ *
+ * The handler's RETURNED response is passed through: the app's middleware
+ * returns `NextResponse.next({ request: { headers } })` to forward the
+ * `?tenant=` deep-link as `x-tenant-param` — discarding it (the pre-PM-1
+ * behaviour) silently killed super-admin tenant switching in the harness,
+ * so Demo Mode pages rendered the operator's default tenant instead of
+ * the demo tenant.
  */
 export function clerkMiddleware(
-  handler: (auth: () => { protect: () => void }, req: unknown) => void | Promise<void>,
+  handler: (
+    auth: () => { protect: () => void },
+    req: unknown,
+  ) => NextResponse | void | Promise<NextResponse | void>,
 ) {
-  return async (req: Request, _event?: unknown) => {
+  return async (req: Request, _event?: unknown): Promise<NextResponse> => {
     // This app's middleware.ts calls `auth().protect()` — the middleware
     // callback receives an auth FUNCTION (Clerk v4-style contract), so the
     // mock hands it a zero-arg function that returns the auth object.
@@ -212,7 +227,9 @@ export function clerkMiddleware(
     });
 
     try {
-      await handler(auth, req);
+      const result = await handler(auth, req);
+      // Pass the handler's response through (header mutations included).
+      return result ?? NextResponse.next();
     } catch (err) {
       const tagged =
         (err as unknown as Record<symbol, unknown>)?.[GATE_PROTECT] === true ||

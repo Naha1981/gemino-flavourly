@@ -76,6 +76,19 @@ export const GATE_PERSONAS = {
     email: 'tenantc.owner@flavourly.test',
     name: 'Carol van Wyk',
   },
+  /**
+   * UI-3R/PM-1 evidence persona — the owner of the demo tenant (The Grand
+   * Bistro). Same email as the super admin (the demo seed links the
+   * platform owner to the demo tenant in production, exactly like this),
+   * so isSuperAdmin() passes via the ADMIN_EMAIL allowlist AND
+   * getOrCreateTenant() resolves the demo tenant via Clerk metadata —
+   * which is how the owner's real demo-mode viewing works.
+   */
+  demoOwner: {
+    userId: 'user_gate_demo',
+    email: 'naha.thabiso@gmail.com',
+    name: 'Naha Thabiso (demo)',
+  },
   /** A would-be claimant arriving through the magic link (J4). */
   prospectClaimer: {
     userId: 'user_gate_prospect',
@@ -131,4 +144,18 @@ export const GATE_IDS = {
   // existed (NULL status must render with NO tick at all).
   msgA2Inbound: '66666666-6666-4666-8666-666666666607',
   msgA2Legacy: '66666666-6666-4666-8666-666666666608',
+
+  // GATE PM-1 — PulseMap fixtures.
+  // Tenant A's DRAFT campaign (the simulate target) + a complete seeded
+  // simulation (the apply target). The simulation's input_hash is a fixture
+  // value on purpose: it never matches a live compute, so POST simulate on
+  // this campaign RUNS (and, with no AI key in the harness, honestly
+  // reports unavailable) instead of silently replaying the fixture.
+  campaignADraft: '77777777-7777-4777-8777-777777777701',
+  simulationA: '88888888-8888-4888-8888-888888888801',
+
+  // The demo tenant (deadbeef namespace — The Grand Bistro) + its draft
+  // campaign for Demo Mode simulation + demo profiles across segments.
+  demoTenant: 'deadbeef-0100-4000-8000-000000000000',
+  demoDraftCampaign: 'deadbeef-f001-4008-8000-000000000008',
 } as const;
