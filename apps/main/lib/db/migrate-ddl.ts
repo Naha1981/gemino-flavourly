@@ -13,10 +13,13 @@
  * every deploy.
  */
 
-/** Tables this DDL creates (23 total). */
+/** Tables this DDL creates (26 total). */
 export const MIGRATE_TABLES = [
   "approval_requests",
   "brand_profiles",
+  "campaign_simulation_feedback",
+  "campaign_simulation_segments",
+  "campaign_simulations",
   "channel_configs",
   "competitor_menu_snapshots",
   "competitor_promotions",
@@ -747,4 +750,66 @@ export const MIGRATE_DDL: readonly string[] = [
   // executed verbatim against pg-mem by the parity suite, and the drizzle
   // SQL keeps the stricter partial form).
   `CREATE INDEX IF NOT EXISTS reservations_reminder_ladder_idx ON reservations (date);`,
+
+  // 28. GATE PM-1 — PulseMap campaign reaction simulator.
+  // Mirrors drizzle/0023_pulsemap_simulations.sql. Purely additive. The
+  // PII rule: these tables carry the campaign's own text, aggregated
+  // segment summaries (counts/averages only), and the forecast — never
+  // names, phones, or transcripts.
+  `CREATE TABLE IF NOT EXISTS campaign_simulations (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        campaign_id uuid REFERENCES marketing_campaigns(id) ON DELETE CASCADE,
+        input_hash text NOT NULL,
+        source text NOT NULL DEFAULT 'ai',
+        status text NOT NULL DEFAULT 'complete',
+        score integer,
+        readiness text,
+        best_segment text,
+        purchase_intent text,
+        objections jsonb,
+        likely_replies jsonb,
+        risk_flags jsonb,
+        improved_copy text,
+        explanation text,
+        confidence text,
+        assumptions jsonb,
+        segment_summaries jsonb,
+        model text,
+        applied_at timestamp,
+        applied_to_campaign_id uuid REFERENCES marketing_campaigns(id) ON DELETE SET NULL,
+        created_at timestamp DEFAULT NOW()
+      );`,
+
+  `CREATE INDEX IF NOT EXISTS campaign_simulations_tenant_idx ON campaign_simulations (tenant_id);`,
+
+  `CREATE INDEX IF NOT EXISTS campaign_simulations_campaign_idx ON campaign_simulations (campaign_id);`,
+
+  `CREATE TABLE IF NOT EXISTS campaign_simulation_segments (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        simulation_id uuid NOT NULL REFERENCES campaign_simulations(id) ON DELETE CASCADE,
+        segment text NOT NULL,
+        reaction text,
+        purchase_intent integer,
+        primary_objection text
+      );`,
+
+  `CREATE INDEX IF NOT EXISTS campaign_simulation_segments_sim_idx ON campaign_simulation_segments (simulation_id);`,
+
+  `CREATE TABLE IF NOT EXISTS campaign_simulation_feedback (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id uuid NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        simulation_id uuid NOT NULL REFERENCES campaign_simulations(id) ON DELETE CASCADE,
+        campaign_id uuid REFERENCES marketing_campaigns(id) ON DELETE CASCADE,
+        predicted_replies integer,
+        predicted_bookings integer,
+        predicted_objections jsonb,
+        actual_replies integer,
+        actual_bookings integer,
+        actual_recovered_cents integer,
+        notes text,
+        recorded_at timestamp DEFAULT NOW()
+      );`,
+
+  `CREATE INDEX IF NOT EXISTS campaign_simulation_feedback_sim_idx ON campaign_simulation_feedback (simulation_id);`,
 ];

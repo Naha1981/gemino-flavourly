@@ -1399,3 +1399,114 @@ export const membershipRelations = relations(memberships, ({ one }) => ({
     references: [tenants.id],
   }),
 }));
+
+// -----------------------------------------------------------------------------
+// 27. Campaign simulations (GATE PM-1 — PulseMap reaction simulator)
+// -----------------------------------------------------------------------------
+// One row per "Simulate customer reaction" run. Stores the forecast, the
+// anonymized segment summaries it was based on, and the improved copy the
+// owner may apply. PII RULE: segment_summaries holds per-segment counts and
+// averages only — never names, phones, or transcripts (see lib/pulsemap).
+export const campaignSimulations = pgTable(
+  'campaign_simulations',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    campaignId: uuid('campaign_id').references(() => marketingCampaigns.id, { onDelete: 'cascade' }),
+    /** sha256 of the simulation inputs — cache-hit detector. */
+    inputHash: text('input_hash').notNull(),
+    /** 'ai' (LLM forecast) | 'demo' (deterministic, Demo Mode only). */
+    source: text('source', { enum: ['ai', 'demo'] }).default('ai').notNull(),
+    /** 'complete' | 'unavailable' (honest failure — no fake scores). */
+    status: text('status', { enum: ['complete', 'unavailable'] }).default('complete').notNull(),
+    /** 0-100 overall campaign score (null when unavailable). */
+    score: integer('score'),
+    /** 'ready' | 'improve' | 'rework' — launch readiness badge. */
+    readiness: text('readiness', { enum: ['ready', 'improve', 'rework'] }),
+    bestSegment: text('best_segment'),
+    /** Plain-language purchase-intent summary for the owner. */
+    purchaseIntent: text('purchase_intent'),
+    objections: jsonb('objections'),
+    likelyReplies: jsonb('likely_replies'),
+    riskFlags: jsonb('risk_flags'),
+    improvedCopy: text('improved_copy'),
+    explanation: text('explanation'),
+    /** 'low' | 'medium' | 'high'. */
+    confidence: text('confidence', { enum: ['low', 'medium', 'high'] }),
+    assumptions: jsonb('assumptions'),
+    /** The anonymized aggregated inputs used (audit trail, PII-free). */
+    segmentSummaries: jsonb('segment_summaries'),
+    /** Provider + model tag, e.g. 'groq:openai/gpt-oss-20b'. */
+    model: text('model'),
+    appliedAt: timestamp('applied_at'),
+    appliedToCampaignId: uuid('applied_to_campaign_id').references(() => marketingCampaigns.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    tenantIdx: index('campaign_simulations_tenant_idx').on(table.tenantId),
+    campaignIdx: index('campaign_simulations_campaign_idx').on(table.campaignId),
+  })
+);
+
+// Per-segment rows of a simulation: the reaction matrix.
+export const campaignSimulationSegments = pgTable(
+  'campaign_simulation_segments',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    simulationId: uuid('simulation_id')
+      .notNull()
+      .references(() => campaignSimulations.id, { onDelete: 'cascade' }),
+    /** 'vip' | 'regular' | 'at_risk' | 'dormant' | 'new'. */
+    segment: text('segment').notNull(),
+    reaction: text('reaction'),
+    /** 0-100 predicted purchase intent for this segment. */
+    purchaseIntent: integer('purchase_intent'),
+    primaryObjection: text('primary_objection'),
+  },
+  (table) => ({
+    simIdx: index('campaign_simulation_segments_sim_idx').on(table.simulationId),
+  })
+);
+
+// PM-2 hook — the after-launch loop. Predicted vs actual once a launched
+// campaign has real results. Nullable now; a future phase fills actuals.
+export const campaignSimulationFeedback = pgTable(
+  'campaign_simulation_feedback',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    tenantId: uuid('tenant_id')
+      .notNull()
+      .references(() => tenants.id, { onDelete: 'cascade' }),
+    simulationId: uuid('simulation_id')
+      .notNull()
+      .references(() => campaignSimulations.id, { onDelete: 'cascade' }),
+    campaignId: uuid('campaign_id').references(() => marketingCampaigns.id, { onDelete: 'cascade' }),
+    predictedReplies: integer('predicted_replies'),
+    predictedBookings: integer('predicted_bookings'),
+    predictedObjections: jsonb('predicted_objections'),
+    actualReplies: integer('actual_replies'),
+    actualBookings: integer('actual_bookings'),
+    actualRecoveredCents: integer('actual_recovered_cents'),
+    notes: text('notes'),
+    recordedAt: timestamp('recorded_at').defaultNow().notNull(),
+  },
+  (table) => ({
+    simIdx: index('campaign_simulation_feedback_sim_idx').on(table.simulationId),
+  })
+);
+
+export const campaignSimulationRelations = relations(campaignSimulations, ({ one, many }) => ({
+  tenant: one(tenants, {
+    fields: [campaignSimulations.tenantId],
+    references: [tenants.id],
+  }),
+  campaign: one(marketingCampaigns, {
+    fields: [campaignSimulations.campaignId],
+    references: [marketingCampaigns.id],
+  }),
+  segments: many(campaignSimulationSegments),
+}));
