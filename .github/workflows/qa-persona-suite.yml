@@ -1,0 +1,158 @@
+name: QA Persona Suite
+
+# GATE QA-2 — the app tests itself.
+#   - every PR: full persona suite against a GATE_MOCK build (real app
+#     code + pg-mem; every persona journey, every nav item, console
+#     errors, screenshots) — no external dependencies, always runs.
+#   - every 6h (schedule): the same suite PLUS a production run when the
+#     owner-provided secrets QA_EMAIL / QA_PASSWORD / CRON_SECRET exist
+#     (read-only by design).
+#   - on ANY failure: post the failing check to the app's alert pipeline
+#     (POST /api/cron/qa-alert, CRON_SECRET bearer) → email to the owner
+#     + admin_notifications row + unread badge in the Super Admin portal,
+#     deduped to once per 6h per check.
+#   - the HTML report is uploaded as an artifact on every run.
+#
+# The 10-minute smoke sweep + Render keep-alive live on cron-job.org
+# (see docs/qa2/SETUP.md) — NEVER in vercel.json.
+
+on:
+  pull_request:
+  schedule:
+    # Every 6 hours (owner spec). 20 past the hour avoids the top-of-hour
+    # GitHub schedule congestion.
+    - cron: '20 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qa-persona-suite-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  gate-mock:
+    name: Persona suite (GATE_MOCK build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      GATE_BASE_URL: http://127.0.0.1:3100
+      CRON_SECRET: qa-ci-cron-secret
+      WEBHOOK_SECRET: qa-ci-webhook-secret
+      QA_ALERT_EMAIL_TRANSPORT: mock
+      ADMIN_EMAIL: naha.thabiso@gmail.com
+      OPERATOR_URL: http://127.0.0.1:3001
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_qa_placeholder
+      NEXT_PUBLIC_APP_URL: http://127.0.0.1:3100
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Build the app (GATE_MOCK=1)
+        run: cd apps/main && npx next build
+        env:
+          GATE_MOCK: '1'
+
+      - name: Start mock operator + app under test
+        run: |
+          node tests/e2e/personas/mock-operator.mjs 3001 &
+          cd apps/main
+          GATE_MOCK=1 npx next start -p 3100 &
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 5 http://127.0.0.1:3100/ || true)
+            [ "$code" = "200" ] && break
+            sleep 2
+          done
+          echo "app boot: $code"
+          [ "$code" = "200" ]
+
+      - name: Run the persona suite
+        run: npx playwright test tests/e2e --reporter=html,list
+
+      - name: Upload HTML report + artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-gate-mock-report
+          path: |
+            playwright-report/
+            test-results/
+            qa2-artifacts/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Alert the pipeline on failure
+        if: failure()
+        run: |
+          REPORT_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          curl -s -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{\"severity\":\"critical\",\"check\":\"persona-suite/github-actions\",\"message\":\"The GATE_MOCK persona run failed. See the attached HTML report artifact for the exact failing tests.\",\"reportUrl\":\"$REPORT_URL\"}" \
+            http://127.0.0.1:3100/api/cron/qa-alert || echo "alert post failed (app down?)"
+
+  production:
+    name: Persona suite (production, read-only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    needs: gate-mock
+    # Scheduled runs + manual dispatch only — PRs get the mock job, and the
+    # production leg is read-only smoke (nav + honesty, never button writes).
+    if: github.event_name != 'pull_request'
+    env:
+      BASE_URL: https://gemino-flavourly-whatsapp.vercel.app
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run against production (skips loudly without QA secrets)
+        run: npx playwright test tests/e2e --reporter=html,list
+        env:
+          QA_EMAIL: ${{ secrets.QA_EMAIL }}
+          QA_PASSWORD: ${{ secrets.QA_PASSWORD }}
+
+      - name: Upload HTML report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-production-report
+          path: |
+            playwright-report/
+            test-results/
+            qa2-artifacts/
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Alert the pipeline on failure
+        if: failure()
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          [ -n "$CRON_SECRET" ] || { echo "CRON_SECRET secret not set — skipping pipeline alert"; exit 0; }
+          REPORT_URL="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          curl -s -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            -H "Content-Type: application/json" \
+            -d "{\"severity\":\"critical\",\"check\":\"persona-suite/production\",\"message\":\"The scheduled production persona run failed. See the attached HTML report artifact.\",\"reportUrl\":\"$REPORT_URL\"}" \
+            https://gemino-flavourly-whatsapp.vercel.app/api/cron/qa-alert || echo "alert post failed (app down?)"
