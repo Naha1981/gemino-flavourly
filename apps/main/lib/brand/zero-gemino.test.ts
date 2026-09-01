@@ -33,11 +33,22 @@ describe('zero-gemino public brand wiring', () => {
   test('public pages carry the Flavourly brand and premium copy', () => {
     const landing = readFileSync(join(APP, '(marketing)', 'landing-client.tsx'), 'utf8');
     assert.match(landing, /Flavourly/);
-    assert.match(landing, /fully booked/);
-    assert.match(landing, /Flavourly HQ/);
+    // GATE UI-5B — owner-approved simple-English copy.
+    assert.match(landing, /Full tables\. Even on Tuesdays\./);
+    assert.match(landing, /No other tool does all this\. And proves it\./);
     assert.match(landing, /Questions, answered\./);
 
     const layout = readFileSync(join(APP, 'layout.tsx'), 'utf8');
     assert.match(layout, /Flavourly — The AI WhatsApp Employee/);
+  });
+
+  test('landing shows no fabricated live metrics (UI-5 honesty rule)', () => {
+    // The old strip presented invented "Flavourly HQ / Live overview"
+    // numbers as if they were live platform data. That framing is banned;
+    // illustrative numbers must be labelled "Example".
+    const landing = readFileSync(join(APP, '(marketing)', 'landing-client.tsx'), 'utf8');
+    assert.doesNotMatch(landing, /Flavourly HQ/);
+    assert.doesNotMatch(landing, /Live overview/i);
+    assert.match(landing, /Example numbers — your dashboard shows your real Rands/);
   });
 });

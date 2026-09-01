@@ -92,7 +92,7 @@ test.describe('J1 — Public landing, pricing, privacy (visitor)', () => {
     expect(status).toBe(200);
     // Logo must render via next/image (V2 regression: <Image src="/logo.png">).
     expect(html).toContain('/_next/image?url=%2Flogo.png');
-    expect(html).toContain('Your restaurant, fully booked');
+    expect(html).toContain('Full tables. Even on Tuesdays');
     expect(html).not.toContain('Internal Server Error');
     expect(html).not.toContain('Application error');
   });
