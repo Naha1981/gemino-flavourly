@@ -6,7 +6,7 @@ test.describe('Flavourly Platform End-to-End Test Suite', () => {
     await page.goto('/');
     
     // Check hero headline
-    await expect(page.locator('h1')).toContainText('Your restaurant, fully booked');
+    await expect(page.locator('h1')).toContainText('Full tables. Even on Tuesdays.');
     
     // Find the logo button and double click
     const logoButton = page.locator('button[title*="Flavourly"]');

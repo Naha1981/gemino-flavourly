@@ -15,6 +15,6 @@ test.describe('Gemino Platform Health & Endpoints', () => {
     // Real hero headline — was previously asserting a stale placeholder
     // ("Autonomous WhatsApp Operations") that never matched the actual
     // landing page copy, so this test always failed regardless of app health.
-    await expect(page.locator('h1')).toContainText('Your restaurant, fully booked');
+    await expect(page.locator('h1')).toContainText('Full tables. Even on Tuesdays.');
   });
 });
