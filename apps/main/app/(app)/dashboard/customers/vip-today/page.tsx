@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { Star, ArrowLeft } from 'lucide-react';
+import { Star } from 'lucide-react';
 import { getOrCreateTenant } from '@/lib/tenant';
 import { listVipAlertsToday } from '@/lib/customer/vip-store';
 import VipTodayClient from './vip-today-client';
@@ -51,13 +51,6 @@ export default async function VipTodayPage() {
             className="text-xs font-medium text-emerald-400 hover:text-emerald-300"
           >
             ← All customers
-          </Link>
-          <Link
-            href="/dashboard/inbox"
-            className="rounded-md border border-zinc-800 bg-zinc-900 p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
-            title="Back to inbox"
-          >
-            <ArrowLeft className="h-4 w-4" />
           </Link>
         </div>
       </div>

@@ -1,7 +1,7 @@
 import { auth } from '@clerk/nextjs/server';
 import { redirect } from 'next/navigation';
 import { db } from '@/lib/db';
-import { conversations, contacts, messages } from '@/lib/db/schema';
+import { conversations, contacts, messages, waAccounts } from '@/lib/db/schema';
 import { eq, desc } from 'drizzle-orm';
 import { MessageSquare, Phone, Star, Mail, Instagram, Facebook, Globe, Radio, Check } from 'lucide-react';
 import { getOrCreateTenant } from '@/lib/tenant';
@@ -99,6 +99,19 @@ export default async function InboxPage({
   // the live branch and never even see the banner).
   const demoMode = await isDemoModeActive();
 
+  // UI-3R / F4 (S6) — the AI-employee badge must tell the truth about the
+  // connection: green "Active" ONLY while a WhatsApp account is actually
+  // connected; amber "Idle — connect WhatsApp to start" otherwise. The old
+  // badge was hardcoded green, which read as a false alive state while the
+  // Overview banner said "WhatsApp Not Connected".
+  const [waAccount] = await db
+    .select({ isConnected: waAccounts.isConnected })
+    .from(waAccounts)
+    .where(eq(waAccounts.tenantId, tenantId))
+    .limit(1)
+    .catch(() => [{ isConnected: false }]);
+  const waConnected = Boolean(waAccount?.isConnected);
+
   const convos = demoMode
     ? DEMO_CONVERSATIONS.map((c) => ({
         id: c.id,
@@ -168,13 +181,21 @@ export default async function InboxPage({
           <h1 className="headline-md text-app-fg dark:text-zinc-50">AI Revenue Inbox</h1>
           <p className="body-md text-app-muted dark:text-zinc-400">Every guest conversation, handled or flagged.</p>
         </div>
-        <Link
-          href="/dashboard/settings"
-          className="label-md inline-flex items-center gap-2 rounded-full border border-app-secondary-container bg-app-secondary-container/50 px-4 py-1.5 text-app-on-secondary-container dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300"
-        >
-          <span className="h-2 w-2 rounded-full bg-app-secondary dark:bg-emerald-400" />
-          AI Revenue Employee Active
-        </Link>
+        {waConnected ? (
+          <span className="label-md inline-flex items-center gap-2 rounded-full border border-app-secondary-container bg-app-secondary-container/50 px-4 py-1.5 text-app-on-secondary-container dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
+            <span className="h-2 w-2 rounded-full bg-app-secondary dark:bg-emerald-400" />
+            AI Revenue Employee Active
+          </span>
+        ) : (
+          <Link
+            href="/dashboard/whatsapp"
+            className="label-md inline-flex items-center gap-2 rounded-full border border-stitch-gold/60 bg-stitch-gold/10 px-4 py-1.5 text-stitch-brass hover:bg-stitch-gold/20 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-300"
+            data-testid="inbox-idle-badge"
+          >
+            <span className="h-2 w-2 rounded-full bg-stitch-gold dark:bg-amber-400" />
+            Idle — connect WhatsApp to start
+          </Link>
+        )}
       </div>
 
       {vipAlerts.length > 0 && (
@@ -298,7 +319,9 @@ export default async function InboxPage({
               </div>
               <h3 className="text-sm font-medium text-app-muted dark:text-zinc-300">No conversation selected</h3>
               <p className="label-sm max-w-sm text-app-faint dark:text-zinc-500">
-                Your AI concierge is actively monitoring your connected channels.
+                {waConnected
+                  ? 'Pick a conversation to see the full thread and take over from the AI anytime.'
+                  : 'No connected channels yet. Connect WhatsApp and your AI concierge starts listening.'}
               </p>
             </div>
           ) : (
@@ -332,7 +355,9 @@ export default async function InboxPage({
                   ))
                 ) : (
                   <div className="py-8 text-center text-xs text-app-faint dark:text-zinc-500">
-                    Conversation thread active. AI is auto-replying to customer inquiries.
+                    {waConnected
+                      ? 'Conversation thread active. AI is auto-replying to customer inquiries.'
+                      : 'Connect WhatsApp to start receiving and replying to guest messages.'}
                   </div>
                 )}
               </div>

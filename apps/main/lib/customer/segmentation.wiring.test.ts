@@ -75,7 +75,7 @@ describe('customer segmentation seams', () => {
   test('store fetches are tenant-scoped', () => {
     const src = code(STORE);
     assert.match(from(src, 'export async function fetchProfilesForSegmentation'), /eq\(customerProfiles\.tenantId,\s*tenantId\)/);
-    assert.match(from(src, 'export async function countBySegment'), /groupedSegmentCounts\(tenantId\)/);
+    assert.match(from(src, 'export async function countBySegment'), /groupedSegmentCounts\(tenantId, scope\)/);
   });
 
   test('segment mutations are conditional and stamp confidence plus update time', () => {

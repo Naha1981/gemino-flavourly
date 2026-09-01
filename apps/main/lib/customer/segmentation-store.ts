@@ -1,5 +1,6 @@
 import { and, eq, ne, sql } from 'drizzle-orm';
 import { db } from '@/lib/db';
+import { liveRowsOnly, type QueryScopeOptions } from '@/lib/demo/query-scope';
 import { customerProfiles } from '@/lib/db/schema';
 import {
   CUSTOMER_SEGMENTS,
@@ -63,14 +64,20 @@ export async function updateSegment(
   return changed.length > 0;
 }
 
-async function groupedSegmentCounts(tenantId?: string): Promise<SegmentCounts> {
+async function groupedSegmentCounts(tenantId?: string, scope: QueryScopeOptions = {}): Promise<SegmentCounts> {
   const rows = await db
     .select({
       segment: customerProfiles.segment,
       count: sql<number>`count(*)::int`,
     })
     .from(customerProfiles)
-    .where(tenantId ? eq(customerProfiles.tenantId, tenantId) : undefined)
+    .where(
+      and(
+        tenantId ? eq(customerProfiles.tenantId, tenantId) : undefined,
+        // UI-3R / F2 — live views never count deadbeef demo profiles.
+        tenantId ? liveRowsOnly(customerProfiles.id, scope) : undefined
+      )
+    )
     .groupBy(customerProfiles.segment);
 
   const counts = emptySegmentCounts();
@@ -80,8 +87,8 @@ async function groupedSegmentCounts(tenantId?: string): Promise<SegmentCounts> {
   return counts;
 }
 
-export async function countBySegment(tenantId: string): Promise<SegmentCounts> {
-  return groupedSegmentCounts(tenantId);
+export async function countBySegment(tenantId: string, scope: QueryScopeOptions = {}): Promise<SegmentCounts> {
+  return groupedSegmentCounts(tenantId, scope);
 }
 
 /** Platform-wide aggregation used only after the Super Admin gate. */

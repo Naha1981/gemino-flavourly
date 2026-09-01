@@ -7,6 +7,7 @@ import {
   messages,
   reservations,
 } from '@/lib/db/schema';
+import { liveRowsOnly, type QueryScopeOptions } from '@/lib/demo/query-scope';
 import {
   AVG_CHECK_CENTS,
   buildProfileSnapshot,
@@ -217,29 +218,36 @@ export async function listProfiles(
   tenantId: string,
   limit = 50,
   offset = 0,
-  segment?: CustomerSegment
+  segment?: CustomerSegment,
+  scope: QueryScopeOptions = {}
 ): Promise<CustomerProfileRow[]> {
   return db
     .select()
     .from(customerProfiles)
     .where(
-      segment
-        ? and(eq(customerProfiles.tenantId, tenantId), eq(customerProfiles.segment, segment))
-        : eq(customerProfiles.tenantId, tenantId)
+      and(
+        segment
+          ? and(eq(customerProfiles.tenantId, tenantId), eq(customerProfiles.segment, segment))
+          : eq(customerProfiles.tenantId, tenantId),
+        liveRowsOnly(customerProfiles.id, scope)
+      )
     )
     .orderBy(desc(customerProfiles.lastVisitAt), desc(customerProfiles.updatedAt))
     .limit(limit)
     .offset(offset);
 }
 
-export async function countProfiles(tenantId: string, segment?: CustomerSegment): Promise<number> {
+export async function countProfiles(tenantId: string, segment?: CustomerSegment, scope: QueryScopeOptions = {}): Promise<number> {
   const [row] = await db
     .select({ n: sql<number>`count(*)::int` })
     .from(customerProfiles)
     .where(
-      segment
-        ? and(eq(customerProfiles.tenantId, tenantId), eq(customerProfiles.segment, segment))
-        : eq(customerProfiles.tenantId, tenantId)
+      and(
+        segment
+          ? and(eq(customerProfiles.tenantId, tenantId), eq(customerProfiles.segment, segment))
+          : eq(customerProfiles.tenantId, tenantId),
+        liveRowsOnly(customerProfiles.id, scope)
+      )
     );
   return row?.n ?? 0;
 }

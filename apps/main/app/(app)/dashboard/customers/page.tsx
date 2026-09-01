@@ -5,6 +5,8 @@ import { getOrCreateTenant } from '@/lib/tenant';
 import { countBySegment } from '@/lib/customer/segmentation-store';
 import { normalizeCustomerSegment, type CustomerSegment } from '@/lib/customer/segmentation';
 import { countProfiles, listProfiles } from '@/lib/customer/profile-store';
+import { customersAtRiskEmptyState, segmentShare } from '@/lib/dashboard/kpi';
+import { isDemoModeActive } from '@/lib/demo/demo-mode';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,10 +49,6 @@ const SEGMENT_META: Record<
   },
 };
 
-function formatCents(cents: number): string {
-  return `R${(cents / 100).toFixed(2)}`;
-}
-
 function formatR(cents: number): string {
   return `R${(cents / 100).toLocaleString('en-ZA', { maximumFractionDigits: 0 })}`;
 }
@@ -84,41 +82,52 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
     : searchParams?.segment;
   const selectedSegment = normalizeCustomerSegment(rawSegment);
 
+  // UI-3R / F2 — LIVE views exclude deadbeef demo profiles; Demo Mode ON
+  // includes the seed dataset (amber banner renders in the shared layout).
+  const demoMode = await isDemoModeActive();
+  const liveScope = { includeDemoRows: demoMode };
+
   const [profiles, total, segmentCounts, vipSpotlight, atRiskList] = await Promise.all([
-    listProfiles(tenant.id, 100, 0, selectedSegment),
-    countProfiles(tenant.id, selectedSegment),
-    countBySegment(tenant.id),
-    listProfiles(tenant.id, 5, 0, 'vip'),
-    listProfiles(tenant.id, 5, 0, 'at_risk'),
+    listProfiles(tenant.id, 100, 0, selectedSegment, liveScope),
+    countProfiles(tenant.id, selectedSegment, liveScope),
+    countBySegment(tenant.id, liveScope),
+    listProfiles(tenant.id, 5, 0, 'vip', liveScope),
+    listProfiles(tenant.id, 5, 0, 'at_risk', liveScope),
   ]);
 
-  const totalCounted =
-    segmentCounts.vip + segmentCounts.regular + segmentCounts.at_risk + segmentCounts.dormant + segmentCounts.new || 1;
+  // UI-3R / F5 (S8) — zero-count segments render no percentage chip and no
+  // bar at all: a gold 0% line reads as data on an empty guest book.
+  const totalProfiles =
+    segmentCounts.vip + segmentCounts.regular + segmentCounts.at_risk + segmentCounts.dormant + segmentCounts.new;
 
-  const cohorts: { label: string; count: number; bar: string; chip: string }[] = [
+  const cohorts: { label: string; count: number; bar: string; chip: string; share: number | null }[] = [
     {
       label: 'VIP',
       count: segmentCounts.vip,
       bar: 'bg-stitch-gold',
       chip: 'bg-stitch-gold/15 text-stitch-brass dark:text-stitch-gold',
+      share: segmentShare(segmentCounts.vip, totalProfiles),
     },
     {
       label: 'Regular',
       count: segmentCounts.regular,
       bar: 'bg-app-secondary dark:bg-emerald-500',
       chip: 'bg-app-secondary-container text-app-on-secondary-container dark:bg-emerald-950 dark:text-emerald-300',
+      share: segmentShare(segmentCounts.regular, totalProfiles),
     },
     {
       label: 'At-risk',
       count: segmentCounts.at_risk,
       bar: 'bg-app-error dark:bg-orange-400',
       chip: 'bg-app-error-container text-app-error dark:bg-orange-950 dark:text-orange-300',
+      share: segmentShare(segmentCounts.at_risk, totalProfiles),
     },
     {
       label: 'Dormant',
       count: segmentCounts.dormant,
       bar: 'bg-app-border-strong dark:bg-zinc-600',
       chip: 'bg-app-surface-3 text-app-muted dark:bg-zinc-800 dark:text-zinc-400',
+      share: segmentShare(segmentCounts.dormant, totalProfiles),
     },
   ];
 
@@ -184,14 +193,17 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
           <Link key={c.label} href={`/dashboard/customers?segment=${c.label === 'VIP' ? 'vip' : c.label === 'Regular' ? 'regular' : c.label === 'At-risk' ? 'at_risk' : 'dormant'}`} className="glass-card group p-5">
             <div className="flex items-center justify-between">
               <span className="label-md text-app-muted dark:text-zinc-400">{c.label}</span>
-              <span className={`label-sm rounded-full px-2 py-0.5 ${c.chip}`}>
-                {((c.count / totalCounted) * 100).toFixed(0)}%
-              </span>
+              {c.share !== null && (
+                <span className={`label-sm rounded-full px-2 py-0.5 ${c.chip}`}>{c.share}%</span>
+              )}
             </div>
             <p className="headline-lg mt-2 text-app-fg dark:text-zinc-50">{c.count}</p>
-            <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-app-surface-2 dark:bg-zinc-800">
-              <div className={`h-full rounded-full ${c.bar}`} style={{ width: `${Math.min(100, (c.count / totalCounted) * 100)}%` }} />
-            </div>
+            {c.count > 0 && (
+              <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-app-surface-2 dark:bg-zinc-800">
+                <div className={`h-full rounded-full ${c.bar}`} style={{ width: `${Math.min(100, (c.count / (totalProfiles || 1)) * 100)}%` }} />
+              </div>
+            )}
+            {c.count === 0 && <p className="label-sm mt-3 text-app-faint dark:text-zinc-600">—</p>}
           </Link>
         ))}
       </div>
@@ -246,7 +258,7 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
             </Link>
           </div>
           {atRiskList.length === 0 ? (
-            <p className="body-md mt-4 text-app-muted dark:text-zinc-400">No at-risk customers right now. Great retention!</p>
+            <p className="body-md mt-4 text-app-muted dark:text-zinc-400">{customersAtRiskEmptyState(totalProfiles)}</p>
           ) : (
             <ul className="mt-4 space-y-3">
               {atRiskList.map((p) => (
@@ -300,7 +312,7 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-app-muted dark:text-zinc-400">{profile.customerPhone}</td>
                   <td className="px-4 py-3 text-app-fg dark:text-zinc-200">{profile.totalVisits}</td>
-                  <td className="px-4 py-3 text-app-fg dark:text-zinc-200">{formatCents(profile.totalSpendCents)}</td>
+                  <td className="px-4 py-3 text-app-fg dark:text-zinc-200">{formatR(profile.totalSpendCents)}</td>
                   <td className="px-4 py-3 text-app-muted dark:text-zinc-400">{formatDate(profile.lastVisitAt)}</td>
                 </tr>
               ))
