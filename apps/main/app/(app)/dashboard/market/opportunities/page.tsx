@@ -73,7 +73,7 @@ export default async function MarketOpportunitiesPage() {
         {rows.length === 0 ? (
           <div className="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/30 p-8 text-center text-sm text-zinc-400">
             No opportunities detected yet. Run the analysis above once a few competitors have menu snapshots, or wait
-            for the daily 8am sweep.
+            as sweeps run daily over your tracked competitors.
           </div>
         ) : (
           <>

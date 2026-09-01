@@ -75,7 +75,7 @@ export default async function MarketingPage() {
               <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
                 <div className="rounded-xl bg-app-surface-1 p-3 text-center dark:bg-zinc-900">
                   <p className="text-lg font-semibold text-app-fg dark:text-zinc-50">
-                    +{Math.max(2, Math.round((liveCampaign.estimatedReach ?? 0) / 60))}
+                    +{Math.max(0, Math.round((liveCampaign.estimatedReach ?? 0) / 60))}
                   </p>
                   <span className="label-sm text-app-faint dark:text-zinc-500">est. tables</span>
                 </div>

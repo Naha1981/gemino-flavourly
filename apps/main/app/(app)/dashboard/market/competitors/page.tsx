@@ -70,14 +70,18 @@ export default async function MarketCompetitorsPage({ searchParams }: MarketComp
           Market Intelligence
         </h1>
         <p className="text-xs text-zinc-400">
-          Every restaurant within 5km, what they charge, and what they are running. Daily 8am sweep.{' '}
-          <Link href="/dashboard/market/opportunities" className="text-emerald-400 hover:text-emerald-300">
-            Opportunities
-          </Link>{' '}
-          ·{' '}
-          <Link href="/dashboard/market/positioning" className="text-emerald-400 hover:text-emerald-300">
-            Positioning
-          </Link>
+          Every restaurant within 5km, what they charge, and what they are running. Menu sweeps run daily once competitors are added.{' '}
+          {rows.length > 0 && (
+            <>
+              <Link href="/dashboard/market/opportunities" className="text-emerald-400 hover:text-emerald-300">
+                Opportunities
+              </Link>{' '}
+              ·{' '}
+              <Link href="/dashboard/market/positioning" className="text-emerald-400 hover:text-emerald-300">
+                Positioning
+              </Link>
+            </>
+          )}
         </p>
       </div>
 
@@ -170,8 +174,8 @@ export default async function MarketCompetitorsPage({ searchParams }: MarketComp
             </p>
             {selected.snapshots.length === 0 ? (
               <p className="text-xs text-zinc-500">
-                No snapshots yet — the daily 8am sweep records the first one, and the second one is where changes
-                appear.
+                No snapshots yet — sweeps run daily once competitors are added, and the second snapshot is where
+                changes appear.
               </p>
             ) : (
               <ol className="space-y-3">

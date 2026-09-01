@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
+import Link from 'next/link';
 import { getOrCreateTenant } from '@/lib/tenant';
 import { db } from '@/lib/db';
-import { marketingCampaigns, marketingEvents } from '@/lib/db/schema';
+import { marketingCampaigns, marketingEvents, waAccounts } from '@/lib/db/schema';
 import { and, eq, sql } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -47,6 +48,17 @@ export default async function MarketingCalendarPage({
 
   const rangeStart = startOfMonth(month);
   const rangeEnd = endOfMonth(month);
+
+  // UI-3R / F4 (S20) — "scheduled" is a lie by omission while WhatsApp is
+  // disconnected: nothing can send. Items stay visible but carry the amber
+  // "blocked until WhatsApp connected" chip instead of pretending to run.
+  const [waAccount] = await db
+    .select({ isConnected: waAccounts.isConnected })
+    .from(waAccounts)
+    .where(eq(waAccounts.tenantId, tenant.id))
+    .limit(1)
+    .catch(() => [{ isConnected: false }]);
+  const waConnected = Boolean(waAccount?.isConnected);
 
   const [campaigns, events] = await Promise.all([
     db.select().from(marketingCampaigns).where(
@@ -127,7 +139,8 @@ export default async function MarketingCalendarPage({
 
       {items.length === 0 ? (
         <div className="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/30 p-8 text-center text-sm text-zinc-400">
-          No campaigns or events scheduled for this month.
+          No campaigns or events scheduled for this month.{' '}
+          {!waConnected && 'Connect WhatsApp so scheduled items can actually send.'}
         </div>
       ) : (
         <div className="space-y-3">
@@ -141,6 +154,25 @@ export default async function MarketingCalendarPage({
                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${statusColors[item.status] ?? statusColors.draft}`}>
                   {item.status}
                 </span>
+                {/* F4 (S20): truthful send state for anything that must go out
+                    over WhatsApp. */}
+                {!waConnected && (item.status === 'scheduled' || item.status === 'published') && (
+                  <span className="inline-flex items-center rounded-full border border-amber-700/60 bg-amber-950/40 px-2 py-0.5 text-xs text-amber-300">
+                    blocked until WhatsApp connected
+                  </span>
+                )}
+                {/* F10 (S21): margin-affecting offers route to Approvals so the
+                    owner signs off on promises like "10% off" or "free item"
+                    before they ever go out. */}
+                {(item.status === 'scheduled' || item.status === 'published') && item.message && /off|free|complimentary|discount|%|R\d/i.test(item.message) && (
+                  <Link
+                    href="/dashboard/operations/approval-requests"
+                    className="inline-flex items-center rounded-full border border-sky-800/60 bg-sky-950/40 px-2 py-0.5 text-xs text-sky-300 hover:bg-sky-900/40"
+                    title="Margin-affecting offers should be approved before they send"
+                  >
+                    offer needs approval →
+                  </Link>
+                )}
                 <span className="text-xs text-zinc-500">{item.kind}</span>
               </div>
               {item.message && (
@@ -148,7 +180,9 @@ export default async function MarketingCalendarPage({
               )}
               <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-zinc-500">
                 <span>From: {formatDate(item.startsAt)}</span>
-                <span>To: {formatDate(item.endsAt)}</span>
+                {/* F10 (S23): "To: —" never renders — the segment hides when
+                    there is no real end date. */}
+                {item.endsAt && <span>To: {formatDate(item.endsAt)}</span>}
                 {item.location && <span>📍 {item.location}</span>}
               </div>
             </div>

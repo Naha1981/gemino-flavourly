@@ -27,10 +27,20 @@ export default async function ApprovalRequestsPage() {
 
       {pending.length === 0 && resolved.length === 0 ? (
         <div className="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/30 p-8 text-center text-sm text-zinc-400">
-          No approval requests yet. They appear here when a message is flagged for review.
+          <p className="font-medium text-zinc-300">Your safety net is standing by — nothing needs your sign-off right now.</p>
+          <p className="mt-2 leading-relaxed">
+            AI replies get flagged here whenever they touch money or risk: <strong>discounts and refunds</strong>,{' '}
+            <strong>dietary or medical claims</strong> (&ldquo;gluten-free&rdquo;, &ldquo;safe for allergies&rdquo;), and{' '}
+            <strong>complaints or apologies</strong>. Nothing in those categories sends until you approve it.
+          </p>
         </div>
       ) : (
         <div className="space-y-6">
+          {pending.length === 0 && (
+            <div className="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/30 p-6 text-center text-sm text-zinc-400">
+              No messages waiting — flagged replies (discounts, dietary/medical claims, complaints) land here for your yes/no.
+            </div>
+          )}
           {pending.length > 0 && (
             <div className="space-y-3">
               <h2 className="text-sm font-medium text-amber-300">Pending</h2>
@@ -54,6 +64,12 @@ export default async function ApprovalRequestsPage() {
                   <ApprovalActions requestId={req.id} />
                 </div>
               ))}
+            </div>
+          )}
+
+          {resolved.length === 0 && pending.length > 0 && (
+            <div className="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/30 p-4 text-center text-xs text-zinc-500">
+              Nothing resolved yet — decisions you make above will build your history here (who approved what, and when).
             </div>
           )}
 
