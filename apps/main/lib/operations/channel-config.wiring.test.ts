@@ -157,8 +157,11 @@ describe('channel config dashboard wiring', () => {
   test('page renders channel cards with enabled/disabled state', () => {
     const src = source(PAGE);
     assert.match(src, /listChannelConfigs\(tenant\.id\)/);
-    assert.match(src, /Enabled/);
-    assert.match(src, /Disabled/);
+    // UI-3R/F4: WhatsApp reads the LIVE wa_accounts connection; wording is
+    // owner language (Connected / Not connected) instead of Enabled/Disabled.
+    assert.match(src, /waAccounts/);
+    assert.match(src, /Connected/);
+    assert.match(src, /Not connected/);
     assert.match(src, /redirect\('\/sign-in'\)/);
   });
 });
