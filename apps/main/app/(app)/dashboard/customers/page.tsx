@@ -5,7 +5,7 @@ import { getOrCreateTenant } from '@/lib/tenant';
 import { countBySegment } from '@/lib/customer/segmentation-store';
 import { normalizeCustomerSegment, type CustomerSegment } from '@/lib/customer/segmentation';
 import { countProfiles, listProfiles } from '@/lib/customer/profile-store';
-import { customersAtRiskEmptyState, segmentShare } from '@/lib/dashboard/kpi';
+import { customersAtRiskEmptyState, segmentShare, sampleChipLabel } from '@/lib/dashboard/kpi';
 import { isDemoModeActive } from '@/lib/demo/demo-mode';
 
 export const dynamic = 'force-dynamic';
@@ -144,6 +144,9 @@ export default async function CustomersPage({ searchParams }: CustomersPageProps
             <Link href="/dashboard/customers/reactivation" className="text-app-secondary hover:opacity-80 dark:text-emerald-400 dark:hover:text-emerald-300">
               reactivation campaigns
             </Link>
+            {sampleChipLabel(demoMode) && (
+              <span className="label-sm ml-2 rounded-full border border-stitch-gold/60 bg-stitch-gold/10 px-2 py-0.5 text-stitch-brass dark:text-stitch-gold">{sampleChipLabel(demoMode)}</span>
+            )}
           </p>
         </div>
 

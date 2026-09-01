@@ -99,7 +99,12 @@ export default async function ReputationPage({ searchParams }: ReputationPagePro
             sentiment: r.sentiment,
             text: r.text,
             time: new Date(r.date),
-            responseText: r.replied ? 'Thank you for the feedback — see you again soon! — Marble' : '',
+            // UI-3R / F6 (S11) — drafts must be ready on arrival in the demo
+            // view too: unanswered seed reviews ship with a clearly labelled
+            // deterministic draft instead of an empty "press Regenerate" box.
+            responseText: r.replied
+              ? 'Thank you for the feedback — see you again soon! — Marble'
+              : 'Thank you for taking the time to share this — we would love to make it right and welcome you back. (Draft prepared automatically — review before sending.)',
             responseSentAt: r.replied ? new Date(r.date) : null,
           })),
           demoAll.length,
