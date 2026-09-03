@@ -63,6 +63,21 @@ describe('UI-3R — Overview page wiring', () => {
     const code = stripComments(src(OVERVIEW));
     assert.match(code, /unansweredBadge/, 'must use the unanswered wording helper');
   });
+
+  test('QA-2: the 7-day strip is ONE range query bucketed by the helper (no per-day N+1 loop)', () => {
+    // The owner's "mobile /dashboard sometimes stuck on the spinner" report:
+    // the neon-http driver pays a full HTTPS round trip per query, so the
+    // per-day SUM loop (7 serial round trips) multiplied cold-start latency
+    // into the mobile spinner window. The strip must stay a single query
+    // bucketed by the pure sevenDayRevenueBuckets helper.
+    const code = stripComments(src(OVERVIEW));
+    assert.match(code, /sevenDayRevenueBuckets/, 'must bucket the strip with the pure kpi helper');
+    assert.doesNotMatch(
+      code,
+      /for \(let d = 6; d >= 0; d--\)/,
+      'the per-day SUM query loop is the N+1 behind the mobile spinner report — keep it dead'
+    );
+  });
 });
 
 // ---------------------------------------------------------------------------

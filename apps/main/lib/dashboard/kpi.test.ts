@@ -126,3 +126,93 @@ describe('F2 — SAMPLE chip decision', () => {
     assert.equal(sampleChipLabel(false), null);
   });
 });
+
+describe('QA-2 — 7-day revenue strip bucketing (one query, no N+1)', () => {
+  const DAY = 24 * 3600 * 1000;
+  // A fixed midnight; en-ZA weekday labels are locale-stable for the asserts.
+  const startOfToday = new Date('2026-09-03T00:00:00');
+
+  test('one event per day lands in the correct bucket, oldest day first', async () => {
+    const { sevenDayRevenueBuckets } = await import('./kpi.ts');
+    const rows = [6, 5, 4, 3, 2, 1, 0].map((daysAgo) => ({
+      occurredAt: new Date(startOfToday.getTime() - daysAgo * DAY + 12 * 3600 * 1000),
+      realizedCents: (7 - daysAgo) * 100,
+    }));
+    const bars = sevenDayRevenueBuckets(rows, startOfToday);
+    assert.equal(bars.length, 7);
+    assert.deepEqual(
+      bars.map((b) => b.value),
+      [100, 200, 300, 400, 500, 600, 700]
+    );
+  });
+
+  test('an event exactly at a day boundary belongs to the LATER day ([start, end) semantics)', async () => {
+    const { sevenDayRevenueBuckets } = await import('./kpi.ts');
+    // Midnight exactly = startOfToday: yesterday's window is [−24h, 0),
+    // today's is [0, +24h) — the event must land in TODAY.
+    const bars = sevenDayRevenueBuckets(
+      [{ occurredAt: new Date(startOfToday.getTime()), realizedCents: 500 }],
+      startOfToday
+    );
+    assert.equal(bars[6].value, 500);
+    assert.equal(bars[5].value, 0);
+  });
+
+  test('an event one millisecond before midnight stays in the EARLIER day', async () => {
+    const { sevenDayRevenueBuckets } = await import('./kpi.ts');
+    const bars = sevenDayRevenueBuckets(
+      [{ occurredAt: new Date(startOfToday.getTime() - 1), realizedCents: 500 }],
+      startOfToday
+    );
+    assert.equal(bars[5].value, 500);
+    assert.equal(bars[6].value, 0);
+  });
+
+  test('an empty week renders seven honest zero bars with weekday labels', async () => {
+    const { sevenDayRevenueBuckets } = await import('./kpi.ts');
+    const bars = sevenDayRevenueBuckets([], startOfToday);
+    assert.equal(bars.length, 7);
+    assert.ok(bars.every((b) => b.value === 0));
+    assert.ok(bars.every((b) => typeof b.label === 'string' && b.label.length >= 3));
+    // Oldest first: the first label is 6 days ago's weekday, the last is today's.
+    const sixDaysAgo = new Date(startOfToday.getTime() - 6 * DAY);
+    assert.equal(bars[0].label, sixDaysAgo.toLocaleDateString('en-ZA', { weekday: 'short' }));
+    assert.equal(bars[6].label, startOfToday.toLocaleDateString('en-ZA', { weekday: 'short' }));
+  });
+
+  test('NULL realizedCents contributes nothing (SQL SUM semantics preserved)', async () => {
+    const { sevenDayRevenueBuckets } = await import('./kpi.ts');
+    const noon = 12 * 3600 * 1000;
+    const bars = sevenDayRevenueBuckets(
+      [
+        { occurredAt: new Date(startOfToday.getTime() + noon), realizedCents: null },
+        { occurredAt: new Date(startOfToday.getTime() + noon), realizedCents: 250 },
+      ],
+      startOfToday
+    );
+    assert.equal(bars[6].value, 250);
+  });
+
+  test('rows outside the 7-day window are ignored (older or future)', async () => {
+    const { sevenDayRevenueBuckets } = await import('./kpi.ts');
+    const bars = sevenDayRevenueBuckets(
+      [
+        { occurredAt: new Date(startOfToday.getTime() - 7 * DAY), realizedCents: 999 }, // too old
+        { occurredAt: new Date(startOfToday.getTime() + 3 * DAY), realizedCents: 999 }, // future
+      ],
+      startOfToday
+    );
+    assert.ok(bars.every((b) => b.value === 0));
+  });
+
+  test('occurredAt as an ISO string (serialized row) buckets identically to a Date', async () => {
+    const { sevenDayRevenueBuckets } = await import('./kpi.ts');
+    const at = new Date(startOfToday.getTime() - 2 * DAY + 3600 * 1000);
+    const byDate = sevenDayRevenueBuckets([{ occurredAt: at, realizedCents: 100 }], startOfToday);
+    const byString = sevenDayRevenueBuckets(
+      [{ occurredAt: at.toISOString(), realizedCents: 100 }],
+      startOfToday
+    );
+    assert.deepEqual(byString, byDate);
+  });
+});
