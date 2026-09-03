@@ -80,8 +80,14 @@ export async function GET() {
   // fresh as the engine itself and lets the full linking lifecycle be
   // asserted end-to-end (the QA harness drives a rotating mock operator).
   // Unreachable engine → null → the DB values stand (round-2 behaviour).
+  //
+  // BOTH ids are mandatory: the operator's /status is fail-closed
+  // (400 without tenantId, 403 on tenant mismatch — PR #44). Passing
+  // account.id alone got every live-snapshot call 400-rejected, so the
+  // merge below never executed in production and the QR vanished ~3s
+  // after every /connect kick (the core row's qr_code is never written).
   const live = !account.isConnected
-    ? await operatorClient.getStatus(account.id).catch(() => null)
+    ? await operatorClient.getStatus(tenant.id, account.id).catch(() => null)
     : null;
   if (live) {
     operatorOnline = true;

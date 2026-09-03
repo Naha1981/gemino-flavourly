@@ -16,7 +16,14 @@
 # between shells. Exit codes are captured from log files (never from a
 # pipe, where $? would belong to tail).
 set -u
-cd /home/z/my-project/app
+# Repo-relative (2026-09-03): the previous hard-coded `cd /home/z/my-project/app`
+# only worked in the sandbox that first wrote this script — the owner and CI
+# run from a normal clone. Resolve the repo root from this script's own
+# location so the harness works from any cwd; all logs stay INSIDE the repo
+# (gitignored: scripts/qa2-evidence/, scripts/qa2-gate-dev.log).
+SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
+REPO_ROOT="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
+cd "$REPO_ROOT"
 
 export GATE_BASE_URL=http://127.0.0.1:3100
 export BASE_URL=http://127.0.0.1:3100
@@ -39,8 +46,8 @@ pkill -f "next dev -p 3100" 2>/dev/null
 pkill -f "mock-operator.mjs" 2>/dev/null
 sleep 1
 
-LOG=/home/z/my-project/scripts/qa2-gate-dev.log
-EVID=/home/z/my-project/scripts/qa2-evidence
+LOG="$REPO_ROOT/scripts/qa2-gate-dev.log"
+EVID="$REPO_ROOT/scripts/qa2-evidence"
 mkdir -p "$EVID"
 
 echo "=== GATE_MOCK build (skip with QA2_SKIP_BUILD=1 if .next is fresh) ==="

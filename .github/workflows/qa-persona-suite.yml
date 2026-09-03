@@ -43,7 +43,14 @@ jobs:
       QA_ALERT_EMAIL_TRANSPORT: mock
       ADMIN_EMAIL: naha.thabiso@gmail.com
       OPERATOR_URL: http://127.0.0.1:3001
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_qa_placeholder
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_qaplaceholder
+      # NOTE: the key body must be [A-Za-z0-9] only — clerkIsConfigured()
+      # (lib/auth/route-guard-core.ts) regex-rejects keys containing '_'.
+      # The previous value (pk_test_qa_placeholder) failed that check, so
+      # the GATE_MOCK middleware treated Clerk as unconfigured and
+      # redirected every protected page to /sign-in: signed-in persona
+      # journeys can never pass that way (reproduced locally 2026-09-03:
+      # underscore key → dashboard 307 loop; alnum key → 53/53 green).
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3100
     steps:
       - uses: actions/checkout@v4

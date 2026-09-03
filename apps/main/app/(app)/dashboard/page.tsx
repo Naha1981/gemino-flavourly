@@ -22,6 +22,7 @@ import {
   aiBookingsCard,
   revenueWowBadge,
   revenueChartHasData,
+  sevenDayRevenueBuckets,
   EMPTY_REVENUE_CHART_MESSAGE,
   unansweredBadge,
   sampleChipLabel,
@@ -163,25 +164,25 @@ export default async function DashboardOverview() {
     .limit(4)
     .catch(() => [] as { customerName: string | null; totalVisits: number; preferences: unknown }[]);
 
-  // 7-day revenue bars for the forecast strip.
-  const bars: { label: string; value: number }[] = [];
-  for (let d = 6; d >= 0; d--) {
-    const dayStart = new Date(startOfToday.getTime() - d * 24 * 3600 * 1000);
-    const dayEnd = new Date(dayStart.getTime() + 24 * 3600 * 1000);
-    const [row] = await db
-      .select({ value: sql<number>`COALESCE(SUM(${revenueEvents.realizedCents}), 0)` })
-      .from(revenueEvents)
-      .where(
-        and(
-          eq(revenueEvents.tenantId, tenant.id),
-          gte(revenueEvents.occurredAt, dayStart),
-          sql`${revenueEvents.occurredAt} < ${dayEnd}`,
-          liveRowsOnly(revenueEvents.id, liveScope)
-        )
+  // 7-day revenue bars for the forecast strip — QA-2 (2026-09-03, the
+  // owner's "mobile /dashboard sometimes stuck on the spinner" screenshot):
+  // ONE range query now. The old per-day loop paid 7 serial neon-http round
+  // trips (every query on that driver is a full HTTPS request), multiplying
+  // cold-start latency into the mobile spinner window; sevenDayRevenueBuckets
+  // buckets the rows client-side with identical [start, end) day windows,
+  // identical NULL-skipping SUM semantics and identical labels.
+  const weekRevenueRows = await db
+    .select({ occurredAt: revenueEvents.occurredAt, realizedCents: revenueEvents.realizedCents })
+    .from(revenueEvents)
+    .where(
+      and(
+        eq(revenueEvents.tenantId, tenant.id),
+        gte(revenueEvents.occurredAt, new Date(startOfToday.getTime() - 6 * 24 * 3600 * 1000)),
+        liveRowsOnly(revenueEvents.id, liveScope)
       )
-      .catch(() => [{ value: 0 }]);
-    bars.push({ label: dayStart.toLocaleDateString('en-ZA', { weekday: 'short' }), value: row?.value ?? 0 });
-  }
+    )
+    .catch(() => [] as { occurredAt: Date; realizedCents: number | null }[]);
+  const bars = sevenDayRevenueBuckets(weekRevenueRows, startOfToday);
   const barMax = Math.max(...bars.map((b) => b.value), 1);
   // UI-3R / F3 (S3) — an all-zero week renders an honest empty state,
   // never seven bare day labels pretending to be a chart.

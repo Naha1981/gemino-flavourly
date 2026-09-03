@@ -7,7 +7,22 @@
  * full linking lifecycle can be asserted without a real Baileys socket:
  *   GET  /health                 -> 200 OK (this is the keep-alive shape)
  *   POST /start    (x-api-key)   -> { success, qrCode, isConnected:false }
- *   GET  /status?waAccountId=..  -> { isConnected:false, status:'connecting', qrCode }
+ *   GET  /status?waAccountId=..&tenantId=.. -> { isConnected:false, status:'connecting', qrCode }
+ *
+ * FAIL-CLOSED, exactly like the real operator (PR #44): /start and /status
+ * both answer 400 unless BOTH waAccountId AND tenantId are present. The
+ * old mock ignored tenantId on /status — which is precisely why the
+ * production defect (operatorClient.getStatus() never sending tenantId,
+ * every live-snapshot call 400-rejected on the real service) passed the
+ * whole GATE_MOCK suite green: the mock was LOOSER than the contract it
+ * was pretending to enforce. That escape hatch is closed: a Core-side
+ * regression that drops a required parameter now fails in mock mode too.
+ *
+ * Honest limitation: this mock is stateless, so it checks parameter
+ * PRESENCE only — the real operator's ownership check (403 when the
+ * account belongs to another tenant) needs its Postgres. That side of
+ * the contract is pinned by the operator's own test suite and mirrored
+ * by apps/main/lib/operator-client.contract.test.ts.
  *
  * QR strings are 237 chars — the same length as a real Baileys pairing
  * payload — so the rendered canvas has realistic module density and jsQR
@@ -55,7 +70,10 @@ const server = createServer((req, res) => {
     req.on('end', () => {
       try {
         const parsed = JSON.parse(body || '{}');
-        if (!parsed.waAccountId) return send(400, { error: 'waAccountId required' });
+        // Mirror of operator/src/routes/start.ts: BOTH ids required.
+        if (!parsed.waAccountId || !parsed.tenantId) {
+          return send(400, { error: 'waAccountId and tenantId are required' });
+        }
       } catch {
         return send(400, { error: 'Invalid JSON' });
       }
@@ -65,6 +83,14 @@ const server = createServer((req, res) => {
   }
 
   if (req.method === 'GET' && url.pathname === '/status') {
+    // Mirror of operator/src/routes/status.ts: BOTH ids required (the
+    // exact 400 string). The old mock ignored tenantId here — the
+    // escape hatch that let the production defect sail through green.
+    const waAccountId = url.searchParams.get('waAccountId');
+    const tenantId = url.searchParams.get('tenantId');
+    if (!waAccountId || !tenantId) {
+      return send(400, { error: 'waAccountId and tenantId are required' });
+    }
     send(200, { isConnected: false, status: 'connecting', qrCode: currentQr, phoneNumber: null });
     return;
   }

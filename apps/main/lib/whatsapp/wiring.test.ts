@@ -119,3 +119,20 @@ describe('whatsapp linking — round 2 diagnosability wiring (2026-08-31 evening
     assert.match(page, /engine-error/);
   });
 });
+
+describe('whatsapp linking — operator /status contract wiring (2026-09-03, QR live-merge fix)', () => {
+  test('status route passes BOTH ids to getStatus — tenant first, account second', () => {
+    // The operator's /status is fail-closed (PR #44): 400 unless BOTH
+    // waAccountId and tenantId are present. A bare account.id call is
+    // silently 400-rejected → null snapshot → the QR vanishes ~3s after
+    // every /connect kick (the defect this branch fixes). The parameter
+    // order is pinned too: getStatus mirrors sendMessage's (tenant, account).
+    assert.match(statusRoute, /operatorClient\.getStatus\(\s*tenant\.id,\s*account\.id\s*\)/);
+  });
+
+  test('status route does not regress to the single-id getStatus call', () => {
+    // The pre-fix fingerprint: account.id alone as the first (or only)
+    // argument. Any of these shapes means tenantId stopped travelling.
+    assert.doesNotMatch(statusRoute, /operatorClient\.getStatus\(\s*account\.id\s*[,)]/);
+  });
+});

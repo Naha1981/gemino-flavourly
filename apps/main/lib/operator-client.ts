@@ -108,22 +108,39 @@ export const operatorClient = {
   /**
    * Check connection status of a WhatsApp account.
    *
+   * `tenantId` is REQUIRED and verified operator-side against the
+   * account's actual owner (fail-closed since PR #44): the operator's
+   * /status answers 400 unless BOTH `waAccountId` and `tenantId` are
+   * present, and 403 unless the account belongs to that tenant — the
+   * same guarantees sendMessage already had. Until this parameter was
+   * added the call went out with only `waAccountId`, so every
+   * live-snapshot fetch returned null in production and the QR merge in
+   * /api/whatsapp/status never executed (the linking page fell back to
+   * the core DB row, whose qr_code column is never written).
+   *
    * `timeoutMs` (default 5s): this is polled every 3s by the linking page
    * via /api/whatsapp/status, and since QA-2 that route ALSO merges the
    * live snapshot into its response — an unbounded fetch here would hang
    * the poll until the platform kills the route. Bounded = the page falls
    * back to the DB row (round-2 behaviour) when the engine is slow.
    */
-  async getStatus(waAccountId: string, timeoutMs: number = 5_000): Promise<SocketStatusResponse | null> {
+  async getStatus(
+    tenantId: string,
+    waAccountId: string,
+    timeoutMs: number = 5_000
+  ): Promise<SocketStatusResponse | null> {
     try {
-      const res = await fetch(`${OPERATOR_URL}/status?waAccountId=${waAccountId}`, {
-        method: 'GET',
-        headers: {
-          'x-api-key': OPERATOR_API_KEY,
-        },
-        cache: 'no-store',
-        signal: AbortSignal.timeout(timeoutMs),
-      });
+      const res = await fetch(
+        `${OPERATOR_URL}/status?waAccountId=${encodeURIComponent(waAccountId)}&tenantId=${encodeURIComponent(tenantId)}`,
+        {
+          method: 'GET',
+          headers: {
+            'x-api-key': OPERATOR_API_KEY,
+          },
+          cache: 'no-store',
+          signal: AbortSignal.timeout(timeoutMs),
+        }
+      );
 
       if (!res.ok) return null;
       return await res.json();

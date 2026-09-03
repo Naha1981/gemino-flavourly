@@ -80,3 +80,50 @@ export function segmentShare(count: number, total: number): number | null {
 export function sampleChipLabel(demoMode: boolean): string | null {
   return demoMode ? 'SAMPLE' : null;
 }
+
+// ---------------------------------------------------------------------------
+// QA-2 (2026-09-03) — the 7-day revenue strip from ONE range query.
+// ---------------------------------------------------------------------------
+
+/** One row of the single range query feeding the 7-day strip. */
+export interface RevenueEventPoint {
+  /** Date (drizzle) or ISO string (serialized) — both accepted. */
+  occurredAt: Date | string;
+  realizedCents: number | null;
+}
+
+/**
+ * QA-2 (2026-09-03, owner screenshot "mobile /dashboard sometimes stuck on
+ * the spinner") — buckets the strip in pure JS instead of N+1 SUM queries.
+ *
+ * The Overview page used to issue SEVEN sequential SUM queries, one per
+ * day. On the neon-http driver EVERY query is a full HTTPS round trip, so
+ * a cold Neon proxy (or a slow mobile network) multiplied straight into
+ * the page's server render time: ~15 serial round trips while the phone
+ * sat on the loading spinner, "sometimes stuck" exactly when the region
+ * was cold. One range query + this bucketing keeps the visible bars
+ * byte-identical:
+ *
+ *   - same day windows: [start, start+24h) per day, oldest first,
+ *     derived from startOfToday exactly like the old loop;
+ *   - same SQL SUM semantics: a NULL realizedCents contributes nothing;
+ *   - same labels: toLocaleDateString('en-ZA', { weekday: 'short' }).
+ */
+export function sevenDayRevenueBuckets(
+  rows: readonly RevenueEventPoint[],
+  startOfToday: Date
+): { label: string; value: number }[] {
+  const DAY_MS = 24 * 3600 * 1000;
+  const bars: { label: string; value: number }[] = [];
+  for (let d = 6; d >= 0; d--) {
+    const dayStart = new Date(startOfToday.getTime() - d * DAY_MS);
+    const start = dayStart.getTime();
+    const end = start + DAY_MS;
+    const value = rows.reduce((sum, r) => {
+      const t = new Date(r.occurredAt).getTime();
+      return t >= start && t < end ? sum + (r.realizedCents ?? 0) : sum;
+    }, 0);
+    bars.push({ label: dayStart.toLocaleDateString('en-ZA', { weekday: 'short' }), value });
+  }
+  return bars;
+}

@@ -70,3 +70,8 @@ existing_jobs.json
 # Agent tooling (Neon CLI skills install; local-only, never shipped)
 .claude/
 skills-lock.json
+
+# QA-2 one-shot evidence harness output (scripts/qa2-evidence-run.sh) —
+# logs and evidence stay inside the repo but never get committed.
+scripts/qa2-evidence/
+scripts/qa2-gate-dev.log
