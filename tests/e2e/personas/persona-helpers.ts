@@ -130,10 +130,12 @@ export async function signInProduction(
   const emailInput = page.locator('input[name="identifier"], input[inputmode="email"]').first();
   await emailInput.waitFor({ state: 'visible', timeout: 20_000 });
   await emailInput.fill(creds.email);
-  await page
-    .locator('button:has-text("Continue"), button:has-text("Sign in"), button[type="submit"]')
-    .first()
-    .click();
+  // 2026-09-03 (first real production run): DO NOT click a Continue-ish
+  // button here. Clerk renders "Continue with Google" as button[0] in DOM
+  // order, and a has-text("Continue") locator substring-matches it — the
+  // old click sent the journey to Google OAuth. Pressing Enter submits
+  // the identifier form natively, immune to button order and labels.
+  await emailInput.press('Enter');
 
   // Password strategy configured for the QA account → password field appears.
   const passwordInput = page.locator('input[type="password"]').first();
@@ -143,11 +145,15 @@ export async function signInProduction(
     // Passwordless/OTP-only account: CI cannot read the emailed code.
     return false;
   }
+  // Clerk renders the field DISABLED for a moment during the step transition
+  // (observed live); filling a disabled input throws — wait for editable.
+  for (let i = 0; i < 20 && (await passwordInput.isDisabled().catch(() => true)); i++) {
+    await page.waitForTimeout(500);
+  }
   await passwordInput.fill(creds.password);
-  await page
-    .locator('button:has-text("Continue"), button:has-text("Sign in"), button[type="submit"]')
-    .first()
-    .click();
+  // Same Enter discipline on the password step (alt-method buttons render
+  // there too).
+  await passwordInput.press('Enter');
   await page.waitForURL(/\/(dashboard|admin)/, { timeout: 30_000 }).catch(() => null);
   return /\/(dashboard|admin)/.test(page.url());
 }
