@@ -79,7 +79,7 @@ export default function ReactivationClient() {
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
           placeholder="Customer phone, e.g. 27821234567"
-          className="w-full rounded-md border border-zinc-700 bg-zinc-900 px-3 py-2 font-mono text-xs text-zinc-200 outline-none placeholder:text-zinc-600 focus:border-emerald-600"
+          className="w-full rounded-md border border-app-border-strong bg-app-surface-0 px-3 py-2 font-mono text-xs text-app-fg outline-none placeholder:text-app-faint focus:border-emerald-600"
         />
         <button
           type="submit"

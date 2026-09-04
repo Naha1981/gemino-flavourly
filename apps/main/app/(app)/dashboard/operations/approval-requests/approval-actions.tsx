@@ -52,7 +52,7 @@ export function ApprovalActions({ requestId }: { requestId: string }) {
       <button
         onClick={() => act('rejected')}
         disabled={busy !== null}
-        className="inline-flex items-center gap-1 rounded-md border border-red-900 bg-zinc-950 px-3 py-1.5 text-xs text-red-300 hover:bg-zinc-800 disabled:opacity-50"
+        className="inline-flex items-center gap-1 rounded-md border border-red-900 bg-app-bg px-3 py-1.5 text-xs text-red-300 hover:bg-app-surface-1 disabled:opacity-50"
       >
         {busy === 'rejected' ? <Loader2 className="h-3 w-3 animate-spin" /> : <X className="h-3 w-3" />}
         Reject

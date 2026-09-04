@@ -116,18 +116,18 @@ export default function ChatDetailClient({
   return (
     <div className="flex flex-col h-full">
       {/* Thread Header */}
-      <div className="p-4 border-b border-zinc-800 bg-zinc-900/80 flex items-center justify-between">
+      <div className="p-4 border-b border-app-border bg-app-surface-0/80 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <Link
             href="/dashboard/inbox"
-            className="md:hidden p-1.5 rounded-md bg-zinc-800 text-zinc-400 hover:text-zinc-100"
+            className="md:hidden p-1.5 rounded-md bg-app-surface-1 text-app-muted hover:text-app-fg"
           >
             <ArrowLeft className="w-4 h-4" />
           </Link>
           <div>
-            <h3 className="font-semibold text-zinc-50 text-sm">{contactName || contactPhone}</h3>
-            <p className="text-xs text-zinc-400 flex items-center gap-1">
-              <Phone className="w-3 h-3 text-zinc-500" />
+            <h3 className="font-semibold text-app-fg text-sm">{contactName || contactPhone}</h3>
+            <p className="text-xs text-app-muted flex items-center gap-1">
+              <Phone className="w-3 h-3 text-app-faint" />
               {contactPhone}
             </p>
           </div>
@@ -151,7 +151,7 @@ export default function ChatDetailClient({
       {/* Message Feed */}
       <div className="flex-1 p-4 overflow-y-auto space-y-4">
         {messages.length === 0 ? (
-          <div className="text-center text-xs text-zinc-500 py-12">
+          <div className="text-center text-xs text-app-faint py-12">
             No messages in this conversation yet.
           </div>
         ) : (
@@ -184,7 +184,7 @@ export default function ChatDetailClient({
                 <div
                   className={`max-w-[85%] sm:max-w-[70%] rounded-2xl px-4 py-2.5 text-sm shadow-sm leading-relaxed ${
                     isInbound
-                      ? 'bg-zinc-800/90 text-zinc-100 rounded-bl-sm border border-zinc-700/50'
+                      ? 'bg-app-surface-1/90 text-app-fg rounded-bl-sm border border-app-border-strong/50'
                       : m.isAIGenerated
                       ? 'bg-emerald-950/70 text-emerald-100 rounded-br-sm border border-emerald-800/60'
                       : 'bg-zinc-100 text-zinc-950 font-medium rounded-br-sm shadow-md'
@@ -193,7 +193,7 @@ export default function ChatDetailClient({
                   <p className="whitespace-pre-wrap break-words">{m.content}</p>
                 </div>
 
-                <div className="flex items-center gap-1.5 mt-1 px-1 text-[11px] text-zinc-500">
+                <div className="flex items-center gap-1.5 mt-1 px-1 text-[11px] text-app-faint">
                   {!isInbound && m.isAIGenerated && (
                     <span className="flex items-center gap-1 text-emerald-400 font-medium">
                       <Bot className="w-3 h-3" />
@@ -201,7 +201,7 @@ export default function ChatDetailClient({
                     </span>
                   )}
                   {!isInbound && !m.isAIGenerated && (
-                    <span className="flex items-center gap-1 text-zinc-400">
+                    <span className="flex items-center gap-1 text-app-muted">
                       <User className="w-3 h-3" />
                       Staff
                     </span>
@@ -223,7 +223,7 @@ export default function ChatDetailClient({
                     <CheckCheck className="w-3.5 h-3.5 text-emerald-500 ml-0.5" aria-label="Delivered" />
                   )}
                   {!isInbound && m.deliveryStatus === 'unknown' && (
-                    <span className="flex items-center gap-1 text-zinc-500 ml-0.5" title="Delivery status could not be determined">
+                    <span className="flex items-center gap-1 text-app-faint ml-0.5" title="Delivery status could not be determined">
                       <HelpCircle className="w-3.5 h-3.5" />
                       Unknown
                     </span>
@@ -252,14 +252,14 @@ export default function ChatDetailClient({
       </div>
 
       {/* Manual Takeover / Reply Bar */}
-      <div className="p-4 border-t border-zinc-800 bg-zinc-900/90">
+      <div className="p-4 border-t border-app-border bg-app-surface-0/90">
         <form onSubmit={handleSend} className="flex items-center gap-2">
           <input
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
             placeholder="Type a manual reply to take over from AI..."
-            className="flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-4 py-2.5 text-sm text-zinc-50 placeholder:text-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+            className="flex-1 rounded-md border border-app-border bg-app-bg px-4 py-2.5 text-sm text-app-fg placeholder:text-app-faint focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
           />
           <button
             type="submit"

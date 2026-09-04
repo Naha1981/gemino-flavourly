@@ -36,11 +36,11 @@ export function AnalyzeMarketButton() {
   }
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-      <p className="mb-1 flex items-center gap-2 text-sm font-medium text-zinc-100">
+    <div className="rounded-lg border border-app-border bg-app-surface-0/50 p-4">
+      <p className="mb-1 flex items-center gap-2 text-sm font-medium text-app-fg">
         <Radar className="h-4 w-4 text-emerald-400" /> Re-run the analysis
       </p>
-      <p className="mb-3 text-xs text-zinc-500">
+      <p className="mb-3 text-xs text-app-faint">
         Reads the competitors you track and their latest menu snapshots. No external calls, so it is safe to run any
         time — the daily 8am sweep does it anyway.
       </p>
@@ -92,7 +92,7 @@ export function MarkAddressedButton({
       title={title}
       className={`inline-flex items-center gap-1 rounded-md border px-2.5 py-1 text-xs transition-colors disabled:opacity-50 ${
         addressed
-          ? 'border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700'
+          ? 'border-app-border-strong bg-app-surface-1 text-app-muted hover:bg-app-surface-2'
           : 'border-emerald-800 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/40'
       }`}
     >

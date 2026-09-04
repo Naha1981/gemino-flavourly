@@ -74,16 +74,16 @@ const ALL_ENGINES = [
 
 export default function PricingPage() {
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-50 antialiased">
-      <header className="border-b border-zinc-800/80">
+    <div className="min-h-screen bg-app-bg text-app-fg antialiased">
+      <header className="border-b border-app-border/80">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <Link href="/" className="flex items-center">
             <Image src="/logo.png" alt="Flavourly" width={144} height={36} className="h-9 w-auto" priority />
           </Link>
           <nav className="flex items-center gap-4">
-            <Link href="/" className="text-sm text-zinc-300 hover:text-white">Home</Link>
-            <Link href="/privacy" className="text-sm text-zinc-300 hover:text-white">Privacy</Link>
-            <Link href="/terms" className="text-sm text-zinc-300 hover:text-white">Terms</Link>
+            <Link href="/" className="text-sm text-app-muted hover:text-white">Home</Link>
+            <Link href="/privacy" className="text-sm text-app-muted hover:text-white">Privacy</Link>
+            <Link href="/terms" className="text-sm text-app-muted hover:text-white">Terms</Link>
           </nav>
         </div>
       </header>
@@ -91,7 +91,7 @@ export default function PricingPage() {
       <main className="mx-auto max-w-6xl px-6 py-16">
         <div className="text-center">
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">Simple, transparent pricing</h1>
-          <p className="mx-auto mt-4 max-w-2xl text-lg text-zinc-400">
+          <p className="mx-auto mt-4 max-w-2xl text-lg text-app-muted">
             Monthly billing in ZAR. Setup fee covers onboarding and WhatsApp configuration. <span className="text-emerald-400 font-medium">2 months free on annual</span> billing.
           </p>
         </div>
@@ -101,7 +101,7 @@ export default function PricingPage() {
             <div
               key={tier.id}
               className={`relative flex flex-col rounded-xl border p-6 ${
-                tier.featured ? 'border-emerald-500/60 bg-emerald-500/5' : 'border-zinc-800 bg-zinc-900/50'
+                tier.featured ? 'border-emerald-500/60 bg-emerald-500/5' : 'border-app-border bg-app-surface-0/50'
               }`}
             >
               {tier.featured && (
@@ -110,16 +110,16 @@ export default function PricingPage() {
                 </span>
               )}
               <h2 className="text-xl font-semibold">{tier.name}</h2>
-              <p className="text-sm text-zinc-400">{tier.blurb}</p>
+              <p className="text-sm text-app-muted">{tier.blurb}</p>
               <div className="mt-4">
                 <span className="text-4xl font-bold">R{tier.monthly.toLocaleString()}</span>
-                <span className="text-zinc-500">/mo</span>
+                <span className="text-app-faint">/mo</span>
               </div>
-              <p className="mt-1 text-sm text-zinc-500">Setup: R{tier.setup.toLocaleString()}</p>
+              <p className="mt-1 text-sm text-app-faint">Setup: R{tier.setup.toLocaleString()}</p>
 
               <ul className="mt-6 flex-1 space-y-2">
                 {tier.engines.map((e) => (
-                  <li key={e} className="flex items-start gap-2 text-sm text-zinc-300">
+                  <li key={e} className="flex items-start gap-2 text-sm text-app-muted">
                     <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" />
                     {e}
                   </li>
@@ -147,7 +147,7 @@ export default function PricingPage() {
           <h2 className="text-center text-2xl font-semibold">All plans include</h2>
           <div className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {ALL_ENGINES.map((e) => (
-              <div key={e} className="flex items-center gap-2 text-sm text-zinc-300">
+              <div key={e} className="flex items-center gap-2 text-sm text-app-muted">
                 <Check className="h-4 w-4 shrink-0 text-emerald-400" />
                 {e}
               </div>
@@ -155,9 +155,9 @@ export default function PricingPage() {
           </div>
         </section>
 
-        <section className="mt-16 rounded-xl border border-zinc-800 bg-zinc-900/50 p-8 text-center">
+        <section className="mt-16 rounded-xl border border-app-border bg-app-surface-0/50 p-8 text-center">
           <h2 className="text-2xl font-semibold">Need a custom plan?</h2>
-          <p className="mt-2 text-zinc-400">For large groups or franchise operations, talk to us.</p>
+          <p className="mt-2 text-app-muted">For large groups or franchise operations, talk to us.</p>
           <a
             href={`https://wa.me/${process.env.NEXT_PUBLIC_WHATSAPP_CONTACT || '27820000000'}`}
             target="_blank"
@@ -169,12 +169,12 @@ export default function PricingPage() {
         </section>
       </main>
 
-      <footer className="border-t border-zinc-800/80 py-8">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 text-sm text-zinc-500">
+      <footer className="border-t border-app-border/80 py-8">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 text-sm text-app-faint">
           <span>&copy; {new Date().getFullYear()} Flavourly</span>
           <div className="flex gap-5">
-            <Link href="/privacy" className="hover:text-zinc-300">Privacy</Link>
-            <Link href="/terms" className="hover:text-zinc-300">Terms</Link>
+            <Link href="/privacy" className="hover:text-app-muted">Privacy</Link>
+            <Link href="/terms" className="hover:text-app-muted">Terms</Link>
           </div>
         </div>
       </footer>

@@ -40,12 +40,12 @@ export default async function MarketOpportunitiesPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-2 border-b border-zinc-800 pb-4">
-        <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-zinc-50">
+      <div className="flex flex-col gap-2 border-b border-app-border pb-4">
+        <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-app-fg">
           <Lightbulb className="h-5 w-5 text-emerald-400" />
           Market Opportunities
         </h1>
-        <p className="text-xs text-zinc-400">
+        <p className="text-xs text-app-muted">
           Gaps in your 5km market — meals, cuisines, price bands and dayparts nobody else covers.{' '}
           <Link href="/dashboard/market/competitors" className="text-emerald-400 hover:text-emerald-300">
             Competitors
@@ -58,7 +58,7 @@ export default async function MarketOpportunitiesPage() {
       </div>
 
       {competitors.length === 0 && (
-        <div className="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/30 p-6 text-sm text-zinc-400">
+        <div className="rounded-lg border border-dashed border-app-border bg-app-surface-0/30 p-6 text-sm text-app-muted">
           No competitors tracked yet, so there is nothing to compare against.{' '}
           <Link href="/dashboard/market/competitors" className="text-emerald-400 hover:text-emerald-300">
             Discover competitors
@@ -71,35 +71,35 @@ export default async function MarketOpportunitiesPage() {
 
       <div className="space-y-3">
         {rows.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/30 p-8 text-center text-sm text-zinc-400">
+          <div className="rounded-lg border border-dashed border-app-border bg-app-surface-0/30 p-8 text-center text-sm text-app-muted">
             No opportunities detected yet. Run the analysis above once a few competitors have menu snapshots, or wait
             for the daily 8am sweep.
           </div>
         ) : (
           <>
             {openItems.map((row) => {
-              const meta = TYPE_META[row.opportunityType] ?? { label: row.opportunityType, classes: 'border-zinc-700 bg-zinc-800 text-zinc-300' };
+              const meta = TYPE_META[row.opportunityType] ?? { label: row.opportunityType, classes: 'border-app-border-strong bg-app-surface-1 text-app-muted' };
               const confidence = Number(row.confidence);
               const evidence = Array.isArray(row.evidence) ? (row.evidence as string[]) : [];
               return (
-                <div key={row.id} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+                <div key={row.id} className="rounded-lg border border-app-border bg-app-surface-0/50 p-4">
                   <div className="flex flex-wrap items-start gap-2">
                     <span className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${meta.classes}`}>
                       {meta.label}
                     </span>
-                    <span className="text-sm font-medium text-zinc-100">{row.title}</span>
+                    <span className="text-sm font-medium text-app-fg">{row.title}</span>
                     <span className="ml-auto text-right">
-                      <span className="block text-xs text-zinc-500">score</span>
+                      <span className="block text-xs text-app-faint">score</span>
                       <span className="text-sm font-semibold text-emerald-300">{confidence.toFixed(2)}</span>
                     </span>
                   </div>
 
-                  <p className="mt-2 text-xs leading-relaxed text-zinc-400">{row.description}</p>
+                  <p className="mt-2 text-xs leading-relaxed text-app-muted">{row.description}</p>
 
                   {evidence.length > 0 && (
                     <ul className="mt-2 space-y-0.5">
                       {evidence.map((item, index) => (
-                        <li key={index} className="text-[11px] text-zinc-500">
+                        <li key={index} className="text-[11px] text-app-faint">
                           · {item}
                         </li>
                       ))}
@@ -108,24 +108,24 @@ export default async function MarketOpportunitiesPage() {
 
                   <div className="mt-3 flex flex-wrap items-center gap-3">
                     <MarkAddressedButton opportunityId={row.id} title={row.title} addressed={false} />
-                    <div className="h-1 w-32 overflow-hidden rounded-full bg-zinc-800">
+                    <div className="h-1 w-32 overflow-hidden rounded-full bg-app-surface-1">
                       <div className="h-full bg-emerald-500" style={{ width: `${Math.round(confidence * 100)}%` }} />
                     </div>
-                    <span className="ml-auto text-[11px] text-zinc-600">detected {formatDate(row.detectedAt)}</span>
+                    <span className="ml-auto text-[11px] text-app-faint">detected {formatDate(row.detectedAt)}</span>
                   </div>
                 </div>
               );
             })}
 
             {done.length > 0 && (
-              <div className="rounded-lg border border-zinc-800/70 bg-zinc-900/30 p-4">
-                <p className="mb-2 flex items-center gap-2 text-xs font-medium text-zinc-300">
-                  <Swords className="h-3.5 w-3.5 text-zinc-500" /> Addressed ({done.length})
+              <div className="rounded-lg border border-app-border/70 bg-app-surface-0/30 p-4">
+                <p className="mb-2 flex items-center gap-2 text-xs font-medium text-app-muted">
+                  <Swords className="h-3.5 w-3.5 text-app-faint" /> Addressed ({done.length})
                 </p>
                 <ul className="space-y-2">
                   {done.map((row) => (
-                    <li key={row.id} className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
-                      <span className="text-zinc-400">{row.title}</span>
+                    <li key={row.id} className="flex flex-wrap items-center gap-2 text-xs text-app-faint">
+                      <span className="text-app-muted">{row.title}</span>
                       <span className="text-[11px]">score {Number(row.confidence).toFixed(2)}</span>
                       <span className="ml-auto">
                         <MarkAddressedButton opportunityId={row.id} title={row.title} addressed />

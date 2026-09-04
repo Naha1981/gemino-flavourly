@@ -42,8 +42,8 @@ export function AddCompetitorForm() {
   }
 
   return (
-    <form onSubmit={submit} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-      <p className="mb-3 flex items-center gap-2 text-xs font-medium text-zinc-300">
+    <form onSubmit={submit} className="rounded-lg border border-app-border bg-app-surface-0/50 p-4">
+      <p className="mb-3 flex items-center gap-2 text-xs font-medium text-app-muted">
         <Plus className="h-3.5 w-3.5 text-emerald-400" /> Track a competitor
       </p>
       <div className="flex flex-col gap-2 sm:flex-row">
@@ -53,7 +53,7 @@ export function AddCompetitorForm() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Competitor name (e.g. The Bull Pen)"
-          className="flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-emerald-600 focus:outline-none"
+          className="flex-1 rounded-md border border-app-border bg-app-bg px-3 py-2 text-sm text-app-fg placeholder:text-app-faint focus:border-emerald-600 focus:outline-none"
         />
         <input
           type="text"
@@ -61,7 +61,7 @@ export function AddCompetitorForm() {
           value={placeId}
           onChange={(e) => setPlaceId(e.target.value)}
           placeholder="Google Place ID (ChIJ…)"
-          className="flex-1 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 placeholder:text-zinc-600 focus:border-emerald-600 focus:outline-none"
+          className="flex-1 rounded-md border border-app-border bg-app-bg px-3 py-2 text-sm text-app-fg placeholder:text-app-faint focus:border-emerald-600 focus:outline-none"
         />
         <button
           type="submit"

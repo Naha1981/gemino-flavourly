@@ -21,9 +21,9 @@ export default async function ChannelConfigsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-zinc-800 pb-4">
-        <h1 className="text-xl font-semibold text-zinc-50">Channel Configurations</h1>
-        <p className="text-xs text-zinc-400">
+      <div className="border-b border-app-border pb-4">
+        <h1 className="text-xl font-semibold text-app-fg">Channel Configurations</h1>
+        <p className="text-xs text-app-muted">
           {enabledCount} of {channels.length} channels enabled. Configure credentials for each channel to enable messaging beyond WhatsApp.
         </p>
       </div>
@@ -33,18 +33,18 @@ export default async function ChannelConfigsPage() {
           const config = configs.find((c) => c.channel === ch.key);
           const isEnabled = config?.enabled ?? false;
           return (
-            <div key={ch.key} className={`rounded-lg border p-4 ${isEnabled ? 'border-emerald-800 bg-zinc-900/80' : 'border-zinc-800 bg-zinc-900/50'}`}>
+            <div key={ch.key} className={`rounded-lg border p-4 ${isEnabled ? 'border-emerald-800 bg-app-surface-0/80' : 'border-app-border bg-app-surface-0/50'}`}>
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <span className="text-lg">{ch.icon}</span>
-                  <span className="text-sm font-medium text-zinc-100">{ch.label}</span>
+                  <span className="text-sm font-medium text-app-fg">{ch.label}</span>
                 </div>
-                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${isEnabled ? 'bg-emerald-950 text-emerald-300' : 'bg-zinc-800 text-zinc-400'}`}>
+                <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${isEnabled ? 'bg-emerald-950 text-emerald-300' : 'bg-app-surface-1 text-app-muted'}`}>
                   {isEnabled ? 'Enabled' : 'Disabled'}
                 </span>
               </div>
               {config ? (
-                <div className="mt-3 space-y-2 text-xs text-zinc-400">
+                <div className="mt-3 space-y-2 text-xs text-app-muted">
                   <div className="flex justify-between">
                     <span>Credentials</span>
                     <span className={config.credentialsEncrypted ? 'text-emerald-300' : 'text-red-300'}>
@@ -57,16 +57,16 @@ export default async function ChannelConfigsPage() {
                   </div>
                 </div>
               ) : (
-                <p className="mt-3 text-xs text-zinc-500">Not configured yet.</p>
+                <p className="mt-3 text-xs text-app-faint">Not configured yet.</p>
               )}
             </div>
           );
         })}
       </div>
 
-      <div className="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/30 p-6">
-        <p className="text-sm text-zinc-400">
-          Channel configuration is managed via the API. Use the <code className="rounded bg-zinc-800 px-1 py-0.5 text-xs text-zinc-200">/api/operations/channel-configs</code> endpoint to add or update credentials.
+      <div className="rounded-lg border border-dashed border-app-border bg-app-surface-0/30 p-6">
+        <p className="text-sm text-app-muted">
+          Channel configuration is managed via the API. Use the <code className="rounded bg-app-surface-1 px-1 py-0.5 text-xs text-app-fg">/api/operations/channel-configs</code> endpoint to add or update credentials.
           Credentials are encrypted at rest and never exposed through the dashboard.
         </p>
       </div>

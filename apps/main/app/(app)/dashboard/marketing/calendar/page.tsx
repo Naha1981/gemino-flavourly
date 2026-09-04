@@ -93,7 +93,7 @@ export default async function MarketingCalendarPage({
     event: 'bg-blue-950 text-blue-300',
     seasonal: 'bg-amber-950 text-amber-300',
     announcement: 'bg-purple-950 text-purple-300',
-    custom: 'bg-zinc-800 text-zinc-300',
+    custom: 'bg-app-surface-1 text-app-muted',
     special: 'bg-purple-950 text-purple-300',
     live_music: 'bg-pink-950 text-pink-300',
     tasting: 'bg-amber-950 text-amber-300',
@@ -102,7 +102,7 @@ export default async function MarketingCalendarPage({
   };
 
   const statusColors: Record<string, string> = {
-    draft: 'bg-zinc-800 text-zinc-300',
+    draft: 'bg-app-surface-1 text-app-muted',
     scheduled: 'bg-blue-950 text-blue-300',
     published: 'bg-emerald-950 text-emerald-300',
     sent: 'bg-emerald-950 text-emerald-300',
@@ -118,35 +118,35 @@ export default async function MarketingCalendarPage({
 
   return (
     <div className="space-y-6">
-      <div className="border-b border-zinc-800 pb-4">
-        <h1 className="text-xl font-semibold text-zinc-50">Marketing Calendar</h1>
-        <p className="text-xs text-zinc-400">
+      <div className="border-b border-app-border pb-4">
+        <h1 className="text-xl font-semibold text-app-fg">Marketing Calendar</h1>
+        <p className="text-xs text-app-muted">
           {items.length} item{items.length === 1 ? '' : 's'} in {month.toLocaleString(undefined, { month: 'long', year: 'numeric' })}.
         </p>
       </div>
 
       {items.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/30 p-8 text-center text-sm text-zinc-400">
+        <div className="rounded-lg border border-dashed border-app-border bg-app-surface-0/30 p-8 text-center text-sm text-app-muted">
           No campaigns or events scheduled for this month.
         </div>
       ) : (
         <div className="space-y-3">
           {items.map((item) => (
-            <div key={`${item.kind}-${item.id}`} className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
+            <div key={`${item.kind}-${item.id}`} className="rounded-lg border border-app-border bg-app-surface-0/50 p-4">
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-medium text-zinc-100">{item.name}</span>
+                <span className="text-sm font-medium text-app-fg">{item.name}</span>
                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${typeColors[item.type] ?? typeColors.custom}`}>
                   {item.type.replace('_', ' ')}
                 </span>
                 <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs ${statusColors[item.status] ?? statusColors.draft}`}>
                   {item.status}
                 </span>
-                <span className="text-xs text-zinc-500">{item.kind}</span>
+                <span className="text-xs text-app-faint">{item.kind}</span>
               </div>
               {item.message && (
-                <p className="mt-2 text-sm text-zinc-300">{item.message}</p>
+                <p className="mt-2 text-sm text-app-muted">{item.message}</p>
               )}
-              <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-zinc-500">
+              <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-app-faint">
                 <span>From: {formatDate(item.startsAt)}</span>
                 <span>To: {formatDate(item.endsAt)}</span>
                 {item.location && <span>📍 {item.location}</span>}

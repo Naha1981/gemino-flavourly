@@ -101,7 +101,7 @@ export default function BillingPage() {
     <div className="mx-auto max-w-4xl space-y-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Billing & Plan</h1>
-        <p className="mt-1 text-sm text-zinc-400">Manage your subscription and plan.</p>
+        <p className="mt-1 text-sm text-app-muted">Manage your subscription and plan.</p>
       </div>
 
       {billing?.readOnly && (
@@ -117,14 +117,14 @@ export default function BillingPage() {
       )}
 
       {billing && (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
+        <div className="rounded-lg border border-app-border bg-app-surface-0/50 p-6">
           <div className="flex items-center justify-between">
             <div>
               <div className="flex items-center gap-2">
                 <Crown className="h-5 w-5 text-emerald-400" />
                 <h2 className="text-lg font-semibold capitalize">{billing.plan} plan</h2>
               </div>
-              <p className="mt-1 text-sm text-zinc-400">
+              <p className="mt-1 text-sm text-app-muted">
                 Status: <span className="capitalize">{STATUS_LABELS[billing.planStatus] ?? billing.planStatus}</span>
               </p>
             </div>
@@ -132,7 +132,7 @@ export default function BillingPage() {
               {billing.planStatus === 'trialing' && billing.trialDaysLeft !== null ? (
                 <div>
                   <p className="text-2xl font-bold">{billing.trialDaysLeft}</p>
-                  <p className="text-xs text-zinc-500">trial days left</p>
+                  <p className="text-xs text-app-faint">trial days left</p>
                 </div>
               ) : billing.hasSubscription ? (
                 <div className="flex items-center gap-1 text-emerald-400">
@@ -147,7 +147,7 @@ export default function BillingPage() {
 
       <div>
         <h2 className="mb-4 text-lg font-semibold">Available plans</h2>
-        <p className="mb-4 text-sm text-zinc-400">2 months free on annual billing.</p>
+        <p className="mb-4 text-sm text-app-muted">2 months free on annual billing.</p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {tiers.map((tier) => {
             const current = billing?.plan === tier.id;
@@ -155,18 +155,18 @@ export default function BillingPage() {
               <div
                 key={tier.id}
                 className={`flex flex-col rounded-lg border p-5 ${
-                  current ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-zinc-800 bg-zinc-900/50'
+                  current ? 'border-emerald-500/50 bg-emerald-500/5' : 'border-app-border bg-app-surface-0/50'
                 }`}
               >
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-4 w-4 text-emerald-400" />
                   <h3 className="font-semibold">{tier.name}</h3>
                 </div>
-                <p className="mt-1 text-xs text-zinc-500">{tier.description}</p>
+                <p className="mt-1 text-xs text-app-faint">{tier.description}</p>
                 <p className="mt-3 text-2xl font-bold">
-                  R{tier.monthlyZAR.toLocaleString()}<span className="text-sm font-normal text-zinc-500">/mo</span>
+                  R{tier.monthlyZAR.toLocaleString()}<span className="text-sm font-normal text-app-faint">/mo</span>
                 </p>
-                <p className="mt-0.5 text-xs text-zinc-500">Setup: R{tier.setupZAR.toLocaleString()}</p>
+                <p className="mt-0.5 text-xs text-app-faint">Setup: R{tier.setupZAR.toLocaleString()}</p>
                 <div className="mt-auto pt-4">
                   {current ? (
                     <span className="inline-flex items-center gap-1 rounded-md bg-emerald-500/10 px-3 py-1.5 text-sm text-emerald-400">
@@ -194,9 +194,9 @@ export default function BillingPage() {
       </div>
 
       {billing?.hasSubscription && (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-6">
+        <div className="rounded-lg border border-app-border bg-app-surface-0/50 p-6">
           <h2 className="text-lg font-semibold">Manage subscription</h2>
-          <p className="mt-1 text-sm text-zinc-400">Cancel your recurring subscription. You will keep access until the current period ends.</p>
+          <p className="mt-1 text-sm text-app-muted">Cancel your recurring subscription. You will keep access until the current period ends.</p>
           <button
             onClick={handleCancel}
             className="mt-4 rounded-md border border-red-500/30 px-4 py-2 text-sm text-red-400 transition-colors hover:bg-red-500/10"

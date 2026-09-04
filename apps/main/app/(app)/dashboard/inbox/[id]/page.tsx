@@ -62,29 +62,29 @@ export default async function ConversationDetailPage({ params }: { params: { id:
     .catch(() => []);
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] overflow-hidden rounded-lg border border-zinc-800 bg-zinc-900/50 shadow-sm">
+    <div className="flex h-[calc(100vh-8rem)] overflow-hidden rounded-lg border border-app-border bg-app-surface-0/50 shadow-sm">
       {/* Left Sidebar: Conversations List (Hidden on mobile if viewing chat) */}
-      <div className="hidden md:block md:w-1/3 border-r border-zinc-800 overflow-y-auto bg-zinc-950/20">
-        <div className="p-4 border-b border-zinc-800 bg-zinc-900/80">
-          <h2 className="text-base font-semibold text-zinc-100">Live Inbox</h2>
+      <div className="hidden md:block md:w-1/3 border-r border-app-border overflow-y-auto bg-app-bg/20">
+        <div className="p-4 border-b border-app-border bg-app-surface-0/80">
+          <h2 className="text-base font-semibold text-app-fg">Live Inbox</h2>
         </div>
-        <ul className="divide-y divide-zinc-800">
+        <ul className="divide-y divide-app-border">
           {allConvos.map((c) => (
             <li key={c.id}>
               <Link
                 href={`/dashboard/inbox/${c.id}`}
                 className={`block p-4 transition-colors ${
-                  c.id === conversationId ? 'bg-zinc-800/80 border-l-2 border-emerald-500' : 'hover:bg-zinc-800/40'
+                  c.id === conversationId ? 'bg-app-surface-1/80 border-l-2 border-emerald-500' : 'hover:bg-app-surface-1/40'
                 }`}
               >
                 <div className="flex items-center justify-between">
-                  <span className="font-medium text-zinc-50 text-sm">{c.contactName || c.contactPhone}</span>
-                  <span className="text-xs text-zinc-500">
+                  <span className="font-medium text-app-fg text-sm">{c.contactName || c.contactPhone}</span>
+                  <span className="text-xs text-app-faint">
                     {c.lastMessageAt ? new Date(c.lastMessageAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : ''}
                   </span>
                 </div>
-                <p className="text-xs text-zinc-400 truncate mt-1 flex items-center gap-1">
-                  <Phone className="w-3 h-3 text-zinc-500" />
+                <p className="text-xs text-app-muted truncate mt-1 flex items-center gap-1">
+                  <Phone className="w-3 h-3 text-app-faint" />
                   {c.contactPhone}
                 </p>
               </Link>
@@ -94,7 +94,7 @@ export default async function ConversationDetailPage({ params }: { params: { id:
       </div>
 
       {/* Right Side: Interactive Chat Thread & Reply Box */}
-      <div className="flex-1 flex flex-col bg-zinc-950/60 overflow-hidden">
+      <div className="flex-1 flex flex-col bg-app-bg/60 overflow-hidden">
         <ChatDetailClient
           conversationId={conversationId}
           contactName={currentConvo.contactName}

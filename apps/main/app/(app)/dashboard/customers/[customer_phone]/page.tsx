@@ -38,18 +38,18 @@ export default async function CustomerProfilePage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3 border-b border-zinc-800 pb-4">
+      <div className="flex items-center gap-3 border-b border-app-border pb-4">
         <Link
           href="/dashboard/customers"
-          className="rounded-md border border-zinc-800 bg-zinc-900 p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+          className="rounded-md border border-app-border bg-app-surface-0 p-2 text-app-muted hover:bg-app-surface-1 hover:text-app-fg"
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
         <div>
-          <h1 className="text-xl font-semibold tracking-tight text-zinc-50">
+          <h1 className="text-xl font-semibold tracking-tight text-app-fg">
             {profile.customerName || 'Guest'}
           </h1>
-          <p className="font-mono text-xs text-zinc-400">{profile.customerPhone}</p>
+          <p className="font-mono text-xs text-app-muted">{profile.customerPhone}</p>
         </div>
       </div>
 
@@ -61,24 +61,24 @@ export default async function CustomerProfilePage({
       </div>
 
       <div className="grid gap-6 md:grid-cols-2">
-        <section className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-5">
-          <h2 className="mb-3 text-sm font-semibold text-zinc-100">Preferences</h2>
+        <section className="rounded-lg border border-app-border bg-app-surface-0/70 p-5">
+          <h2 className="mb-3 text-sm font-semibold text-app-fg">Preferences</h2>
           <PrefList title="Dietary" items={prefs.dietary} />
           <PrefList title="Occasions" items={prefs.occasions} />
           <PrefList title="Favorites" items={prefs.favorites} />
         </section>
 
-        <section className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-5">
-          <h2 className="mb-3 text-sm font-semibold text-zinc-100">Visit history</h2>
+        <section className="rounded-lg border border-app-border bg-app-surface-0/70 p-5">
+          <h2 className="mb-3 text-sm font-semibold text-app-fg">Visit history</h2>
           {visits.length === 0 ? (
-            <p className="text-xs text-zinc-500">No visits in the last 365 days.</p>
+            <p className="text-xs text-app-faint">No visits in the last 365 days.</p>
           ) : (
-            <ul className="divide-y divide-zinc-800/80">
+            <ul className="divide-y divide-app-border/80">
               {visits.map((visit) => (
                 <li key={visit.id} className="flex items-center justify-between py-2 text-xs">
-                  <span className="text-zinc-200">{formatDate(visit.date)}</span>
-                  <span className="text-zinc-400">party {visit.partySize}</span>
-                  <span className="font-mono text-zinc-500">{visit.status}</span>
+                  <span className="text-app-fg">{formatDate(visit.date)}</span>
+                  <span className="text-app-muted">party {visit.partySize}</span>
+                  <span className="font-mono text-app-faint">{visit.status}</span>
                 </li>
               ))}
             </ul>
@@ -91,9 +91,9 @@ export default async function CustomerProfilePage({
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 p-4">
-      <p className="text-[11px] uppercase tracking-wide text-zinc-500">{label}</p>
-      <p className="mt-1 text-lg font-semibold text-zinc-50">{value}</p>
+    <div className="rounded-lg border border-app-border bg-app-surface-0/70 p-4">
+      <p className="text-[11px] uppercase tracking-wide text-app-faint">{label}</p>
+      <p className="mt-1 text-lg font-semibold text-app-fg">{value}</p>
     </div>
   );
 }
@@ -101,7 +101,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 function PrefList({ title, items }: { title: string; items?: string[] }) {
   return (
     <div className="mb-3">
-      <p className="text-[11px] uppercase tracking-wide text-zinc-500">{title}</p>
+      <p className="text-[11px] uppercase tracking-wide text-app-faint">{title}</p>
       {items && items.length > 0 ? (
         <div className="mt-1 flex flex-wrap gap-1.5">
           {items.map((item) => (
@@ -114,7 +114,7 @@ function PrefList({ title, items }: { title: string; items?: string[] }) {
           ))}
         </div>
       ) : (
-        <p className="mt-1 text-xs text-zinc-600">None recorded</p>
+        <p className="mt-1 text-xs text-app-faint">None recorded</p>
       )}
     </div>
   );

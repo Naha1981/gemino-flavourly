@@ -64,12 +64,12 @@ export default async function MarketCompetitorsPage({ searchParams }: MarketComp
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-2 border-b border-zinc-800 pb-4">
-        <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-zinc-50">
+      <div className="flex flex-col gap-2 border-b border-app-border pb-4">
+        <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-app-fg">
           <Swords className="h-5 w-5 text-emerald-400" />
           Market Intelligence
         </h1>
-        <p className="text-xs text-zinc-400">
+        <p className="text-xs text-app-muted">
           Every restaurant within 5km, what they charge, and what they are running. Daily 8am sweep.{' '}
           <Link href="/dashboard/market/opportunities" className="text-emerald-400 hover:text-emerald-300">
             Opportunities
@@ -101,8 +101,8 @@ export default async function MarketCompetitorsPage({ searchParams }: MarketComp
 
       <div className="space-y-3">
         {rows.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-zinc-800 bg-zinc-900/30 p-8 text-center text-sm text-zinc-400">
-            No competitors tracked yet. Use <span className="text-zinc-200">Discover Competitors</span> to find every
+          <div className="rounded-lg border border-dashed border-app-border bg-app-surface-0/30 p-8 text-center text-sm text-app-muted">
+            No competitors tracked yet. Use <span className="text-app-fg">Discover Competitors</span> to find every
             restaurant within 5km, or add one by hand above.
           </div>
         ) : (
@@ -113,11 +113,11 @@ export default async function MarketCompetitorsPage({ searchParams }: MarketComp
             return (
               <div
                 key={row.id}
-                className={`rounded-lg border p-4 ${isSelected ? 'border-emerald-800 bg-zinc-900/80' : 'border-zinc-800 bg-zinc-900/50'}`}
+                className={`rounded-lg border p-4 ${isSelected ? 'border-emerald-800 bg-app-surface-0/80' : 'border-app-border bg-app-surface-0/50'}`}
               >
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                  <span className="text-sm font-medium text-zinc-100">{row.name}</span>
-                  <span className="inline-flex items-center gap-1 text-xs text-zinc-400">
+                  <span className="text-sm font-medium text-app-fg">{row.name}</span>
+                  <span className="inline-flex items-center gap-1 text-xs text-app-muted">
                     <MapPin className="h-3 w-3 text-emerald-500" /> {formatDistance(row.distanceKm)}
                   </span>
                   {Number(row.currentRating) > 0 && (
@@ -128,12 +128,12 @@ export default async function MarketCompetitorsPage({ searchParams }: MarketComp
                       href={row.websiteUrl}
                       target="_blank"
                       rel="noreferrer noopener"
-                      className="inline-flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-300"
+                      className="inline-flex items-center gap-1 text-xs text-app-faint hover:text-app-muted"
                     >
                       <Globe className="h-3 w-3" /> website
                     </a>
                   )}
-                  <span className="ml-auto text-xs text-zinc-500">
+                  <span className="ml-auto text-xs text-app-faint">
                     menu snapshot {formatDate(snapshot?.snapshotAt)}
                     {snapshot?.priceRange ? ` · ${snapshot.priceRange}` : ''}
                   </span>
@@ -146,11 +146,11 @@ export default async function MarketCompetitorsPage({ searchParams }: MarketComp
                   >
                     <UtensilsCrossed className="h-3 w-3" /> Menu history
                   </Link>
-                  <span className="inline-flex items-center gap-1 text-zinc-400">
+                  <span className="inline-flex items-center gap-1 text-app-muted">
                     <Percent className="h-3 w-3" /> {promotions} promotion{promotions === 1 ? '' : 's'} detected
                   </span>
                   {!row.websiteUrl && (
-                    <span className="text-zinc-600">no website — add one to start tracking their menu</span>
+                    <span className="text-app-faint">no website — add one to start tracking their menu</span>
                   )}
                   <span className="ml-auto">
                     <RemoveCompetitorButton competitorId={row.id} competitorName={row.name} />
@@ -164,12 +164,12 @@ export default async function MarketCompetitorsPage({ searchParams }: MarketComp
 
       {selected && (
         <div className="space-y-4">
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-            <p className="mb-3 flex items-center gap-2 text-sm font-medium text-zinc-100">
+          <div className="rounded-lg border border-app-border bg-app-surface-0/50 p-4">
+            <p className="mb-3 flex items-center gap-2 text-sm font-medium text-app-fg">
               <Radar className="h-4 w-4 text-emerald-400" /> {selected.row.name} — menu history
             </p>
             {selected.snapshots.length === 0 ? (
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-app-faint">
                 No snapshots yet — the daily 8am sweep records the first one, and the second one is where changes
                 appear.
               </p>
@@ -181,12 +181,12 @@ export default async function MarketCompetitorsPage({ searchParams }: MarketComp
                   const items = itemsFromText(snapshot.menuText);
                   const diff = previous ? diffMenus(itemsFromText(previous.menuText), items) : null;
                   return (
-                    <li key={snapshot.id} className="rounded-md border border-zinc-800/70 bg-zinc-950/40 p-3">
+                    <li key={snapshot.id} className="rounded-md border border-app-border/70 bg-app-bg/40 p-3">
                       <div className="flex flex-wrap items-center gap-2 text-xs">
-                        <span className="font-medium text-zinc-200">{formatDate(snapshot.snapshotAt)}</span>
-                        {snapshot.priceRange && <span className="text-zinc-400">{snapshot.priceRange}</span>}
-                        <span className="text-zinc-600">{items.length} items</span>
-                        {!previous && <span className="rounded-full border border-zinc-700 px-2 text-[10px] text-zinc-400">baseline</span>}
+                        <span className="font-medium text-app-fg">{formatDate(snapshot.snapshotAt)}</span>
+                        {snapshot.priceRange && <span className="text-app-muted">{snapshot.priceRange}</span>}
+                        <span className="text-app-faint">{items.length} items</span>
+                        {!previous && <span className="rounded-full border border-app-border-strong px-2 text-[10px] text-app-muted">baseline</span>}
                         {diff?.hasChanges && (
                           <span className="rounded-full border border-amber-800/70 bg-amber-950/50 px-2 text-[10px] text-amber-300">
                             changed
@@ -197,7 +197,7 @@ export default async function MarketCompetitorsPage({ searchParams }: MarketComp
                             href={snapshot.menuUrl}
                             target="_blank"
                             rel="noreferrer noopener"
-                            className="ml-auto text-zinc-500 hover:text-zinc-300"
+                            className="ml-auto text-app-faint hover:text-app-muted"
                           >
                             source
                           </a>
@@ -212,7 +212,7 @@ export default async function MarketCompetitorsPage({ searchParams }: MarketComp
                             </li>
                           ))}
                           {diff.removedItems.map((item) => (
-                            <li key={`removed-${item.name}`} className="text-zinc-500 line-through">
+                            <li key={`removed-${item.name}`} className="text-app-faint line-through">
                               − {item.name}
                             </li>
                           ))}
@@ -230,18 +230,18 @@ export default async function MarketCompetitorsPage({ searchParams }: MarketComp
             )}
           </div>
 
-          <div className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-            <p className="mb-3 flex items-center gap-2 text-sm font-medium text-zinc-100">
+          <div className="rounded-lg border border-app-border bg-app-surface-0/50 p-4">
+            <p className="mb-3 flex items-center gap-2 text-sm font-medium text-app-fg">
               <Percent className="h-4 w-4 text-emerald-400" /> {selected.row.name} — promotions
             </p>
             {selected.promotions.length === 0 ? (
-              <p className="text-xs text-zinc-500">Nothing detected yet.</p>
+              <p className="text-xs text-app-faint">Nothing detected yet.</p>
             ) : (
               <ul className="space-y-2">
                 {selected.promotions.map((promotion) => (
-                  <li key={promotion.id} className="rounded-md border border-zinc-800/70 bg-zinc-950/40 p-3 text-xs">
-                    <p className="text-zinc-200">{promotion.promotionText}</p>
-                    <p className="mt-1 text-[10px] text-zinc-500">
+                  <li key={promotion.id} className="rounded-md border border-app-border/70 bg-app-bg/40 p-3 text-xs">
+                    <p className="text-app-fg">{promotion.promotionText}</p>
+                    <p className="mt-1 text-[10px] text-app-faint">
                       {formatDate(promotion.detectedAt)}
                       {promotion.source ? ` · ${promotion.source}` : ''}
                     </p>

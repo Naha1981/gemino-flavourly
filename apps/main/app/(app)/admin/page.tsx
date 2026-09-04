@@ -134,18 +134,18 @@ export default async function SuperAdminDashboard() {
   const estMrr = totalTenants * 49;
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6 md:p-10 selection:bg-zinc-800">
+    <div className="min-h-screen bg-app-bg text-app-fg p-6 md:p-10 selection:bg-app-surface-1">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Navigation Bar */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-zinc-800">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-app-border">
           <div>
             <div className="flex items-center gap-2">
-              <span className="p-1.5 rounded-md bg-zinc-800 text-zinc-100">
+              <span className="p-1.5 rounded-md bg-app-surface-1 text-app-fg">
                 <Shield className="w-4 h-4 text-emerald-400" />
               </span>
-              <h1 className="text-xl font-semibold text-zinc-50 tracking-tight">Super Admin Platform Overview</h1>
+              <h1 className="text-xl font-semibold text-app-fg tracking-tight">Super Admin Platform Overview</h1>
             </div>
-            <p className="text-xs text-zinc-400 mt-1">
+            <p className="text-xs text-app-muted mt-1">
               Global system health, tenant isolation registry, and Baileys WhatsApp socket fleet.
             </p>
           </div>
@@ -153,17 +153,17 @@ export default async function SuperAdminDashboard() {
           <div className="flex items-center gap-3">
             <Link
               href="/dashboard"
-              className="px-3.5 py-1.5 text-xs font-medium bg-zinc-900 border border-zinc-800 rounded-md hover:bg-zinc-800 text-zinc-200 transition-colors"
+              className="px-3.5 py-1.5 text-xs font-medium bg-app-surface-0 border border-app-border rounded-md hover:bg-app-surface-1 text-app-fg transition-colors"
             >
                Open Tenant Dashboard
               </Link>
               <Link
                href="/admin/analytics"
-               className="px-3.5 py-1.5 text-xs font-medium bg-zinc-900 border border-zinc-800 rounded-md hover:bg-zinc-800 text-zinc-200 transition-colors"
+               className="px-3.5 py-1.5 text-xs font-medium bg-app-surface-0 border border-app-border rounded-md hover:bg-app-surface-1 text-app-fg transition-colors"
               >
                Platform Analytics
               </Link>
-            <div className="px-3 py-1.5 rounded-md bg-zinc-900 border border-zinc-800 text-xs text-zinc-400 flex items-center gap-2">
+            <div className="px-3 py-1.5 rounded-md bg-app-surface-0 border border-app-border text-xs text-app-muted flex items-center gap-2">
               <Radio className="w-3.5 h-3.5 text-emerald-400 animate-pulse" />
               <span>Fleet: Online</span>
             </div>
@@ -171,19 +171,19 @@ export default async function SuperAdminDashboard() {
         </div>
 
         {/* Global Master Switch Banner */}
-        <div className="bg-zinc-900/60 border border-zinc-800 rounded-lg p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="bg-app-surface-0/60 border border-app-border rounded-lg p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-start gap-3.5">
             <div className={`p-2 rounded-lg ${isMasterAiOn ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60' : 'bg-rose-950/60 text-rose-400 border border-rose-800/60'}`}>
               <Power className="w-5 h-5" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h3 className="text-sm font-semibold text-zinc-50">Global AI Master Kill-Switch</h3>
+                <h3 className="text-sm font-semibold text-app-fg">Global AI Master Kill-Switch</h3>
                 <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${isMasterAiOn ? 'bg-emerald-900/40 text-emerald-400' : 'bg-rose-900/40 text-rose-400'}`}>
                   {isMasterAiOn ? 'Armed & Active' : 'Killed / Inactive'}
                 </span>
               </div>
-              <p className="text-xs text-zinc-400 mt-0.5">
+              <p className="text-xs text-app-muted mt-0.5">
                 Database-backed master switch. Instantly stops all AI auto-replies across all tenants without redeploying.
               </p>
             </div>
@@ -299,18 +299,18 @@ export default async function SuperAdminDashboard() {
         </div>
 
         {/* Recent Tenants Table */}
-        <div className="bg-zinc-900/70 border border-zinc-800 rounded-lg overflow-hidden">
-          <div className="px-6 py-4 border-b border-zinc-800 flex items-center justify-between">
+        <div className="bg-app-surface-0/70 border border-app-border rounded-lg overflow-hidden">
+          <div className="px-6 py-4 border-b border-app-border flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-semibold text-zinc-50">Recent Tenant Onboarding</h2>
-              <p className="text-xs text-zinc-400 mt-0.5">Businesses running on your multi-tenant WhatsApp platform</p>
+              <h2 className="text-sm font-semibold text-app-fg">Recent Tenant Onboarding</h2>
+              <p className="text-xs text-app-muted mt-0.5">Businesses running on your multi-tenant WhatsApp platform</p>
             </div>
-            <span className="text-xs text-zinc-500 font-mono">{recentTenants.length} tenants</span>
+            <span className="text-xs text-app-faint font-mono">{recentTenants.length} tenants</span>
           </div>
 
           <div className="overflow-x-auto">
             <table className="w-full text-xs text-left">
-              <thead className="bg-zinc-950 text-zinc-400 font-medium border-b border-zinc-800">
+              <thead className="bg-app-bg text-app-muted font-medium border-b border-app-border">
                 <tr>
                   <th className="px-6 py-3.5">Tenant Name</th>
                   <th className="px-6 py-3.5">Tenant Slug</th>
@@ -319,24 +319,24 @@ export default async function SuperAdminDashboard() {
                   <th className="px-6 py-3.5">Joined Date</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-zinc-800/70">
+              <tbody className="divide-y divide-app-border/70">
                 {recentTenants.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-zinc-500">
+                    <td colSpan={5} className="px-6 py-8 text-center text-app-faint">
                       No tenants created yet. When new businesses register, they will appear here.
                     </td>
                   </tr>
                 ) : (
                   recentTenants.map((tenant) => (
-                    <tr key={tenant.id} className="hover:bg-zinc-800/40 transition-colors">
-                      <td className="px-6 py-4 font-medium text-zinc-100">{tenant.name}</td>
-                      <td className="px-6 py-4 text-zinc-400 font-mono text-[11px]">{tenant.slug}</td>
+                    <tr key={tenant.id} className="hover:bg-app-surface-1/40 transition-colors">
+                      <td className="px-6 py-4 font-medium text-app-fg">{tenant.name}</td>
+                      <td className="px-6 py-4 text-app-muted font-mono text-[11px]">{tenant.slug}</td>
                       <td className="px-6 py-4">
                         <span
                           className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
                             tenant.aiEnabled
                               ? 'bg-emerald-950/60 text-emerald-400 border border-emerald-800/60'
-                              : 'bg-zinc-800 text-zinc-400'
+                              : 'bg-app-surface-1 text-app-muted'
                           }`}
                         >
                           {tenant.aiEnabled ? 'Autonomous' : 'Disabled'}
@@ -347,13 +347,13 @@ export default async function SuperAdminDashboard() {
                           className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium ${
                             tenant.manualMode
                               ? 'bg-amber-950/60 text-amber-400 border border-amber-800/60'
-                              : 'bg-zinc-800 text-zinc-400'
+                              : 'bg-app-surface-1 text-app-muted'
                           }`}
                         >
                           {tenant.manualMode ? 'Human Active' : 'AI Handled'}
                         </span>
                       </td>
-                      <td className="px-6 py-4 text-zinc-400">
+                      <td className="px-6 py-4 text-app-muted">
                         {tenant.createdAt ? new Date(tenant.createdAt).toLocaleDateString() : '-'}
                       </td>
                     </tr>
@@ -381,13 +381,13 @@ function StatCard({
   trend: string;
 }) {
   return (
-    <div className="bg-zinc-900/70 border border-zinc-800 rounded-lg p-5 hover:border-zinc-700 transition-colors">
+    <div className="bg-app-surface-0/70 border border-app-border rounded-lg p-5 hover:border-app-border-strong transition-colors">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-xs font-medium text-zinc-400">{title}</p>
-          <p className="text-2xl font-semibold text-zinc-50 mt-1.5 tracking-tight">{value}</p>
+          <p className="text-xs font-medium text-app-muted">{title}</p>
+          <p className="text-2xl font-semibold text-app-fg mt-1.5 tracking-tight">{value}</p>
         </div>
-        <div className="p-2.5 bg-zinc-800 rounded-md text-zinc-300">
+        <div className="p-2.5 bg-app-surface-1 rounded-md text-app-muted">
           <Icon className="w-4 h-4" />
         </div>
       </div>

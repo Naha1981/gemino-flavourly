@@ -30,7 +30,7 @@ interface ProspectView {
 }
 
 const STATUS_BADGES: Record<ProspectStatus, string> = {
-  queued: 'bg-zinc-800 text-zinc-300',
+  queued: 'bg-app-surface-1 text-app-muted',
   enriching: 'bg-blue-950 text-blue-300',
   ready: 'bg-emerald-950 text-emerald-300',
   failed: 'bg-red-950 text-red-300',
@@ -174,16 +174,16 @@ export function ProspectsConsole({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between border-b border-zinc-800 pb-4">
+      <div className="flex items-center justify-between border-b border-app-border pb-4">
         <div>
-          <h1 className="text-xl font-semibold text-zinc-50">Prospects</h1>
-          <p className="text-xs text-zinc-400">
+          <h1 className="text-xl font-semibold text-app-fg">Prospects</h1>
+          <p className="text-xs text-app-muted">
             Build pre-configured demo tenants for sales pitches, then hand out a magic link for the owner to claim.
           </p>
         </div>
-        <div className="flex items-center gap-2 text-xs text-zinc-400">
+        <div className="flex items-center gap-2 text-xs text-app-muted">
           {Object.entries(statusCounts).map(([status, n]) => (
-            <span key={status} className={`inline-flex items-center rounded-full px-2.5 py-0.5 ${STATUS_BADGES[status as ProspectStatus] ?? 'bg-zinc-800 text-zinc-300'}`}>
+            <span key={status} className={`inline-flex items-center rounded-full px-2.5 py-0.5 ${STATUS_BADGES[status as ProspectStatus] ?? 'bg-app-surface-1 text-app-muted'}`}>
               {status}: {n ?? 0}
             </span>
           ))}
@@ -197,8 +197,8 @@ export function ProspectsConsole({
       )}
 
       {/* Add prospect */}
-      <section className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-        <h2 className="mb-3 text-sm font-semibold text-zinc-200">Add Prospect</h2>
+      <section className="rounded-lg border border-app-border bg-app-surface-0/50 p-4">
+        <h2 className="mb-3 text-sm font-semibold text-app-fg">Add Prospect</h2>
         <div className="grid gap-3 md:grid-cols-5">
           <Field label="Restaurant name" value={form.name} onChange={(v) => setForm({ ...form, name: v })} placeholder="Marble Johannesburg" />
           <Field label="Website" value={form.website} onChange={(v) => setForm({ ...form, website: v })} placeholder="https://marble.restaurant" />
@@ -217,11 +217,11 @@ export function ProspectsConsole({
       </section>
 
       {/* CSV import */}
-      <section className="rounded-lg border border-zinc-800 bg-zinc-900/50 p-4">
-        <h2 className="mb-3 text-sm font-semibold text-zinc-200">Bulk Import (CSV)</h2>
-        <p className="mb-3 text-xs text-zinc-400">Columns: name, website, owner email, owner phone, city</p>
+      <section className="rounded-lg border border-app-border bg-app-surface-0/50 p-4">
+        <h2 className="mb-3 text-sm font-semibold text-app-fg">Bulk Import (CSV)</h2>
+        <p className="mb-3 text-xs text-app-muted">Columns: name, website, owner email, owner phone, city</p>
         <div className="flex flex-wrap items-center gap-3">
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-zinc-800 bg-zinc-950 px-4 py-2 text-sm text-zinc-300 hover:bg-zinc-800">
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-app-border bg-app-bg px-4 py-2 text-sm text-app-muted hover:bg-app-surface-1">
             <Upload className="h-4 w-4" />
             {csvFile ? csvFile.name : 'Choose CSV'}
             <input
@@ -243,9 +243,9 @@ export function ProspectsConsole({
       </section>
 
       {/* Table */}
-      <section className="overflow-x-auto rounded-lg border border-zinc-800 bg-zinc-900/50">
+      <section className="overflow-x-auto rounded-lg border border-app-border bg-app-surface-0/50">
         <table className="w-full text-left text-xs">
-          <thead className="border-b border-zinc-800 text-zinc-500">
+          <thead className="border-b border-app-border text-app-faint">
             <tr>
               <th className="px-4 py-2">Restaurant</th>
               <th className="px-4 py-2">Status</th>
@@ -257,17 +257,17 @@ export function ProspectsConsole({
           <tbody>
             {sorted.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-zinc-500">
+                <td colSpan={5} className="px-4 py-10 text-center text-app-faint">
                   No prospects yet. Add one or import a CSV to get started.
                 </td>
               </tr>
             )}
             {sorted.map((p) => (
-              <tr key={p.id} className="border-b border-zinc-800/60 last:border-0">
+              <tr key={p.id} className="border-b border-app-border/60 last:border-0">
                 <td className="px-4 py-3">
-                  <div className="font-medium text-zinc-100">{p.name}</div>
-                  <div className="text-zinc-500">{p.website}</div>
-                  {p.ownerEmail && <div className="text-zinc-600">{p.ownerEmail}</div>}
+                  <div className="font-medium text-app-fg">{p.name}</div>
+                  <div className="text-app-faint">{p.website}</div>
+                  {p.ownerEmail && <div className="text-app-faint">{p.ownerEmail}</div>}
                   {p.error && <div className="mt-1 flex items-center gap-1 text-red-400"><AlertTriangle className="h-3 w-3" />{p.error}</div>}
                 </td>
                 <td className="px-4 py-3">
@@ -275,8 +275,8 @@ export function ProspectsConsole({
                     {p.status}
                   </span>
                 </td>
-                <td className="px-4 py-3 text-zinc-400">{p.retries}</td>
-                <td className="px-4 py-3 text-zinc-400">{p.city ?? '—'}</td>
+                <td className="px-4 py-3 text-app-muted">{p.retries}</td>
+                <td className="px-4 py-3 text-app-muted">{p.city ?? '—'}</td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1.5">
                     {p.status !== 'claimed' && (
@@ -343,12 +343,12 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-xs text-zinc-400">{label}</span>
+      <span className="mb-1 block text-xs text-app-muted">{label}</span>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-md border border-zinc-800 bg-zinc-950 px-3 py-2 text-sm text-zinc-100 outline-none focus:border-emerald-500"
+        className="w-full rounded-md border border-app-border bg-app-bg px-3 py-2 text-sm text-app-fg outline-none focus:border-emerald-500"
       />
     </label>
   );
@@ -372,7 +372,7 @@ function ActionButton({
       onClick={onClick}
       disabled={disabled}
       title={title}
-      className="inline-flex items-center gap-1 rounded-md border border-zinc-800 bg-zinc-950 px-2.5 py-1.5 text-zinc-300 hover:bg-zinc-800 hover:text-zinc-100 disabled:opacity-50"
+      className="inline-flex items-center gap-1 rounded-md border border-app-border bg-app-bg px-2.5 py-1.5 text-app-muted hover:bg-app-surface-1 hover:text-app-fg disabled:opacity-50"
     >
       {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : children}
     </button>

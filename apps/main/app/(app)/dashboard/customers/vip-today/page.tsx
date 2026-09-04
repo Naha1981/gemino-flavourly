@@ -35,13 +35,13 @@ export default async function VipTodayPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 border-b border-zinc-800 pb-4 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col gap-4 border-b border-app-border pb-4 md:flex-row md:items-center md:justify-between">
         <div>
-          <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-zinc-50">
+          <h1 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-app-fg">
             <Star className="h-5 w-5 fill-amber-400 text-amber-400" />
             VIP Alerts Today
           </h1>
-          <p className="text-xs text-zinc-400">
+          <p className="text-xs text-app-muted">
             Who walked in today · staff-only alerts raised on a VIP&apos;s first message
           </p>
         </div>
@@ -54,7 +54,7 @@ export default async function VipTodayPage() {
           </Link>
           <Link
             href="/dashboard/inbox"
-            className="rounded-md border border-zinc-800 bg-zinc-900 p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-100"
+            className="rounded-md border border-app-border bg-app-surface-0 p-2 text-app-muted hover:bg-app-surface-1 hover:text-app-fg"
             title="Back to inbox"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -63,7 +63,7 @@ export default async function VipTodayPage() {
       </div>
 
       {serialized.length === 0 ? (
-        <div className="rounded-lg border border-zinc-800 bg-zinc-900/70 px-4 py-12 text-center text-xs text-zinc-500">
+        <div className="rounded-lg border border-app-border bg-app-surface-0/70 px-4 py-12 text-center text-xs text-app-faint">
           No VIP walk-ins yet today. When a recognised VIP sends their first message, an alert appears here.
         </div>
       ) : (

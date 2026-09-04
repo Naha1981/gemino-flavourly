@@ -18,8 +18,8 @@ export default async function AnalyticsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-zinc-50 tracking-tight">Analytics</h1>
-        <p className="text-xs text-zinc-400 mt-1">
+        <h1 className="text-xl font-semibold text-app-fg tracking-tight">Analytics</h1>
+        <p className="text-xs text-app-muted mt-1">
           Cross-engine performance for your restaurant — revenue, customers, reputation, market and marketing.
         </p>
       </div>
