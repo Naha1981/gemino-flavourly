@@ -49,9 +49,16 @@ describe('GATE UI-5 — landing rebuild wiring', () => {
     assert.match(landing, /I spend on ads and don’t know if it worked\./);
   });
 
-  test('nearby invite + consent line are present', () => {
-    assert.match(landing, /A customer who loves you walks past your door\./);
-    assert.match(landing, /Only guests who joined your list and said yes\. POPIA safe\./);
+  test('verified reward + consent line are present', () => {
+    // Was: "nearby invite" — claimed passive geofencing (detecting a
+    // customer's live location and auto-messaging them) that does not
+    // exist anywhere in the codebase. The only real location feature is
+    // the opposite: a guest-initiated, one-time GPS check at
+    // /geo-claim/[token] (see app/(app)/geo-claim/[token]/page.tsx) that
+    // confirms they're at the venue before a reward unlocks. Copy
+    // corrected to describe that real flow instead.
+    assert.match(landing, /They open it and confirm they’re\s+actually at your table/);
+    assert.match(landing, /One-time link, one-time location check\. Nothing is tracked before or after\. POPIA safe\./);
   });
 
   test('test-before-you-spend card carries the PulseMap disclaimer', () => {
