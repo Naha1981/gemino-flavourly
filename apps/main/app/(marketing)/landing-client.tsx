@@ -134,9 +134,9 @@ export default function LandingClient() {
                 Full tables. Even on Tuesdays.
               </h1>
               <p className="mt-6 max-w-xl text-base leading-relaxed text-white/85 sm:text-lg">
-                Flavourly answers your WhatsApp in 2–3 seconds. It sees customers near your restaurant and
-                invites them in. It fills your slow hours. It checks your competitors every day. And it shows
-                you the money it made you — <span className="font-semibold text-[#D9B36A]">in Rands.</span>
+                Flavourly answers your WhatsApp in 2–3 seconds. It reminds guests before they no-show. It fills
+                your slow hours with campaigns it predicts will actually work. It checks your competitors every
+                day. And it shows you the money it made you — <span className="font-semibold text-[#D9B36A]">in Rands.</span>
               </p>
               <p className="mt-5 text-lg font-semibold text-[#D9B36A]">
                 No other tool does all this. And proves it.
@@ -226,8 +226,8 @@ export default function LandingClient() {
                     <MapPin className="h-4 w-4 text-[#0E3B33]" />
                     <ExampleBadge />
                   </div>
-                  <p className="text-sm font-semibold text-[#1E2B26]">Dessert unlocked</p>
-                  <p className="text-xs text-[#8A8175]">120m from the pass — at the table</p>
+                  <p className="text-sm font-semibold text-[#1E2B26]">Reward verified</p>
+                  <p className="text-xs text-[#8A8175]">Guest confirmed at the table — unlocked in one tap</p>
                 </div>
                 <div className="rounded-2xl border border-white/15 bg-white/95 p-4 shadow-xl backdrop-blur">
                   <div className="mb-2 flex items-center justify-between">
@@ -259,7 +259,7 @@ export default function LandingClient() {
             {[
               ['“I miss WhatsApps while I’m on the floor.”', 'Answers in 2–3 seconds. Day and night.'],
               ['“People book and don’t show.”', 'Reminds them 3 times. No-shows drop.'],
-              ['“Tuesdays are empty.”', 'Sees the quiet hours. Pulls in nearby customers with a special.'],
+              ['“Tuesdays are empty.”', 'Builds a Tuesday special and predicts which customers will actually come — before you send it.'],
               ['“Customers come once, never again.”', 'Brings them back — rewards unlock only at your table.'],
               ['“I don’t know what my competitors are doing.”', 'Checks their menus, prices and stars every morning.'],
               ['“I spend on ads and don’t know if it worked.”', 'Shows you the Rands it recovered. Proof, not promises.'],
@@ -278,7 +278,7 @@ export default function LandingClient() {
           </div>
         </section>
 
-        {/* ── The nearby invite ──────────────────────────── */}
+        {/* ── The verified reward ──────────────────────────── */}
         <section className="border-y border-[#EADFCF] bg-[#F5EFE5]">
           <div className="mx-auto grid max-w-6xl items-center gap-12 px-6 py-20 sm:py-24 lg:grid-cols-2">
             <div className="relative">
@@ -294,8 +294,8 @@ export default function LandingClient() {
               </div>
               <div className="mt-4 flex items-center justify-between rounded-2xl border border-[#EADFCF] bg-white p-4 shadow-lg">
                 <div>
-                  <p className="text-sm font-semibold text-[#1E2B26]">Special sent · 2 blocks away</p>
-                  <p className="text-xs text-[#8A8175]">Guest seated 12 minutes later</p>
+                  <p className="text-sm font-semibold text-[#1E2B26]">Reward verified · at the table</p>
+                  <p className="text-xs text-[#8A8175]">Confirmed with one tap, 12 seconds</p>
                 </div>
                 <ExampleBadge />
               </div>
@@ -303,21 +303,22 @@ export default function LandingClient() {
 
             <div>
               <p className="mb-3 text-xs font-semibold uppercase tracking-[0.2em] text-[#A98842]">
-                The nearby invite
+                The verified reward
               </p>
               <h2 className="font-display text-3xl font-semibold leading-tight text-[#1E2B26] sm:text-4xl">
-                They walk past. You don’t lift a finger.
+                They redeem. You know they’re really there.
               </h2>
               <p className="mt-6 max-w-lg text-lg leading-relaxed text-[#4B463D]">
-                A customer who loves you walks past your door. Flavourly sends them a special. They sit down.
-                You didn’t lift a finger.
+                A guest texts REDEEM. Flavourly sends a one-time link. They open it and confirm they’re
+                actually at your table — not claiming a reward from their couch. It unlocks the moment that’s
+                confirmed.
               </p>
               <p className="mt-4 text-sm italic text-[#8A8175]">
-                Only guests who joined your list and said yes. POPIA safe.
+                One-time link, one-time location check. Nothing is tracked before or after. POPIA safe.
               </p>
               <ul className="mt-8 space-y-3 text-sm text-[#4B463D]">
                 {[
-                  'Rewards unlock only when they’re seated at your table',
+                  'Rewards unlock only when they’re confirmed at your table',
                   'No app for your guests — it all happens on WhatsApp',
                 ].map((line) => (
                   <li key={line} className="flex items-start gap-2.5">
