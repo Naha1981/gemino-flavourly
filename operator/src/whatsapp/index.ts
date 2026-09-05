@@ -1,4 +1,4 @@
-import makeWASocket, { DisconnectReason } from '@whiskeysockets/baileys';
+import makeWASocket, { DisconnectReason, fetchLatestBaileysVersion } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
 import { getWaAccount, updateWaAccount, getConnectedAccountIds, getPostgresAuthState, purgeAuthState } from '../db/client.js';
 import { forwardToMain } from '../webhook/forward.js';
@@ -67,6 +67,46 @@ function detachSocket(waAccountId: string, sock: any): void {
   }
 }
 
+// WhatsApp bumps its Web protocol version on its own schedule, independent
+// of when @whiskeysockets/baileys itself was last published to npm. If the
+// version baked into the installed package build falls behind, WhatsApp's
+// servers can reject or silently ignore the handshake AFTER the QR is
+// generated and scanned — the pairing screen looks fine, the phone shows
+// nothing useful or errors out, and there is no obvious client-side bug to
+// point at. fetchLatestBaileysVersion() asks WhatsApp's own version
+// endpoint at runtime instead of trusting whatever shipped in the npm
+// tarball, so pairing keeps working across WhatsApp-side protocol bumps
+// without needing an operator redeploy every time.
+//
+// Cached for the process lifetime with a short TTL so a burst of
+// concurrent /start calls (many tenants reconnecting after a redeploy)
+// doesn't hammer WhatsApp's version endpoint — and so a transient failure
+// to reach it doesn't block pairing: on error, this falls back to
+// whatever version baileys ships with by default (`undefined`), which is
+// exactly today's (broken) behavior, not a regression.
+const BAILEYS_VERSION_TTL_MS = 6 * 60 * 60 * 1000; // 6h
+let cachedBaileysVersion: { version: [number, number, number]; at: number } | null = null;
+
+async function resolveBaileysVersion(): Promise<[number, number, number] | undefined> {
+  const now = Date.now();
+  if (cachedBaileysVersion && now - cachedBaileysVersion.at < BAILEYS_VERSION_TTL_MS) {
+    return cachedBaileysVersion.version;
+  }
+  try {
+    const { version, isLatest } = await fetchLatestBaileysVersion();
+    cachedBaileysVersion = { version, at: now };
+    logger.info(
+      `Resolved WhatsApp Web version ${version.join('.')} (isLatest=${isLatest}) for pairing.`
+    );
+    return version;
+  } catch (err: any) {
+    logger.warn(
+      `Could not fetch latest WhatsApp Web version (${err.message}); falling back to the version bundled with @whiskeysockets/baileys.`
+    );
+    return cachedBaileysVersion?.version; // stale-but-known is still better than nothing, if we have it
+  }
+}
+
 interface StartSocketResult {
   success: true;
   isConnected: boolean;
@@ -126,6 +166,21 @@ async function handleConnectionUpdate(
   }
 
   if (connection === 'close') {
+    // Unconditional diagnostic log — fires for EVERY close, including
+    // stale sockets the identity guard below is about to ignore. Without
+    // this, a stale-socket close left NO trace of what statusCode/message
+    // WhatsApp actually sent, which is exactly the detail needed to tell
+    // "protocol version rejected" (405/Connection Failure) apart from
+    // "session revoked" (401) or "replaced elsewhere" (440) from the logs
+    // alone, without reproducing the failure live.
+    const closeStatusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
+    const closeReasonName =
+      Object.entries(DisconnectReason).find(([, v]) => v === closeStatusCode)?.[0] ?? 'unknown';
+    const closeMessage = (lastDisconnect?.error as Error)?.message ?? '(no message)';
+    logger.info(
+      `connection.update close for account ${waAccountId}: statusCode=${closeStatusCode} (${closeReasonName}) message="${closeMessage}"`
+    );
+
     // Identity guard — see the docblock above.
     if (sockets.get(waAccountId) !== sock) {
       logger.warn(
@@ -135,7 +190,7 @@ async function handleConnectionUpdate(
     }
 
     openAccounts.delete(waAccountId);
-    const statusCode = (lastDisconnect?.error as Boom)?.output?.statusCode;
+    const statusCode = closeStatusCode;
     const permanent =
       statusCode === DisconnectReason.loggedOut ||
       statusCode === DisconnectReason.connectionReplaced ||
@@ -311,11 +366,13 @@ async function doStartWhatsAppSocket(waAccountId: string): Promise<StartSocketRe
   }
 
   const { state, saveCreds } = await getPostgresAuthState(waAccountId);
+  const version = await resolveBaileysVersion();
 
   logger.info(`Initializing Baileys WhatsApp socket for account: ${waAccountId}`);
 
   const sock = makeWASocket({
     auth: state,
+    version,
     printQRInTerminal: false,
     browser: ['Gemino Business OS', 'Chrome', '120.0.0.0'], // Prevents Meta device flagging
     syncFullHistory: false,
