@@ -88,6 +88,27 @@ export async function saveCreds(waAccountId: string, creds: string) {
   ]);
 }
 
+/**
+ * Deletes ALL persisted Baileys session material for an account: the Signal
+ * protocol key store (wa_auth_keys) AND the top-level creds blob
+ * (wa_accounts.session_creds).
+ *
+ * Used when a session is provably dead — WhatsApp rejected it with 401
+ * (loggedOut) or 500 (badSession) — so the next startWhatsAppSocket() call
+ * begins a FRESH QR pairing instead of re-loading the same rejected
+ * credentials forever. Also exposed via POST /reset for an operator-driven
+ * "Reset WhatsApp Connection" action from the dashboard.
+ *
+ * Idempotent: safe to call on an account with no stored session.
+ */
+export async function purgeAuthState(waAccountId: string): Promise<void> {
+  await pool.query('DELETE FROM wa_auth_keys WHERE wa_account_id = $1', [waAccountId]);
+  await pool.query(
+    'UPDATE wa_accounts SET session_creds = NULL, updated_at = NOW() WHERE id = $1',
+    [waAccountId]
+  );
+}
+
 export async function getAccountBinding(waAccountId: string) {
   try {
     const res = await pool.query('SELECT * FROM wa_account_bindings WHERE wa_account_id = $1 LIMIT 1', [

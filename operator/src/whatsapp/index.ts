@@ -1,6 +1,6 @@
 import makeWASocket, { DisconnectReason } from '@whiskeysockets/baileys';
 import { Boom } from '@hapi/boom';
-import { getWaAccount, updateWaAccount, getConnectedAccountIds, getPostgresAuthState } from '../db/client.js';
+import { getWaAccount, updateWaAccount, getConnectedAccountIds, getPostgresAuthState, purgeAuthState } from '../db/client.js';
 import { forwardToMain } from '../webhook/forward.js';
 import pino from 'pino';
 import {
@@ -181,14 +181,51 @@ async function handleConnectionUpdate(
       );
       reconnectAttempts.delete(waAccountId);
       sockets.delete(waAccountId);
-      await updateWaAccount(waAccountId, {
-        isConnected: false,
-        qrCode: null,
-        status:
-          statusCode === DisconnectReason.badSession
-            ? 'disconnected' // session corrupt — needs manual re-link, don't pretend it's unlinked-fresh
-            : 'unlinked',
-      });
+
+      // loggedOut (401) and badSession (500) mean the SAVED credentials are
+      // dead or corrupt — WhatsApp's server will reject them again on every
+      // resume attempt. The old code only flipped the status column and kept
+      // the credentials, so every subsequent /start re-loaded the same
+      // rejected session and died at the same 401 ~3s later, forever. A QR
+      // code is only ever generated when there are NO credentials to resume,
+      // which is why the pairing screen never produced one after this point.
+      //
+      // Fix: purge the persisted session and immediately begin a fresh QR
+      // pairing, so the account self-heals — the dashboard (already polling
+      // /status for a qrCode) gets a scannable code within seconds, with no
+      // manual retry and no database surgery.
+      if (statusCode === DisconnectReason.loggedOut || statusCode === DisconnectReason.badSession) {
+        try {
+          await purgeAuthState(waAccountId);
+          logger.warn(
+            `Purged dead session credentials for account ${waAccountId} — beginning fresh QR pairing.`
+          );
+        } catch (err: any) {
+          logger.error(`Failed to purge dead credentials for ${waAccountId}: ${err.message}`);
+        }
+        await updateWaAccount(waAccountId, {
+          isConnected: false,
+          qrCode: null,
+          phoneNumber: null,
+          status: 'connecting',
+        });
+        setTimeout(() => {
+          startWhatsAppSocket(waAccountId).catch((err) =>
+            logger.error(`Fresh pairing restart failed for ${waAccountId}: ${err.message}`)
+          );
+        }, 2000);
+      } else {
+        // connectionReplaced (440): the session itself is still VALID —
+        // another Baileys instance is holding it right now (local dev
+        // alongside prod, or a duplicate operator service). Keep the
+        // credentials so a future /start can resume cleanly once the
+        // duplicate goes away; purging here would force a needless re-scan.
+        await updateWaAccount(waAccountId, {
+          isConnected: false,
+          qrCode: null,
+          status: 'unlinked',
+        });
+      }
     }
   }
 }
@@ -202,6 +239,21 @@ export async function startWhatsAppSocket(waAccountId: string): Promise<StartSoc
   });
   connectingLocks.set(waAccountId, attempt);
   return attempt;
+}
+
+/**
+ * Evicts any in-memory socket for the account — used by POST /reset before
+ * the persisted session is purged, so a zombie socket can't write stale
+ * credentials back to the database after the purge (or keep a dead session
+ * half-open in memory). Synchronous teardown; callers follow up with
+ * purgeAuthState() + their own status update.
+ */
+export function stopWhatsAppSocket(waAccountId: string): void {
+  const sock = sockets.get(waAccountId);
+  if (sock) {
+    logger.info(`Stopping WhatsApp socket for account ${waAccountId} (reset requested)`);
+    detachSocket(waAccountId, sock);
+  }
 }
 
 async function doStartWhatsAppSocket(waAccountId: string): Promise<StartSocketResult> {

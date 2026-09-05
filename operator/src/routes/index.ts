@@ -3,6 +3,7 @@ import crypto from 'crypto';
 import { startHandler } from './start.js';
 import { sendHandler } from './send.js';
 import { statusHandler } from './status.js';
+import { resetHandler } from './reset.js';
 
 export function setupRoutes(app: Express) {
   // Authentication middleware using OPERATOR_API_KEY.
@@ -48,5 +49,6 @@ export function setupRoutes(app: Express) {
   app.post('/send', apiKeyAuth, sendHandler);
   app.get('/status', apiKeyAuth, statusHandler);
   app.post('/status', apiKeyAuth, statusHandler);
+  app.post('/reset', apiKeyAuth, resetHandler);
 }
 
