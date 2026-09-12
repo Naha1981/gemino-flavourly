@@ -28,8 +28,8 @@
  *
  * Round 3 (2026-09-12): a sleeping Render Operator is a valid transient
  * state, not a hard failure. Allow the browser enough automatic recovery
- * attempts to cover Render's cold-start window without making the user
- * manually restart the linking flow.
+ * attempts to cover the cold-start window without making the user manually
+ * restart the linking flow.
  *
  * No React, no fetch, no timers in here — decisions only.
  */
@@ -38,7 +38,7 @@
 export const QR_STALE_AFTER_MS = 40_000;
 
 /** Minimum spacing between automatic /api/whatsapp/connect re-kicks. */
-export const MIN_KICK_INTERVAL_MS = 30_000;
+export const MIN_KICK_INTERVAL_MS = 10_000;
 
 /** Give up auto-recovering after this many kicks; surface manual retry. */
 export const MAX_AUTO_KICKS = 12;
