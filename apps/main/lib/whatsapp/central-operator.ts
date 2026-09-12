@@ -7,6 +7,8 @@ const DEFAULT_APP_ID = 'gemino';
 const REQUEST_TIMEOUT_MS = 20_000;
 const HEALTH_TIMEOUT_MS = 5_000;
 
+type JsonRecord = Record<string, unknown>;
+
 export type CentralOperatorStatus = {
   waAccountId: string;
   status: string;
@@ -33,11 +35,15 @@ export type CentralPairingCode = {
   isConnected?: boolean;
 };
 
-type JsonRecord = Record<string, unknown>;
-
 function operatorBaseUrl(): string {
-  const raw = process.env.OPERATOR_URL?.trim() || DEFAULT_OPERATOR_URL;
-  return raw.replace(/\/+$/, '');
+  const configured = process.env.OPERATOR_URL?.trim();
+  if (!configured) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('OPERATOR_URL is not configured on the Gemino server.');
+    }
+    return DEFAULT_OPERATOR_URL;
+  }
+  return configured.replace(/\/+$/, '');
 }
 
 function appId(): string {
