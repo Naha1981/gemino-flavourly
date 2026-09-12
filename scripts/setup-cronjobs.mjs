@@ -20,6 +20,7 @@ import { dirname, join } from 'node:path';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const BASE_URL = 'https://api.cron-job.org';
+const CENTRAL_OPERATOR_URL = 'https://my-own-whatsapp-2z5h.onrender.com';
 
 const API_KEY = process.env.API_KEY || process.env.CRONJOB_API_KEY;
 const CRON_SECRET = process.env.CRON_SECRET;
@@ -39,7 +40,7 @@ if (!CRON_SECRET) {
 // ---------------------------------------------------------------------------
 const fleet = JSON.parse(readFileSync(join(ROOT, 'scripts/cron-fleet.json'), 'utf8'));
 const APP_URL = (process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || fleet.baseUrl).replace(/\/$/, '');
-const OPERATOR_URL = (process.env.OPERATOR_URL || fleet.operatorUrl).replace(/\/$/, '');
+const OPERATOR_URL = (process.env.OPERATOR_URL || CENTRAL_OPERATOR_URL).replace(/\/$/, '');
 
 function resolveUrl(url) {
   return url.replace(/\{baseUrl\}/g, APP_URL).replace(/\{operatorUrl\}/g, OPERATOR_URL);
