@@ -5,11 +5,11 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-const MAIN_ROOT = join(HERE, '..');
-const CENTRAL_CLIENT = readFileSync(join(HERE, 'whatsapp', 'central-operator.ts'), 'utf8');
-const OPERATOR_CLIENT = readFileSync(join(HERE, 'operator-client.ts'), 'utf8');
-const CONNECT_ROUTE = readFileSync(join(HERE, '..', 'app', 'api', 'whatsapp', 'connect', 'route.ts'), 'utf8');
-const DASHBOARD = readFileSync(join(HERE, '..', 'app', '(app)', 'dashboard', 'whatsapp', 'page.tsx'), 'utf8');
+const MAIN_ROOT = join(HERE, '..', '..');
+const CENTRAL_CLIENT = readFileSync(join(HERE, 'central-operator.ts'), 'utf8');
+const OPERATOR_CLIENT = readFileSync(join(HERE, '..', 'operator-client.ts'), 'utf8');
+const CONNECT_ROUTE = readFileSync(join(HERE, '..', '..', 'app', 'api', 'whatsapp', 'connect', 'route.ts'), 'utf8');
+const DASHBOARD = readFileSync(join(HERE, '..', '..', 'app', '(app)', 'dashboard', 'whatsapp', 'page.tsx'), 'utf8');
 
 function allSourceFiles(dir: string): string[] {
   const entries = readdirSync(dir, { withFileTypes: true });
