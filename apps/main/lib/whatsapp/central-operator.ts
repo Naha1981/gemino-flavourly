@@ -49,11 +49,11 @@ function appUrl(): string {
 }
 
 function webhookUrl(): string {
-  const url = `${appUrl()}/api/webhooks/whatsapp`;
-  if (process.env.NODE_ENV === 'production' && (!appUrl() || !/^https:\/\//i.test(appUrl()))) {
+  const base = appUrl();
+  if (process.env.NODE_ENV === 'production' && (!base || !/^https:\/\//i.test(base))) {
     throw new Error('APP_URL must be a public HTTPS URL in production so the central WhatsApp Operator can deliver inbound webhooks.');
   }
-  return url;
+  return `${base}/api/webhooks/whatsapp`;
 }
 
 function requireApiKey(): string {
@@ -62,12 +62,7 @@ function requireApiKey(): string {
   return key;
 }
 
-async function request<T>(
-  tenantId: string,
-  path: string,
-  init: RequestInit = {},
-  timeoutMs = REQUEST_TIMEOUT_MS,
-): Promise<T> {
+async function request<T>(tenantId: string, path: string, init: RequestInit = {}, timeoutMs = REQUEST_TIMEOUT_MS): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('X-API-Key', requireApiKey());
   headers.set('X-App-Id', appId());
@@ -83,8 +78,7 @@ async function request<T>(
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    throw new Error(`NahaLabs WhatsApp Operator unavailable: ${message}`);
+    throw new Error(`NahaLabs WhatsApp Operator unavailable: ${error instanceof Error ? error.message : String(error)}`);
   }
 
   const text = await response.text();
@@ -96,12 +90,12 @@ async function request<T>(
   }
 
   if (!response.ok) {
-    const message =
-      typeof body === 'object' && body !== null && 'message' in body
-        ? String((body as JsonRecord).message)
-        : typeof body === 'object' && body !== null && 'error' in body
-          ? String((body as JsonRecord).error)
-          : `Operator request failed with HTTP ${response.status}`;
+    const record = typeof body === 'object' && body !== null ? body as JsonRecord : {};
+    const message = typeof record.message === 'string'
+      ? record.message
+      : typeof record.error === 'string'
+        ? record.error
+        : `Operator request failed with HTTP ${response.status}`;
     throw new Error(`WhatsApp Operator HTTP ${response.status}: ${message}`);
   }
 
@@ -130,38 +124,42 @@ async function getBinding(tenantId: string) {
 
 async function saveBinding(tenantId: string, centralWaAccountId: string) {
   const hook = webhookUrl();
-
   const existing = await getBinding(tenantId);
   if (existing && existing.waAccountId === centralWaAccountId && existing.webhookUrl === hook) return existing;
 
-  if (existing) {
-    await db.delete(waAccountBindings).where(eq(waAccountBindings.id, existing.id));
-  }
+  if (existing) await db.delete(waAccountBindings).where(eq(waAccountBindings.id, existing.id));
 
-  const [binding] = await db
-    .insert(waAccountBindings)
-    .values({
-      waAccountId: centralWaAccountId,
-      appId: appId(),
-      tenantId,
-      webhookUrl: hook,
-    })
-    .returning();
-
+  const [binding] = await db.insert(waAccountBindings).values({
+    waAccountId: centralWaAccountId,
+    appId: appId(),
+    tenantId,
+    webhookUrl: hook,
+  }).returning();
   return binding;
 }
 
-/** Ensure the Gemino tenant has one centrally-owned WhatsApp identity. */
+async function syncLocalStatus(localWaAccountId: string, status: CentralOperatorStatus) {
+  const normalizedStatus = status.isConnected
+    ? 'connected'
+    : (status.status === 'qr_ready' || status.status === 'connecting' || status.status === 'pending' || status.status === 'pairing_code_ready'
+      ? 'connecting'
+      : status.status === 'logged_out' || status.status === 'disconnected'
+        ? 'disconnected'
+        : 'unlinked');
+  await db.update(waAccounts).set({
+    isConnected: status.isConnected,
+    phoneNumber: status.phoneNumber ?? null,
+    status: normalizedStatus,
+    updatedAt: new Date(),
+    ...(status.isConnected ? { lastConnectedAt: new Date() } : {}),
+  }).where(eq(waAccounts.id, localWaAccountId));
+}
+
 async function ensureCentralAccount(tenantId: string): Promise<string> {
   const existing = await getBinding(tenantId);
   if (existing) {
     try {
-      await request<CentralOperatorStatus>(
-        tenantId,
-        `/accounts/${encodeURIComponent(existing.waAccountId)}/status`,
-        { method: 'GET' },
-        10_000,
-      );
+      await request<CentralOperatorStatus>(tenantId, `/accounts/${encodeURIComponent(existing.waAccountId)}/status`, { method: 'GET' }, 10_000);
       return existing.waAccountId;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -179,11 +177,7 @@ async function ensureCentralAccount(tenantId: string): Promise<string> {
       webhookUrl: webhookUrl(),
     }),
   });
-
-  if (!bootstrapped?.waAccountId) {
-    throw new Error('Central WhatsApp Operator returned no waAccountId from /accounts/bootstrap.');
-  }
-
+  if (!bootstrapped?.waAccountId) throw new Error('Central WhatsApp Operator returned no waAccountId from /accounts/bootstrap.');
   await saveBinding(tenantId, bootstrapped.waAccountId);
   return bootstrapped.waAccountId;
 }
@@ -191,64 +185,41 @@ async function ensureCentralAccount(tenantId: string): Promise<string> {
 export const centralWhatsApp = {
   async checkHealth(timeoutMs = HEALTH_TIMEOUT_MS): Promise<boolean> {
     try {
-      const response = await fetch(`${operatorBaseUrl()}/health`, {
-        method: 'GET',
-        cache: 'no-store',
-        signal: AbortSignal.timeout(timeoutMs),
-      });
+      const response = await fetch(`${operatorBaseUrl()}/health`, { method: 'GET', cache: 'no-store', signal: AbortSignal.timeout(timeoutMs) });
       return response.ok;
     } catch {
       return false;
     }
   },
 
-  async bootstrap(tenantId: string, label?: string) {
-    const local = await getBinding(tenantId);
-    if (local) return { waAccountId: local.waAccountId, created: false };
-
-    const result = await request<{ waAccountId: string; created?: boolean }>(tenantId, '/accounts/bootstrap', {
-      method: 'POST',
-      body: JSON.stringify({
-        label: label?.trim() || `Gemino WhatsApp — ${tenantId.slice(0, 8)}`,
-        appId: appId(),
-        tenantId,
-        webhookUrl: webhookUrl(),
-      }),
-    });
-    if (!result?.waAccountId) throw new Error('Central WhatsApp Operator did not return a waAccountId.');
-    await saveBinding(tenantId, result.waAccountId);
-    return { waAccountId: result.waAccountId, created: result.created ?? true };
-  },
-
   async connect(tenantId: string, localWaAccountId: string) {
-    await getLocalAccount(tenantId, localWaAccountId);
+    const local = await getLocalAccount(tenantId, localWaAccountId);
     const centralId = await ensureCentralAccount(tenantId);
-    return request<{ waAccountId: string; status: string }>(
-      tenantId,
-      `/accounts/${encodeURIComponent(centralId)}/connect`,
-      { method: 'POST' },
-    );
+    const result = await request<{ waAccountId: string; status: string }>(tenantId, `/accounts/${encodeURIComponent(centralId)}/connect`, { method: 'POST' });
+    await db.update(waAccounts).set({ isConnected: false, status: 'connecting', updatedAt: new Date() }).where(eq(waAccounts.id, local.id));
+    return result;
   },
 
   async status(tenantId: string, localWaAccountId: string): Promise<CentralOperatorStatus> {
-    await getLocalAccount(tenantId, localWaAccountId);
+    const local = await getLocalAccount(tenantId, localWaAccountId);
     const centralId = await ensureCentralAccount(tenantId);
-    return request<CentralOperatorStatus>(tenantId, `/accounts/${encodeURIComponent(centralId)}/status`);
+    const result = await request<CentralOperatorStatus>(tenantId, `/accounts/${encodeURIComponent(centralId)}/status`);
+    await syncLocalStatus(local.id, result);
+    return result;
   },
 
   async qr(tenantId: string, localWaAccountId: string): Promise<CentralQr> {
-    await getLocalAccount(tenantId, localWaAccountId);
+    const local = await getLocalAccount(tenantId, localWaAccountId);
     const centralId = await ensureCentralAccount(tenantId);
-    return request<CentralQr>(tenantId, `/accounts/${encodeURIComponent(centralId)}/qr`);
+    const result = await request<CentralQr>(tenantId, `/accounts/${encodeURIComponent(centralId)}/qr`);
+    if (result.isConnected) await syncLocalStatus(local.id, { waAccountId: centralId, status: 'connected', isConnected: true });
+    return result;
   },
 
   async pairingCode(tenantId: string, localWaAccountId: string, phoneNumber: string): Promise<CentralPairingCode> {
     await getLocalAccount(tenantId, localWaAccountId);
     const centralId = await ensureCentralAccount(tenantId);
-    return request<CentralPairingCode>(tenantId, `/accounts/${encodeURIComponent(centralId)}/pairing-code`, {
-      method: 'POST',
-      body: JSON.stringify({ phoneNumber }),
-    });
+    return request<CentralPairingCode>(tenantId, `/accounts/${encodeURIComponent(centralId)}/pairing-code`, { method: 'POST', body: JSON.stringify({ phoneNumber }) });
   },
 
   async currentPairingCode(tenantId: string, localWaAccountId: string): Promise<CentralPairingCode> {
@@ -258,69 +229,49 @@ export const centralWhatsApp = {
   },
 
   async reset(tenantId: string, localWaAccountId: string) {
-    await getLocalAccount(tenantId, localWaAccountId);
+    const local = await getLocalAccount(tenantId, localWaAccountId);
     const centralId = await ensureCentralAccount(tenantId);
-    const result = await request<{ waAccountId: string; status: string }>(
-      tenantId,
-      `/accounts/${encodeURIComponent(centralId)}/reset`,
-      { method: 'POST' },
-    );
+    const result = await request<{ waAccountId: string; status: string }>(tenantId, `/accounts/${encodeURIComponent(centralId)}/reset`, { method: 'POST' });
+    await db.update(waAccounts).set({ isConnected: false, phoneNumber: null, status: 'unlinked', updatedAt: new Date() }).where(eq(waAccounts.id, local.id));
     return result;
   },
 
   async disconnect(tenantId: string, localWaAccountId: string) {
-    await getLocalAccount(tenantId, localWaAccountId);
+    const local = await getLocalAccount(tenantId, localWaAccountId);
     const centralId = await ensureCentralAccount(tenantId);
-    return request<{ waAccountId: string; status: string }>(
-      tenantId,
-      `/accounts/${encodeURIComponent(centralId)}/disconnect`,
-      { method: 'POST' },
-    );
+    const result = await request<{ waAccountId: string; status: string }>(tenantId, `/accounts/${encodeURIComponent(centralId)}/disconnect`, { method: 'POST' });
+    await db.update(waAccounts).set({ isConnected: false, phoneNumber: null, status: 'disconnected', updatedAt: new Date() }).where(eq(waAccounts.id, local.id));
+    return result;
   },
 
   async sendText(tenantId: string, localWaAccountId: string, to: string, text: string) {
     await getLocalAccount(tenantId, localWaAccountId);
     const centralId = await ensureCentralAccount(tenantId);
-    return request<JsonRecord>(tenantId, '/send', {
-      method: 'POST',
-      body: JSON.stringify({ waAccountId: centralId, to, type: 'text', text }),
-    });
+    return request<JsonRecord>(tenantId, '/send', { method: 'POST', body: JSON.stringify({ waAccountId: centralId, to, type: 'text', text }) });
   },
 
   async readMessages(tenantId: string, localWaAccountId: string, payload: JsonRecord) {
     await getLocalAccount(tenantId, localWaAccountId);
     const centralId = await ensureCentralAccount(tenantId);
-    return request<JsonRecord>(tenantId, '/messages/read', {
-      method: 'POST',
-      body: JSON.stringify({ ...payload, waAccountId: centralId }),
-    });
+    return request<JsonRecord>(tenantId, '/messages/read', { method: 'POST', body: JSON.stringify({ ...payload, waAccountId: centralId }) });
   },
 
   async setPresence(tenantId: string, localWaAccountId: string, payload: JsonRecord) {
     await getLocalAccount(tenantId, localWaAccountId);
     const centralId = await ensureCentralAccount(tenantId);
-    return request<JsonRecord>(tenantId, '/messages/presence', {
-      method: 'POST',
-      body: JSON.stringify({ ...payload, waAccountId: centralId }),
-    });
+    return request<JsonRecord>(tenantId, '/messages/presence', { method: 'POST', body: JSON.stringify({ ...payload, waAccountId: centralId }) });
   },
 
   async editMessage(tenantId: string, localWaAccountId: string, payload: JsonRecord) {
     await getLocalAccount(tenantId, localWaAccountId);
     const centralId = await ensureCentralAccount(tenantId);
-    return request<JsonRecord>(tenantId, '/messages/edit', {
-      method: 'POST',
-      body: JSON.stringify({ ...payload, waAccountId: centralId }),
-    });
+    return request<JsonRecord>(tenantId, '/messages/edit', { method: 'POST', body: JSON.stringify({ ...payload, waAccountId: centralId }) });
   },
 
   async deleteMessage(tenantId: string, localWaAccountId: string, payload: JsonRecord) {
     await getLocalAccount(tenantId, localWaAccountId);
     const centralId = await ensureCentralAccount(tenantId);
-    return request<JsonRecord>(tenantId, '/messages/delete', {
-      method: 'POST',
-      body: JSON.stringify({ ...payload, waAccountId: centralId }),
-    });
+    return request<JsonRecord>(tenantId, '/messages/delete', { method: 'POST', body: JSON.stringify({ ...payload, waAccountId: centralId }) });
   },
 };
 

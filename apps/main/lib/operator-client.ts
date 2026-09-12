@@ -10,7 +10,7 @@ export interface StartSocketResponse {
   success: boolean;
   qrCode?: string;
   isConnected?: boolean;
-  phoneNumber?: string;
+  phoneNumber?: string | null;
   error?: string;
 }
 
@@ -21,13 +21,7 @@ export interface SocketStatusResponse {
   status: 'unlinked' | 'connecting' | 'connected' | 'disconnected' | string;
 }
 
-/**
- * Compatibility boundary for Gemino business code.
- *
- * This module intentionally contains no WhatsApp Web/Baileys implementation.
- * It resolves Gemino's authenticated tenant/account to the central NahaLabs
- * Operator account and performs all transport operations server-side.
- */
+/** Server-only compatibility facade for Gemino's messaging/domain code. */
 export const operatorClient = {
   async checkHealth(timeoutMs: number = 2_500): Promise<boolean> {
     return centralWhatsApp.checkHealth(timeoutMs);
@@ -43,7 +37,7 @@ export const operatorClient = {
         isConnected: Boolean(status?.isConnected),
         phoneNumber: status?.phoneNumber ?? null,
         qrCode: qr?.qrCode ?? null,
-        ...(result ? {} : {}),
+        ...(result.status ? {} : {}),
       };
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : String(err) };
@@ -54,41 +48,33 @@ export const operatorClient = {
     return this.startSocket(tenantId, waAccountId);
   },
 
-  async sendMessage(
-    tenantId: string,
-    waAccountId: string,
-    to: string,
-    text: string,
-  ): Promise<SendMessageResponse> {
+  async sendMessage(tenantId: string, waAccountId: string, to: string, text: string): Promise<SendMessageResponse> {
     try {
       const result = await centralWhatsApp.sendText(tenantId, waAccountId, to, text) as Record<string, unknown>;
-      const key = result?.result;
-      const keyId =
-        typeof key === 'object' && key !== null && 'key' in key && typeof (key as Record<string, unknown>).key === 'object'
-          ? ((key as Record<string, unknown>).key as Record<string, unknown>).id
-          : undefined;
-      return { success: true, messageId: typeof keyId === 'string' ? keyId : undefined };
+      const message = result?.message;
+      const messageId = typeof message === 'object' && message !== null && 'key' in message
+        ? (message as Record<string, unknown>).key && typeof (message as Record<string, unknown>).key === 'object'
+          ? ((message as Record<string, unknown>).key as Record<string, unknown>).id
+          : undefined
+        : undefined;
+      return { success: true, messageId: typeof messageId === 'string' ? messageId : undefined };
     } catch (err: any) {
       return { success: false, error: err?.message || 'WhatsApp Operator send failed' };
     }
   },
 
-  async getStatus(
-    tenantId: string,
-    waAccountId: string,
-    timeoutMs: number = 5_000,
-  ): Promise<SocketStatusResponse | null> {
+  async getStatus(tenantId: string, waAccountId: string, timeoutMs: number = 5_000): Promise<SocketStatusResponse | null> {
     try {
       const status = await Promise.race([
         centralWhatsApp.status(tenantId, waAccountId),
         new Promise<never>((_, reject) => setTimeout(() => reject(new Error('status timeout')), timeoutMs)),
       ]);
-      const qr = status.isConnected ? null : await centralWhatsApp.qr(tenantId, waAccountId,).catch(() => null);
+      const qr = status.isConnected ? null : await centralWhatsApp.qr(tenantId, waAccountId).catch(() => null);
       return {
         isConnected: status.isConnected,
         phoneNumber: status.phoneNumber ?? null,
         qrCode: qr?.qrCode ?? null,
-        status: status.status as SocketStatusResponse['status'],
+        status: status.status,
       };
     } catch {
       return null;
