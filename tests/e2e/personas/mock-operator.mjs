@@ -1,61 +1,52 @@
 #!/usr/bin/env node
 /**
- * GATE QA-2 — local WhatsApp-operator mock for the persona suite.
+ * GATE QA-2 — local mock for the central NahaLabs WhatsApp Operator.
  *
- * Implements the operator HTTP contract (operator/src/routes) with a QR
- * string that ROTATES every 20 seconds, so the WhatsApp Connection page's
- * full linking lifecycle can be asserted without a real Baileys socket:
- *   GET  /health                 -> 200 OK (this is the keep-alive shape)
- *   POST /start    (x-api-key)   -> { success, qrCode, isConnected:false }
- *   GET  /status?waAccountId=..&tenantId=.. -> { isConnected:false, status:'connecting', qrCode }
+ * It implements the central account contract used by apps/main. QR strings
+ * are intentionally raw pairing strings in mock mode so the dashboard's
+ * existing qrcode.react canvas path can be decoded by the persona suite;
+ * production returns the central Operator's data:image/png QR unchanged.
  *
- * FAIL-CLOSED, exactly like the real operator (PR #44): /start and /status
- * both answer 400 unless BOTH waAccountId AND tenantId are present. The
- * old mock ignored tenantId on /status — which is precisely why the
- * production defect (operatorClient.getStatus() never sending tenantId,
- * every live-snapshot call 400-rejected on the real service) passed the
- * whole GATE_MOCK suite green: the mock was LOOSER than the contract it
- * was pretending to enforce. That escape hatch is closed: a Core-side
- * regression that drops a required parameter now fails in mock mode too.
- *
- * Honest limitation: this mock is stateless, so it checks parameter
- * PRESENCE only — the real operator's ownership check (403 when the
- * account belongs to another tenant) needs its Postgres. That side of
- * the contract is pinned by the operator's own test suite and mirrored
- * by apps/main/lib/operator-client.contract.test.ts.
- *
- * QR strings are 237 chars — the same length as a real Baileys pairing
- * payload — so the rendered canvas has realistic module density and jsQR
- * decode in the evidence harness is representative of a phone scan.
- *
- * Usage:  node tests/e2e/personas/mock-operator.mjs [port=3001]
+ * Run: node tests/e2e/personas/mock-operator.mjs [port=3001]
  */
 import { createServer } from 'node:http';
 
 const port = Number(process.argv[2] ?? 3001);
 let counter = 0;
+const accounts = new Map();
 
 function qrPayload() {
   counter += 1;
   const head = `2@${counter.toString(36).padStart(6, '0')}`;
   const mid = 'ABCDEFGHIJKLMNOPabcdefghijklmnop0123456789';
   let body = '';
-  for (let i = 0; i < 20; i++) body += mid;
+  for (let i = 0; i < 20; i += 1) body += mid;
   const tail = `,${counter.toString(36).padStart(4, '0')}==`;
   return (head + body + tail).slice(0, 237);
 }
 
 let currentQr = qrPayload();
-const rotate = setInterval(() => {
-  currentQr = qrPayload();
-}, 20_000);
+const rotate = setInterval(() => { currentQr = qrPayload(); }, 20_000);
 
-const server = createServer((req, res) => {
+function send(res, code, body) {
+  res.writeHead(code, { 'content-type': 'application/json', 'cache-control': 'no-store' });
+  res.end(JSON.stringify(body));
+}
+
+function requireScope(req, body = {}) {
+  return String(req.headers['x-api-key'] ?? '').trim()
+    && String(req.headers['x-app-id'] ?? body.appId ?? '').trim()
+    && String(req.headers['x-tenant-id'] ?? body.tenantId ?? '').trim();
+}
+
+async function readJson(req) {
+  let raw = '';
+  for await (const chunk of req) raw += chunk;
+  try { return JSON.parse(raw || '{}'); } catch { return null; }
+}
+
+const server = createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://localhost:${port}`);
-  const send = (code, body) => {
-    res.writeHead(code, { 'content-type': 'application/json' });
-    res.end(JSON.stringify(body));
-  };
 
   if (req.method === 'GET' && url.pathname === '/health') {
     res.writeHead(200, { 'content-type': 'text/plain' });
@@ -63,46 +54,104 @@ const server = createServer((req, res) => {
     return;
   }
 
-  if (req.method === 'POST' && url.pathname === '/start') {
-    if (!req.headers['x-api-key']) return send(401, { error: 'Unauthorized: missing x-api-key header' });
-    let body = '';
-    req.on('data', (c) => (body += c));
-    req.on('end', () => {
-      try {
-        const parsed = JSON.parse(body || '{}');
-        // Mirror of operator/src/routes/start.ts: BOTH ids required.
-        if (!parsed.waAccountId || !parsed.tenantId) {
-          return send(400, { error: 'waAccountId and tenantId are required' });
-        }
-      } catch {
-        return send(400, { error: 'Invalid JSON' });
-      }
-      send(200, { success: true, qrCode: currentQr, isConnected: false, phoneNumber: null });
-    });
+  if (!String(req.headers['x-api-key'] ?? '').trim()) {
+    send(res, 401, { error: 'Unauthorized: missing X-API-Key header' });
     return;
   }
 
-  if (req.method === 'GET' && url.pathname === '/status') {
-    // Mirror of operator/src/routes/status.ts: BOTH ids required (the
-    // exact 400 string). The old mock ignored tenantId here — the
-    // escape hatch that let the production defect sail through green.
-    const waAccountId = url.searchParams.get('waAccountId');
-    const tenantId = url.searchParams.get('tenantId');
-    if (!waAccountId || !tenantId) {
-      return send(400, { error: 'waAccountId and tenantId are required' });
+  if (req.method === 'POST' && url.pathname === '/accounts/bootstrap') {
+    const body = await readJson(req);
+    if (!body || !requireScope(req, body)) {
+      send(res, 400, { error: 'appId and tenantId are required' });
+      return;
     }
-    send(200, { isConnected: false, status: 'connecting', qrCode: currentQr, phoneNumber: null });
+    const tenantId = String(req.headers['x-tenant-id'] ?? body.tenantId);
+    let accountId = [...accounts.entries()].find(([, value]) => value.tenantId === tenantId)?.[0];
+    const created = !accountId;
+    if (!accountId) {
+      accountId = `mock-${Buffer.from(tenantId).toString('base64url').slice(0, 18)}`;
+      accounts.set(accountId, { tenantId, connected: false, phoneNumber: null });
+    }
+    send(res, created ? 201 : 200, { waAccountId: accountId, status: accounts.get(accountId).connected ? 'connected' : 'connecting', appId: body.appId, tenantId, created, webhookConfigured: true });
     return;
   }
 
-  send(404, { error: 'Not found' });
+  const match = url.pathname.match(/^\/accounts\/([^/]+)(?:\/(.+))?$/);
+  if (match) {
+    const accountId = decodeURIComponent(match[1]);
+    const operation = match[2] ?? '';
+    const account = accounts.get(accountId);
+    if (!account) {
+      // Allow a freshly bootstrapped-looking id to be initialized for direct contract tests.
+      send(res, 404, { error: 'NOT_FOUND', message: 'Account not found' });
+      return;
+    }
+    const tenantId = String(req.headers['x-tenant-id'] ?? '');
+    if (!tenantId || tenantId !== account.tenantId) {
+      send(res, 403, { error: 'ACCOUNT_SCOPE_FORBIDDEN', message: 'The requested WhatsApp account is not bound to this tenant' });
+      return;
+    }
+
+    if (req.method === 'POST' && operation === 'connect') {
+      account.connected = false;
+      account.qr = currentQr;
+      send(res, 200, { waAccountId: accountId, status: 'connecting' });
+      return;
+    }
+    if (req.method === 'GET' && operation === 'status') {
+      send(res, 200, { waAccountId: accountId, status: account.connected ? 'connected' : 'connecting', isConnected: account.connected, phoneNumber: account.phoneNumber });
+      return;
+    }
+    if (req.method === 'GET' && operation === 'qr') {
+      send(res, 200, { status: account.connected ? 'connected' : 'qr_ready', isConnected: account.connected, qrCode: account.connected ? null : currentQr, qrGeneratedAt: new Date().toISOString(), qrExpiresAt: new Date(Date.now() + 20_000).toISOString(), qrPollIntervalMs: 3000 });
+      return;
+    }
+    if (req.method === 'POST' && operation === 'pairing-code') {
+      const body = await readJson(req);
+      if (!body?.phoneNumber) {
+        send(res, 400, { error: 'VALIDATION_ERROR', message: 'phoneNumber is required' });
+        return;
+      }
+      account.pairingCode = 'MOCK-1234';
+      account.pairingExpiresAt = Date.now() + 60_000;
+      send(res, 200, { waAccountId: accountId, status: 'pairing_code_ready', pairingCode: 'MOCK-1234', pairingCodeDisplay: 'MOCK-1234', expiresAt: new Date(account.pairingExpiresAt).toISOString(), isConnected: false });
+      return;
+    }
+    if (req.method === 'GET' && operation === 'pairing-code') {
+      const active = account.pairingCode && account.pairingExpiresAt > Date.now();
+      send(res, 200, { waAccountId: accountId, status: active ? 'pairing_code_ready' : (account.connected ? 'connected' : 'connecting'), pairingCode: active ? account.pairingCode : null, pairingCodeDisplay: active ? account.pairingCode : null, expiresAt: active ? new Date(account.pairingExpiresAt).toISOString() : null, isConnected: account.connected });
+      return;
+    }
+    if (req.method === 'POST' && operation === 'reset') {
+      account.connected = false;
+      account.phoneNumber = null;
+      account.pairingCode = null;
+      send(res, 200, { waAccountId: accountId, status: 'pending' });
+      return;
+    }
+    if (req.method === 'POST' && operation === 'disconnect') {
+      account.connected = false;
+      account.phoneNumber = null;
+      send(res, 200, { waAccountId: accountId, status: 'logged_out' });
+      return;
+    }
+  }
+
+  if (req.method === 'POST' && url.pathname === '/send') {
+    const body = await readJson(req);
+    const account = accounts.get(String(body?.waAccountId ?? ''));
+    if (!body || !account) return send(res, 404, { error: 'NOT_FOUND', message: 'Account not found' });
+    if (!requireScope(req, body) || String(req.headers['x-tenant-id']) !== account.tenantId) {
+      return send(res, 403, { error: 'ACCOUNT_SCOPE_FORBIDDEN', message: 'Account scope mismatch' });
+    }
+    return send(res, 200, { ok: true, type: body.type ?? 'text', message: { key: { id: `mock-message-${Date.now()}` } } });
+  }
+
+  send(res, 404, { error: 'Not found' });
 });
 
 server.listen(port, '127.0.0.1', () => {
-  console.log(`[mock-operator] listening on http://127.0.0.1:${port} (QR rotates every 20s)`);
+  console.log(`[mock-operator] central contract listening on http://127.0.0.1:${port} (QR rotates every 20s)`);
 });
 
-process.on('SIGTERM', () => {
-  clearInterval(rotate);
-  server.close();
-});
+process.on('SIGTERM', () => { clearInterval(rotate); server.close(); });
