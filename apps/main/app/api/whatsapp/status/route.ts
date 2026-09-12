@@ -29,25 +29,26 @@ export async function GET() {
 
   try {
     const live = await operatorClient.getStatus(tenant.id, account.id, 8_000);
-    if (live) {
-      return NextResponse.json({
-        isConnected: live.isConnected,
-        phoneNumber: live.phoneNumber ?? null,
-        qrCode: live.isConnected ? null : (live.qrCode ?? null),
-        status: live.status,
-        operatorOnline: true,
-      }, { headers: { 'Cache-Control': 'no-store, max-age=0, must-revalidate' } });
-    }
-  } catch {
-    // Fall through to a clear offline response. The UI keeps retrying.
+    const connected = live.isConnected;
+    return NextResponse.json({
+      isConnected: connected,
+      phoneNumber: live.phoneNumber ?? null,
+      qrCode: connected ? null : (live.qrCode ?? null),
+      status: live.status,
+      operatorOnline: true,
+    }, { headers: { 'Cache-Control': 'no-store, max-age=0, must-revalidate' } });
+  } catch (error) {
+    // Keep failure visible to the dashboard instead of converting a broken
+    // Operator/key/configuration into a misleading local "unlinked" state.
+    const message = error instanceof Error ? error.message : String(error);
+    const operatorOnline = await checkOperatorOnline();
+    return NextResponse.json({
+      error: message,
+      isConnected: false,
+      phoneNumber: account.phoneNumber ?? null,
+      qrCode: null,
+      status: account.status ?? 'unlinked',
+      operatorOnline,
+    }, { status: 502, headers: { 'Cache-Control': 'no-store, max-age=0, must-revalidate' } });
   }
-
-  const operatorOnline = await checkOperatorOnline();
-  return NextResponse.json({
-    isConnected: false,
-    phoneNumber: null,
-    qrCode: null,
-    status: account.status ?? 'unlinked',
-    operatorOnline,
-  }, { headers: { 'Cache-Control': 'no-store, max-age=0, must-revalidate' } });
 }
