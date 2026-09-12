@@ -82,8 +82,8 @@ export const operatorClient = {
     }
   },
 
-  async getStatus(tenantId: string, waAccountId: string, _timeoutMs: number = 5_000): Promise<SocketStatusResponse> {
-    const status = await centralWhatsApp.status(tenantId, waAccountId);
+  async getStatus(tenantId: string, waAccountId: string, timeoutMs: number = 5_000): Promise<SocketStatusResponse> {
+    const status = await centralWhatsApp.status(tenantId, waAccountId, timeoutMs);
     const qr = status.isConnected ? null : await centralWhatsApp.qr(tenantId, waAccountId);
     return {
       isConnected: status.isConnected,
