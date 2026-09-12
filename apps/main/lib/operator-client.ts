@@ -10,7 +10,7 @@ export interface StartSocketResponse {
   success: boolean;
   state?: 'waking' | 'ready';
   transient?: boolean;
-  qrCode?: string;
+  qrCode?: string | null;
   isConnected?: boolean;
   phoneNumber?: string | null;
   error?: string;
