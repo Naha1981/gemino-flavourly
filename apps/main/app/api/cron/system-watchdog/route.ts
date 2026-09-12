@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
 const CRON_API = 'https://api.cron-job.org';
+const CENTRAL_OPERATOR_URL = 'https://my-own-whatsapp-2z5h.onrender.com';
 
 /**
  * S5 — hourly system watchdog (fleet job 'System Watchdog' in
@@ -46,12 +47,13 @@ export async function GET(req: NextRequest) {
     console.error('[system-watchdog] database check failed', dbError);
   }
 
-  // 2. Operator liveness (best-effort, hard 8s bound).
+  // 2. Central WhatsApp Operator liveness (best-effort, hard 8s bound).
   let operatorOk: boolean | null = null;
-  const operatorUrl = process.env.OPERATOR_URL || 'https://gemino-flavourly-whatsapp.onrender.com';
+  const operatorUrl = (process.env.OPERATOR_URL || CENTRAL_OPERATOR_URL).replace(/\/$/, '');
   try {
-    const res = await fetch(`${operatorUrl.replace(/\/$/, '')}/health`, {
+    const res = await fetch(`${operatorUrl}/health`, {
       signal: AbortSignal.timeout(8_000),
+      cache: 'no-store',
     });
     operatorOk = res.ok;
   } catch {
