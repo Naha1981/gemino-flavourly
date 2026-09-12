@@ -2,14 +2,7 @@ name: Operator & Main App Synthetic Health Monitor
 
 on:
   schedule:
-    # Was */15 (every 15 minutes = 96 runs/day) despite the comment
-    # claiming "every hour" — combined with both URLs below being wrong
-    # placeholders that don't exist, this meant every single one of
-    # those 96 daily runs failed and sent a notification email. This is
-    # an outage alert, not a keep-alive mechanism (that's already
-    # handled separately by the cron-job.org "Operator Keep-Alive" job
-    # hitting /health every 5 minutes) — every 30 minutes is plenty for
-    # "tell me if something is actually down."
+    # Health alert only; the central Operator owns its own keep-alive.
     - cron: '*/30 * * * *'
   workflow_dispatch:
 
@@ -19,7 +12,7 @@ jobs:
     steps:
       - name: Ping Operator Health
         run: |
-          OPERATOR_URL="${{ vars.OPERATOR_URL || 'https://gemino-flavourly-whatsapp.onrender.com' }}"
+          OPERATOR_URL="${{ vars.OPERATOR_URL || 'https://my-own-whatsapp-2z5h.onrender.com' }}"
           STATUS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "$OPERATOR_URL/health")
           echo "Operator health check status: $STATUS_CODE"
           if [ "$STATUS_CODE" -ne 200 ]; then
