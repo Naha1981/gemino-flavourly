@@ -17,6 +17,7 @@ import { EMBEDDED_FLEET_JSON } from './canonical-fleet.embedded.ts';
 const HERE = dirname(fileURLToPath(import.meta.url));
 // apps/main/lib/cron -> repo root is 4 levels up.
 const REPO_ROOT = join(HERE, '..', '..', '..', '..');
+const CENTRAL_OPERATOR_URL = 'https://my-own-whatsapp-2z5h.onrender.com';
 
 describe('canonical fleet — scripts/cron-fleet.json on disk', () => {
   test('loads via fs from the repo root (source: fs)', () => {
@@ -155,12 +156,12 @@ describe('canonical fleet — fs fallback + validation', () => {
 });
 
 describe('canonical fleet — URL resolution', () => {
-  test('placeholders resolve against fleet defaults', () => {
+  test('placeholders resolve against the central Operator by default', () => {
     const loaded = loadCanonicalFleet(REPO_ROOT);
     const url = resolveJobUrl('{baseUrl}/api/cron/outbox', loaded.fleet, {});
     assert.equal(url, `${loaded.fleet.baseUrl}/api/cron/outbox`);
     const op = resolveJobUrl('{operatorUrl}/health', loaded.fleet, {});
-    assert.equal(op, `${loaded.fleet.operatorUrl}/health`);
+    assert.equal(op, `${CENTRAL_OPERATOR_URL}/health`);
   });
 
   test('env overrides win (APP_URL / OPERATOR_URL), trailing slash trimmed', () => {

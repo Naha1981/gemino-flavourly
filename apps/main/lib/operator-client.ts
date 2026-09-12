@@ -8,6 +8,8 @@ export interface SendMessageResponse {
 
 export interface StartSocketResponse {
   success: boolean;
+  state?: 'waking' | 'ready';
+  transient?: boolean;
   qrCode?: string;
   isConnected?: boolean;
   phoneNumber?: string | null;
@@ -28,18 +30,39 @@ export const operatorClient = {
   },
 
   async startSocket(tenantId: string, waAccountId: string): Promise<StartSocketResponse> {
+    // A sleeping Render service must be explicitly woken first. Do not turn a
+    // cold-start timeout into a fake successful connect that leaves the UI
+    // spinning forever without a QR code or a useful error.
+    const operatorOnline = await centralWhatsApp.checkHealth(5_000);
+    if (!operatorOnline) {
+      return {
+        success: false,
+        state: 'waking',
+        transient: true,
+        error: 'The central WhatsApp Operator is waking from standby. Retrying automatically.',
+      };
+    }
+
     try {
       await centralWhatsApp.connect(tenantId, waAccountId);
       const status = await centralWhatsApp.status(tenantId, waAccountId);
       const qr = status.isConnected ? null : await centralWhatsApp.qr(tenantId, waAccountId);
       return {
         success: true,
+        state: 'ready',
         isConnected: status.isConnected,
         phoneNumber: status.phoneNumber ?? null,
         qrCode: qr.qrCode ?? null,
       };
     } catch (err) {
-      return { success: false, error: err instanceof Error ? err.message : String(err) };
+      const message = err instanceof Error ? err.message : String(err);
+      const transient = message.startsWith('NahaLabs WhatsApp Operator unavailable:');
+      return {
+        success: false,
+        state: transient ? 'waking' : 'ready',
+        transient,
+        error: message,
+      };
     }
   },
 
@@ -59,8 +82,8 @@ export const operatorClient = {
     }
   },
 
-  async getStatus(tenantId: string, waAccountId: string, _timeoutMs: number = 5_000): Promise<SocketStatusResponse> {
-    const status = await centralWhatsApp.status(tenantId, waAccountId);
+  async getStatus(tenantId: string, waAccountId: string, timeoutMs: number = 5_000): Promise<SocketStatusResponse> {
+    const status = await centralWhatsApp.status(tenantId, waAccountId, timeoutMs);
     const qr = status.isConnected ? null : await centralWhatsApp.qr(tenantId, waAccountId);
     return {
       isConnected: status.isConnected,

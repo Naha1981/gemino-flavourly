@@ -18,16 +18,32 @@ export async function POST() {
 
   try {
     const result = await operatorClient.connect(tenant.id, account.id);
+
     if (!result.success) {
+      if (result.transient || result.state === 'waking') {
+        return NextResponse.json({
+          ok: false,
+          state: 'waking',
+          waking: true,
+          isConnected: false,
+          qrCode: null,
+          error: result.error || 'The central WhatsApp Operator is waking from standby. Retrying automatically.',
+          retryAfterMs: 5_000,
+        }, {
+          status: 202,
+          headers: { 'Cache-Control': 'no-store, max-age=0, must-revalidate' },
+        });
+      }
+
       return NextResponse.json({ error: result.error || 'Could not start the WhatsApp connection.' }, { status: 502 });
     }
 
-    const status = await operatorClient.getStatus(tenant.id, account.id, 8_000);
     return NextResponse.json({
       ok: true,
-      isConnected: status?.isConnected ?? result.isConnected ?? false,
-      qrCode: status?.qrCode ?? result.qrCode ?? null,
-      phoneNumber: status?.phoneNumber ?? result.phoneNumber ?? null,
+      state: result.state ?? 'ready',
+      isConnected: result.isConnected ?? false,
+      qrCode: result.qrCode ?? null,
+      phoneNumber: result.phoneNumber ?? null,
     }, { headers: { 'Cache-Control': 'no-store, max-age=0, must-revalidate' } });
   } catch (error) {
     return NextResponse.json({

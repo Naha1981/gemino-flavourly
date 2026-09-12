@@ -88,6 +88,8 @@ export function readFleetJsonText(cwd?: string): { text: string; path: string } 
   return null;
 }
 
+const CENTRAL_OPERATOR_URL = 'https://my-own-whatsapp-2z5h.onrender.com';
+
 /** Substitute {baseUrl}/{operatorUrl} placeholders using fleet defaults + env overrides. */
 export function resolveJobUrl(
   url: string,
@@ -95,7 +97,9 @@ export function resolveJobUrl(
   env: Record<string, string | undefined> = process.env
 ): string {
   const baseUrl = (env.NEXT_PUBLIC_APP_URL || env.APP_URL || fleet.baseUrl).replace(/\/$/, '');
-  const operatorUrl = (env.OPERATOR_URL || fleet.operatorUrl).replace(/\/$/, '');
+  // Never fall back to a retired Gemino-local WhatsApp transport. The env
+  // value still wins, but the safe default is always the central Operator.
+  const operatorUrl = (env.OPERATOR_URL || CENTRAL_OPERATOR_URL).replace(/\/$/, '');
   return url.replace(/\{baseUrl\}/g, baseUrl).replace(/\{operatorUrl\}/g, operatorUrl);
 }
 

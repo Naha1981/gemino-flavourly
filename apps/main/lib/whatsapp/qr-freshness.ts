@@ -22,10 +22,14 @@
  *
  *   - Engine errors must SURVIVE routine status polls. The page used to
  *     clear its error box on every successful poll — i.e. within 3s of
- *     a failed kick, before any human could read it.
- *     shouldClearEngineError() says when an error may finally go away:
- *     state improved (a QR arrived / connection opened), or a TTL
- *     passed, or a later kick succeeded.
+ *     a failed kick, before any human could read it. `shouldClearEngineError()`
+ *     says when an error may finally go away: state improved (a QR arrived /
+ *     connection opened), or a TTL passed, or a later kick succeeded.
+ *
+ * Round 3 (2026-09-12): a sleeping Render Operator is a valid transient
+ * state, not a hard failure. Allow the browser enough automatic recovery
+ * attempts to cover the cold-start window without making the user manually
+ * restart the linking flow.
  *
  * No React, no fetch, no timers in here — decisions only.
  */
@@ -34,10 +38,10 @@
 export const QR_STALE_AFTER_MS = 40_000;
 
 /** Minimum spacing between automatic /api/whatsapp/connect re-kicks. */
-export const MIN_KICK_INTERVAL_MS = 30_000;
+export const MIN_KICK_INTERVAL_MS = 10_000;
 
 /** Give up auto-recovering after this many kicks; surface manual retry. */
-export const MAX_AUTO_KICKS = 8;
+export const MAX_AUTO_KICKS = 12;
 
 /** An engine error lingers at least this long (or until state improves). */
 export const ENGINE_ERROR_TTL_MS = 60_000;
@@ -75,8 +79,8 @@ export interface AutoKickInput {
    * successfully OR NOT? The page's old gate was `status !== null`,
    * which conflated "the poll happened" with "the poll succeeded": a
    * 401/500 from the status route meant no kick would ever fire while
-   * the UI spun on "Starting the WhatsApp engine…". Defaults to true so
-   * existing callers (and their tests) keep the historic behaviour.
+   * the UI spun on "Starting the WhatsApp engine…". `pollAttempted` (default true)
+   * now expresses "one fetch cycle has happened" instead of "one fetch SUCCEEDED".
    */
   pollAttempted?: boolean;
   /** Client timestamp (ms) of the last kick, null if never kicked. */

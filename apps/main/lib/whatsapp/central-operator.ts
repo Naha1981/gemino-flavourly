@@ -77,13 +77,15 @@ async function request<T>(tenantId: string, path: string, init: RequestInit = {}
 
   let response: Response;
   try {
-    response = await fetch(`${operatorBaseUrl()}${path}`, {
+    const url = operatorBaseUrl();
+    response = await fetch(`${url}${path}`, {
       ...init,
       headers,
       cache: 'no-store',
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
+    if (error instanceof Error && error.message.includes('OPERATOR_URL is not configured')) throw error;
     throw new Error(`NahaLabs WhatsApp Operator unavailable: ${error instanceof Error ? error.message : String(error)}`);
   }
 
@@ -165,7 +167,7 @@ async function ensureCentralAccount(tenantId: string): Promise<string> {
   const existing = await getBinding(tenantId);
   if (existing) {
     try {
-      await request<CentralOperatorStatus>(tenantId, `/accounts/${encodeURIComponent(existing.waAccountId)}/status`, { method: 'GET' }, 10_000);
+      await request<CentralOperatorStatus>(tenantId, `/accounts/${encodeURIComponent(existing.waAccountId)}/status`, { method: 'GET' }, 4_000);
       return existing.waAccountId;
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -190,8 +192,9 @@ async function ensureCentralAccount(tenantId: string): Promise<string> {
 
 export const centralWhatsApp = {
   async checkHealth(timeoutMs = HEALTH_TIMEOUT_MS): Promise<boolean> {
+    const url = operatorBaseUrl();
     try {
-      const response = await fetch(`${operatorBaseUrl()}/health`, { method: 'GET', cache: 'no-store', signal: AbortSignal.timeout(timeoutMs) });
+      const response = await fetch(`${url}/health`, { method: 'GET', cache: 'no-store', signal: AbortSignal.timeout(timeoutMs) });
       return response.ok;
     } catch {
       return false;
@@ -206,10 +209,10 @@ export const centralWhatsApp = {
     return result;
   },
 
-  async status(tenantId: string, localWaAccountId: string): Promise<CentralOperatorStatus> {
+  async status(tenantId: string, localWaAccountId: string, timeoutMs = REQUEST_TIMEOUT_MS): Promise<CentralOperatorStatus> {
     const local = await getLocalAccount(tenantId, localWaAccountId);
     const centralId = await ensureCentralAccount(tenantId);
-    const result = await request<CentralOperatorStatus>(tenantId, `/accounts/${encodeURIComponent(centralId)}/status`);
+    const result = await request<CentralOperatorStatus>(tenantId, `/accounts/${encodeURIComponent(centralId)}/status`, { method: 'GET' }, timeoutMs);
     await syncLocalStatus(local.id, result);
     return result;
   },

@@ -28,6 +28,7 @@ export default function WhatsAppConnectPage() {
   const [error, setError] = useState<string | null>(null);
   const [engineErrorAt, setEngineErrorAt] = useState<number | null>(null);
   const [statusError, setStatusError] = useState<string | null>(null);
+  const [waking, setWaking] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   const [lastQrChangeAt, setLastQrChangeAt] = useState<number | null>(null);
   const [kicks, setKicks] = useState(0);
@@ -54,15 +55,30 @@ export default function WhatsAppConnectPage() {
   const refresh = useCallback(async () => {
     try {
       const res = await fetch('/api/whatsapp/status', { cache: 'no-store' });
+      const data: Status & { error?: string } = await res.json().catch(() => ({}) as Status);
       if (res.ok) {
-        const next: Status = await res.json();
-        applyStatus(next);
+        applyStatus(data);
         setStatusError(null);
-      } else {
-        const data = await res.json().catch(() => ({ error: '' }));
-        setStatusError(`Couldn’t read WhatsApp status (HTTP ${res.status}): ${data?.error || 'unknown error'}`);
+        setWaking(data.operatorOnline === false);
+        return;
       }
+
+      // The status endpoint intentionally returns a useful partial state on
+      // central-Operator failures. Keep it visible so the page says WAKING
+      // instead of falling back to a silent generic spinner.
+      if (typeof data === 'object' && data !== null && ('operatorOnline' in data || 'status' in data)) {
+        applyStatus({
+          isConnected: !!data.isConnected,
+          phoneNumber: data.phoneNumber ?? null,
+          qrCode: data.qrCode ?? null,
+          status: data.status ?? 'unlinked',
+          operatorOnline: data.operatorOnline ?? false,
+        });
+      }
+      setWaking(data.operatorOnline === false);
+      setStatusError(`Couldn’t read WhatsApp status (HTTP ${res.status}): ${data?.error || 'unknown error'}`);
     } catch {
+      setWaking(true);
       setStatusError('Network error while reading WhatsApp status — retrying automatically.');
     } finally {
       pollAttempted.current = true;
@@ -76,13 +92,31 @@ export default function WhatsAppConnectPage() {
     setKicks((k) => k + 1);
     try {
       const res = await fetch('/api/whatsapp/connect', { method: 'POST' });
-      const data: { ok?: boolean; isConnected?: boolean; qrCode?: string | null; phoneNumber?: string | null; error?: string } =
-        await res.json().catch(() => ({}));
+      const data: {
+        ok?: boolean;
+        state?: 'waking' | 'ready';
+        waking?: boolean;
+        isConnected?: boolean;
+        qrCode?: string | null;
+        phoneNumber?: string | null;
+        error?: string;
+      } = await res.json().catch(() => ({}));
+
+      if (res.status === 202 || data.waking || data.state === 'waking') {
+        setWaking(true);
+        setError(null);
+        setEngineErrorAt(null);
+        return;
+      }
+
       if (!res.ok) {
+        setWaking(false);
         setError(data?.error || 'Could not reach the WhatsApp Operator.');
         setEngineErrorAt(Date.now());
         return;
       }
+
+      setWaking(false);
       setError(null);
       setEngineErrorAt(null);
       if (data && (data.qrCode || data.isConnected)) {
@@ -95,7 +129,8 @@ export default function WhatsAppConnectPage() {
         });
       }
     } catch {
-      setError('Could not reach the WhatsApp Operator.');
+      setWaking(true);
+      setError('The central WhatsApp Operator is waking or temporarily unreachable. Retrying automatically.');
       setEngineErrorAt(Date.now());
     } finally {
       kickInFlight.current = false;
@@ -192,11 +227,19 @@ export default function WhatsAppConnectPage() {
           <span className="font-semibold">WhatsApp Operator error:</span> {error}
         </div>
       )}
-      {engineOffline && !status?.isConnected && (
+      {waking && !status?.isConnected && (
+        <div className="rounded-lg border border-amber-800 bg-amber-950/40 px-4 py-3 text-sm text-amber-200" data-testid="operator-waking">
+          <div className="flex items-center gap-2">
+            <Loader2 className="h-4 w-4 shrink-0 animate-spin" aria-hidden />
+            <span>The central WhatsApp Operator is waking from standby. Gemino will keep retrying automatically until it is ready.</span>
+          </div>
+        </div>
+      )}
+      {engineOffline && !status?.isConnected && !waking && (
         <div className="rounded-lg border border-amber-800 bg-amber-950/40 px-4 py-3 text-sm text-amber-200" data-testid="engine-offline">
           <div className="flex items-center gap-2">
             <WifiOff className="h-4 w-4 shrink-0" aria-hidden />
-            <span>The central WhatsApp Operator is not responding right now. It may be waking from standby, or the OPERATOR_URL/configuration may need attention. Kicking continues automatically.</span>
+            <span>The central WhatsApp Operator is not responding right now. It may be waking from standby, or the OPERATOR_URL/configuration may need attention.</span>
           </div>
         </div>
       )}
@@ -239,12 +282,10 @@ export default function WhatsAppConnectPage() {
             status?.qrCode ? (
               <div className="mt-6 flex flex-col items-center gap-4 bg-zinc-950/60 p-6 rounded-lg border border-zinc-800/80">
                 <div className="relative rounded-lg bg-white p-4 shadow-md" data-testid="qr-frame" data-qr-phase={phase}>
-                  {/* Production QR values from the central Operator are data:image URLs and are rendered directly. */}
                   {status.qrCode.startsWith('data:image') ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={status.qrCode} alt="WhatsApp QR code" width={QR_SIZE} height={QR_SIZE} />
                   ) : (
-                    /* The GATE_MOCK test harness intentionally uses the raw pairing string so jsQR can verify the lifecycle without a PNG generator. */
                     <QRCodeCanvas value={status.qrCode.trim()} size={QR_SIZE} bgColor="#ffffff" fgColor="#000000" level="L" title="WhatsApp pairing code" />
                   )}
                   {phase === 'stale' && (
@@ -278,8 +319,8 @@ export default function WhatsAppConnectPage() {
                 ) : (
                   <>
                     <Loader2 className="h-6 w-6 animate-spin text-emerald-400" />
-                    <p className="text-sm text-zinc-400" data-testid="starting-message">Starting the central WhatsApp Operator…</p>
-                    <p className="text-xs text-zinc-600">{status?.status === 'connecting' ? 'Preparing your pairing code.' : 'Requesting a pairing session.'} This normally takes a few seconds.</p>
+                    <p className="text-sm text-zinc-400" data-testid="starting-message">{waking ? 'Waking the central WhatsApp Operator…' : 'Starting the central WhatsApp Operator…'}</p>
+                    <p className="text-xs text-zinc-600">{waking ? 'Render may need a little time to bring the shared service out of standby. Gemino will retry automatically.' : status?.status === 'connecting' ? 'Preparing your pairing code.' : 'Requesting a pairing session.'}</p>
                     <button onClick={kick} className="text-xs text-zinc-500 underline underline-offset-2 hover:text-zinc-300">Request a code manually</button>
                   </>
                 )}
