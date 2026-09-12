@@ -8,6 +8,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const MAIN_ROOT = join(HERE, '..');
 const CENTRAL_CLIENT = readFileSync(join(HERE, 'whatsapp', 'central-operator.ts'), 'utf8');
 const OPERATOR_CLIENT = readFileSync(join(HERE, 'operator-client.ts'), 'utf8');
+const CONNECT_ROUTE = readFileSync(join(HERE, '..', 'app', 'api', 'whatsapp', 'connect', 'route.ts'), 'utf8');
+const DASHBOARD = readFileSync(join(HERE, '..', 'app', '(app)', 'dashboard', 'whatsapp', 'page.tsx'), 'utf8');
 
 function allSourceFiles(dir: string): string[] {
   const entries = readdirSync(dir, { withFileTypes: true });
@@ -71,5 +73,19 @@ describe('central NahaLabs WhatsApp Operator contract', () => {
     assert.doesNotMatch(OPERATOR_CLIENT, /fetch\([^\n]+\/start/);
     assert.doesNotMatch(OPERATOR_CLIENT, /fetch\([^\n]+\/status/);
     assert.doesNotMatch(OPERATOR_CLIENT, /@whiskeysockets\/baileys/);
+  });
+
+  test('cold-start connect is modeled as a transient waking state, never a fake success', () => {
+    assert.match(OPERATOR_CLIENT, /state: 'waking'/);
+    assert.match(OPERATOR_CLIENT, /transient: true/);
+    assert.match(CONNECT_ROUTE, /status: 202/);
+    assert.match(CONNECT_ROUTE, /waking: true/);
+    assert.match(CONNECT_ROUTE, /retryAfterMs: 5_000/);
+  });
+
+  test('dashboard visibly distinguishes waking from normal pairing', () => {
+    assert.match(DASHBOARD, /const \[waking, setWaking\]/);
+    assert.match(DASHBOARD, /data-testid="operator-waking"/);
+    assert.match(DASHBOARD, /Waking the central WhatsApp Operator/);
   });
 });
