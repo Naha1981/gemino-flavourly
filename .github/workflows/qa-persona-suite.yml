@@ -19,8 +19,6 @@ name: QA Persona Suite
 on:
   pull_request:
   schedule:
-    # Every 6 hours (owner spec). 20 past the hour avoids the top-of-hour
-    # GitHub schedule congestion.
     - cron: '20 */6 * * *'
   workflow_dispatch:
 
@@ -29,7 +27,9 @@ permissions:
 
 concurrency:
   group: qa-persona-suite-${{ github.ref }}
-  cancel-in-progress: false
+  # A newer commit is the source of truth; do not leave stale queued runs
+  # blocking verification of the commit that is actually going to merge.
+  cancel-in-progress: true
 
 jobs:
   gate-mock:
@@ -44,13 +44,6 @@ jobs:
       ADMIN_EMAIL: naha.thabiso@gmail.com
       OPERATOR_URL: http://127.0.0.1:3001
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_qaplaceholder
-      # NOTE: the key body must be [A-Za-z0-9] only — clerkIsConfigured()
-      # (lib/auth/route-guard-core.ts) regex-rejects keys containing '_'.
-      # The previous value (pk_test_qa_placeholder) failed that check, so
-      # the GATE_MOCK middleware treated Clerk as unconfigured and
-      # redirected every protected page to /sign-in: signed-in persona
-      # journeys can never pass that way (reproduced locally 2026-09-03:
-      # underscore key → dashboard 307 loop; alnum key → 53/53 green).
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3100
     steps:
       - uses: actions/checkout@v4
@@ -71,7 +64,7 @@ jobs:
         env:
           GATE_MOCK: '1'
 
-      - name: Start mock operator + app under test
+      - name: Start mock central operator + app under test
         run: |
           node tests/e2e/personas/mock-operator.mjs 3001 &
           cd apps/main
@@ -114,8 +107,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     needs: gate-mock
-    # Scheduled runs + manual dispatch only — PRs get the mock job, and the
-    # production leg is read-only smoke (nav + honesty, never button writes).
     if: github.event_name != 'pull_request'
     env:
       BASE_URL: https://gemino-flavourly-whatsapp.vercel.app
@@ -138,6 +129,8 @@ jobs:
         env:
           QA_EMAIL: ${{ secrets.QA_EMAIL }}
           QA_PASSWORD: ${{ secrets.QA_PASSWORD }}
+          QA_SESSION_JWT: ${{ secrets.QA_SESSION_JWT }}
+          QA_DEV_BROWSER_TOKEN: ${{ secrets.QA_DEV_BROWSER_TOKEN }}
 
       - name: Upload HTML report
         if: always()
