@@ -4,8 +4,7 @@
   "private": true,
   "description": "Multi-Tenant WhatsApp AI SaaS Platform",
   "workspaces": [
-    "apps/*",
-    "operator"
+    "apps/*"
   ],
   "scripts": {
     "dev": "turbo dev",
