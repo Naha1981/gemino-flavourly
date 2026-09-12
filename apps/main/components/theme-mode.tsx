@@ -7,9 +7,9 @@ import { Moon, Sun } from 'lucide-react';
  * Stitch design system — light mode is the DEFAULT; dark mode is opt-in.
  *
  * The preference persists in localStorage (flavourly_theme) and is applied
- * as a `dark` class on <html>. An inline script in the root layout applies
- * the class before first paint so a returning dark-mode user never sees a
- * light flash (and a fresh profile always starts light).
+ * as a `dark` class on <html>. An inline script in the root layout applies the
+ * class before first paint so a returning dark-mode user never sees a light flash
+ * (and a fresh profile always starts light).
  */
 
 export const THEME_STORAGE_KEY = 'flavourly_theme';
@@ -90,20 +90,19 @@ export function ThemeToggle({ label = 'Toggle dark mode' }: { label?: string }) 
 }
 
 /**
- * Flavourly logo chip: light-surface treatment keeps the dark-green + gold
- * mark legible in dark mode. Never replaces the logo asset itself.
+ * Flavourly logo chip. The logo keeps a restrained light surface in dark mode
+ * so the wordmark remains readable, but the surrounding tone now follows the
+ * dashboard palette instead of using the warmer cream block.
  *
- * QA-2 / owner spec "make the app logo bigger, clear, readable, visually
- * visible": default height bumped h-9 → h-11 (44px — the 579×357 wordmark
- * renders ~71px wide, comfortably readable), the surface padding and ring
- * enlarged to match, and the dashboard sidebar/mobile header pass their own
- * larger sizes on top (h-12 / h-9).
+ * The rendered mark is also intentionally scaled up inside its chip so every
+ * dashboard placement reads larger without changing the shell's spacing or
+ * breaking the existing desktop/mobile dimensions.
  */
 export function LogoChip({ src = '/logo.png', alt = 'Flavourly', className = 'h-11' }: { src?: string; alt?: string; className?: string }) {
   return (
-    <span className="inline-flex items-center rounded-xl bg-white/95 px-2.5 py-1.5 shadow-sm ring-1 ring-black/[0.04] dark:bg-[#fff8f0]">
+    <span className="inline-flex items-center rounded-xl bg-white/95 px-2.5 py-1.5 shadow-sm ring-1 ring-black/[0.04] dark:bg-zinc-800/90 dark:ring-white/10">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={src} alt={alt} className={`${className} w-auto`} />
+      <img src={src} alt={alt} className={`${className} w-auto scale-[1.12]`} />
     </span>
   );
 }
