@@ -9,6 +9,7 @@
  *
  * Run: node tests/e2e/personas/mock-operator.mjs [port=3001]
  */
+import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 
 const port = Number(process.argv[2] ?? 3001);
@@ -23,6 +24,12 @@ function qrPayload() {
   for (let i = 0; i < 20; i += 1) body += mid;
   const tail = `,${counter.toString(36).padStart(4, '0')}==`;
   return (head + body + tail).slice(0, 237);
+}
+
+function accountIdForTenant(tenantId) {
+  const hex = createHash('sha256').update(tenantId).digest('hex').slice(0, 32);
+  const normalized = `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${['89ab'[parseInt(hex[16], 16) % 4], hex.slice(17, 20)].join('')}-${hex.slice(20, 32)}`;
+  return normalized;
 }
 
 let currentQr = qrPayload();
@@ -69,7 +76,7 @@ const server = createServer(async (req, res) => {
     let accountId = [...accounts.entries()].find(([, value]) => value.tenantId === tenantId)?.[0];
     const created = !accountId;
     if (!accountId) {
-      accountId = `mock-${Buffer.from(tenantId).toString('base64url').slice(0, 18)}`;
+      accountId = accountIdForTenant(tenantId);
       accounts.set(accountId, { tenantId, connected: false, phoneNumber: null });
     }
     send(res, created ? 201 : 200, { waAccountId: accountId, status: accounts.get(accountId).connected ? 'connected' : 'connecting', appId: body.appId, tenantId, created, webhookConfigured: true });
