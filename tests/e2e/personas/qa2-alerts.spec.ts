@@ -99,9 +99,11 @@ test.describe('QA-2 alert pipeline (inject fake failure)', () => {
     await page.locator('[data-testid="qa-notifications-mark-read"]').click();
     const response = await responsePromise;
     expect(response.status()).toBe(200);
-    await page.waitForLoadState('domcontentloaded');
-    await page.reload({ waitUntil: 'domcontentloaded' });
-    await expect(page.locator('[data-testid="qa-unread-badge"]')).toHaveCount(0);
+
+    // The button intentionally performs window.location.reload() after a
+    // successful protected write. Avoid a second reload: it races the first
+    // navigation and can produce ERR_ABORTED even though the write succeeded.
+    await expect(page.locator('[data-testid="qa-unread-badge"]')).toHaveCount(0, { timeout: 15_000 });
   });
 });
 
