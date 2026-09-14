@@ -161,4 +161,5 @@ server.listen(port, '127.0.0.1', () => {
   console.log(`[mock-operator] central contract listening on http://127.0.0.1:${port} (QR rotates every 20s)`);
 });
 
+// Verification-only trigger commit: keep the QA workflow on this branch active.
 process.on('SIGTERM', () => { clearInterval(rotate); server.close(); });
