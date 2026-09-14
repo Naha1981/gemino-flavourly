@@ -3,7 +3,7 @@ import { Megaphone, Wand2 } from 'lucide-react';
 import { resolveActiveTenant } from '@/lib/tenant-resolver';
 import { isDemoModeActive } from '@/lib/demo/demo-mode';
 import { listMarketingCampaigns } from '@/lib/marketing/campaign-store';
-import { getCampaignAttributionSummary } from '@/lib/marketing/attribution-store';
+import { getCampaignAttributionSummary, reconcileCampaignAttribution } from '@/lib/marketing/attribution-store';
 import { latestSimulationsByCampaign, type SimulationWithSegments } from '@/lib/pulsemap/store';
 import { CampaignBuilder, type BuilderCampaign } from './campaign-builder';
 
@@ -27,21 +27,17 @@ export default async function MarketingCampaignsPage({
     ),
   ]);
 
-  const attribution = new Map(
-    await Promise.all(
-      campaigns.map(async (campaign) => [
-        campaign.id,
-        await getCampaignAttributionSummary(tenant.id, campaign.id).catch(() => ({
-          campaignId: campaign.id,
-          sent: 0,
-          responded: 0,
-          booked: 0,
-          estimatedRevenueCents: 0,
-          realizedRevenueCents: 0,
-        })),
-      ] as const),
-    ),
+  const reconciled = await reconcileCampaignAttribution(tenant.id).catch(() => []);
+  const attribution = new Map(reconciled.map((row) => [row.campaignId, row]));
+
+  // Ensure campaigns that have no completed send yet still render a stable
+  // zero-valued attribution shape.
+  const missing = await Promise.all(
+    campaigns
+      .filter((campaign) => !attribution.has(campaign.id))
+      .map(async (campaign) => [campaign.id, await getCampaignAttributionSummary(tenant.id, campaign.id)] as const),
   );
+  for (const [campaignId, summary] of missing) attribution.set(campaignId, summary);
 
   const draftCampaigns: BuilderCampaign[] = campaigns
     .filter((c) => c.status === 'draft')
