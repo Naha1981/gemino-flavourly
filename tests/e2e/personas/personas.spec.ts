@@ -283,7 +283,7 @@ test.describe('persona: super admin (portal)', () => {
 
 test.describe('persona: tenant B (negative isolation)', () => {
   test.beforeEach(async ({ page }) => {
-    if (mockMode) await signInMockPersona(page, 'tenantB');
+    if (mockMode) await signInMockPersona(page, 'tenantBNegative');
     else test.skip(!creds, 'production run needs QA_EMAIL / QA_PASSWORD');
     if (creds && !mockMode) await signInProduction(page, creds);
   });
@@ -320,5 +320,5 @@ test.describe('persona: tenant B (negative isolation)', () => {
 });
 
 test('persona registry: exactly the six owner-specified personas', async () => {
-  expect(Object.keys(PERSONAS).sort()).toEqual(['newOwner', 'prospect', 'returningOwner', 'superAdmin', 'tenantB', 'visitor'].sort());
+  expect(Object.keys(PERSONAS).sort()).toEqual(['newOwner', 'prospectMagicLink', 'returningOwner', 'superAdmin', 'tenantBNegative', 'visitor'].sort());
 });
