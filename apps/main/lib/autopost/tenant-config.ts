@@ -13,6 +13,12 @@ export type TenantAutoPostConfig = {
   updatedAt?: string;
 };
 
+function requireEncryptionKey(): void {
+  if (!(process.env.REPUTATION_ENCRYPTION_KEY?.trim() || process.env.GOOGLE_PLACES_ENCRYPTION_KEY?.trim())) {
+    throw new Error('REPUTATION_ENCRYPTION_KEY is required before storing AutoPost credentials.');
+  }
+}
+
 export async function getTenantAutoPostConfig(tenantId: string): Promise<TenantAutoPostConfig | null> {
   const [row] = await db
     .select()
@@ -42,6 +48,7 @@ export async function saveTenantAutoPostConfig(
   tenantId: string,
   input: { workspaceId: string; socialAccountIds: string[] },
 ) {
+  requireEncryptionKey();
   const workspaceId = input.workspaceId.trim();
   const socialAccountIds = Array.from(new Set(input.socialAccountIds.map((id) => id.trim()).filter(Boolean)));
   if (!workspaceId || socialAccountIds.length === 0) throw new Error('Workspace ID and at least one social account ID are required.');
