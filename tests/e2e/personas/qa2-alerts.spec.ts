@@ -104,6 +104,10 @@ test.describe('QA-2 alert pipeline (inject fake failure)', () => {
     await page.goto(appUrl('/admin'));
     await expect(page.locator('[data-testid="qa-unread-badge"]')).toBeVisible();
     await page.locator('[data-testid="qa-notifications-mark-read"]').click();
+    // The server action performs the durable DB mutation and redirects back
+    // to /admin. Reload once to assert the persisted server-rendered state,
+    // rather than relying on a stale client tree during the action transition.
+    await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(page.locator('[data-testid="qa-unread-badge"]')).toBeHidden({ timeout: 30_000 });
   });
 });
