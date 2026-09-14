@@ -20,8 +20,9 @@ import { type Page, type ConsoleMessage } from '@playwright/test';
  *     owner-provided credentials QA_EMAIL / QA_PASSWORD (env vars or
  *     GitHub secrets — NEVER hardcoded; a source-scan test enforces it).
  *     Without them, auth journeys SKIP loudly instead of silently passing.
- *     Production runs are READ-ONLY by design (no button writes) so a
- *     scheduled run can never mutate live tenant data.
+ *
+ * Production runs are READ-ONLY by design (no button writes) so a scheduled
+ * run can never mutate live tenant data.
  */
 
 export const PERSONA_COOKIE = '__gate_user';
@@ -40,15 +41,6 @@ export const PERSONAS: Record<string, PersonaSpec> = {
   superAdmin: { name: 'super-admin', mockUserId: 'user_gate_superadmin', summary: 'naha.thabiso@gmail.com: /admin portal, notifications, demo toggle' },
   tenantBNegative: { name: 'tenant-b-negative', mockUserId: 'user_gate_tenantb', summary: 'Tenant B owner: cross-tenant isolation negatives' },
 };
-
-// Owner-spec registry names remain enumerable while existing implementation
-// spellings stay available for the running suite.
-Object.defineProperties(PERSONAS, {
-  prospect: { value: PERSONAS.prospectMagicLink, enumerable: true },
-  prospectMagicLink: { value: PERSONAS.prospectMagicLink, enumerable: false },
-  tenantB: { value: PERSONAS.tenantBNegative, enumerable: true },
-  tenantBNegative: { value: PERSONAS.tenantBNegative, enumerable: false },
-});
 
 export function isMockMode(): boolean { return Boolean(process.env.GATE_BASE_URL); }
 
