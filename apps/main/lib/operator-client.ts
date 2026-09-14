@@ -97,4 +97,16 @@ export const operatorClient = {
   async requestPairingCode(tenantId: string, waAccountId: string, phoneNumber: string) {
     return centralWhatsApp.requestPairingCode(tenantId, waAccountId, phoneNumber);
   },
+
+  async getPairingCode(tenantId: string, waAccountId: string) {
+    return centralWhatsApp.currentPairingCode(tenantId, waAccountId);
+  },
+
+  async reset(tenantId: string, waAccountId: string) {
+    return centralWhatsApp.reset(tenantId, waAccountId);
+  },
+
+  async disconnect(tenantId: string, waAccountId: string) {
+    return centralWhatsApp.disconnect(tenantId, waAccountId);
+  },
 };
