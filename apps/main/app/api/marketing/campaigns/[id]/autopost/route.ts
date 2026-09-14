@@ -19,8 +19,9 @@ export const dynamic = 'force-dynamic';
  *   workspace and connected social-account ids.
  * - Demo mode may walk the approval flow without contacting a social network.
  */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   void req;
+  const { id } = await params;
   const tenant = await getOrCreateTenant();
   if (!tenant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   }
 
   const campaign = await db.query.marketingCampaigns.findFirst({
-    where: and(eq(marketingCampaigns.id, params.id), eq(marketingCampaigns.tenantId, tenant.id)),
+    where: and(eq(marketingCampaigns.id, id), eq(marketingCampaigns.tenantId, tenant.id)),
   });
   if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
   if (campaign.status !== 'draft') {
