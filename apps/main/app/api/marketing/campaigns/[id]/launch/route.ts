@@ -34,7 +34,13 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   const [waAccount] = await db
     .select({ id: waAccounts.id, isConnected: waAccounts.isConnected, status: waAccounts.status })
     .from(waAccounts)
-    .where(and(eq(waAccounts.tenantId, tenant.id), eq(waAccounts.isConnected, true)))
+    .where(
+      and(
+        eq(waAccounts.tenantId, tenant.id),
+        eq(waAccounts.isConnected, true),
+        eq(waAccounts.status, 'connected'),
+      ),
+    )
     .limit(1);
 
   if (!waAccount) {
