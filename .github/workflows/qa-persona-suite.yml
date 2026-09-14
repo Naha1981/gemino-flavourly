@@ -43,6 +43,7 @@ jobs:
       QA_ALERT_EMAIL_TRANSPORT: mock
       ADMIN_EMAIL: naha.thabiso@gmail.com
       OPERATOR_URL: http://127.0.0.1:3001
+      OPERATOR_API_KEY: qa-ci-operator-key
       NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_qaplaceholder
       NEXT_PUBLIC_APP_URL: http://127.0.0.1:3100
     steps:
