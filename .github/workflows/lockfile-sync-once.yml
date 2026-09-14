@@ -1,0 +1,36 @@
+name: Release dependency sync
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    if: github.event.pull_request.head.ref == 'release/50-restaurant-hardening-2026-09-14' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - name: Regenerate lockfile
+        run: npm install --no-audit --no-fund
+      - name: Commit generated lockfile
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package-lock.json apps/main/package.json
+          if git diff --cached --quiet; then
+            echo 'No lockfile changes.'
+          else
+            git commit -m 'chore(deps): regenerate npm lockfile after Next.js security upgrade'
+            git push origin HEAD:${{ github.head_ref || github.ref_name }}
+          fi
