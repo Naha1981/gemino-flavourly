@@ -78,9 +78,9 @@ describe('tenant dashboard wiring (Inbox + Reputation)', () => {
 });
 
 describe('toggle component contract', () => {
-  test('persists via cookie and refreshes server components', () => {
+  test('persists via cookie and fully reloads server components', () => {
     assert.match(demoBar, /document\.cookie/);
-    assert.match(demoBar, /router\.refresh/);
+    assert.match(demoBar, /window\.location\.reload/);
     assert.match(demoBar, /gemino_demo_mode=on/);
     assert.match(demoBar, /data-testid="demo-mode-toggle"/);
   });
