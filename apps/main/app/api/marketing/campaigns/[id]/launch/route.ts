@@ -1,64 +1,76 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { and, eq } from 'drizzle-orm';
 import { getOrCreateTenant } from '@/lib/tenant';
-import { marketingCampaigns, contacts, jobs } from '@/lib/db/schema';
+import { marketingCampaigns, contacts, customerProfiles, jobs } from '@/lib/db/schema';
 import { canSendAutomatedMessages } from '@/lib/billing/gate-evaluate';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * POST /api/marketing/campaigns/[id]/launch — launch a draft campaign.
+ * POST /api/marketing/campaigns/[id]/launch — launch a WhatsApp campaign.
  *
- * ENFORCES the billing gate: past-due / canceled tenants cannot launch
- * campaigns. Super admin is never gated. On success the campaign is marked
- * launched and one outbox job is enqueued per target contact.
+ * Separate from social AutoPost approval. Enforces billing, tenant isolation,
+ * blocklists and the selected customer segment before anything enters the
+ * outbox.
  */
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+  void _req;
   const tenant = await getOrCreateTenant();
-  if (!tenant) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
+  if (!tenant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  // Billing gate — campaign launch is a sending path.
   if (!(await canSendAutomatedMessages(tenant.id))) {
-    return NextResponse.json(
-      { error: 'Billing inactive — renew to resume AI and campaigns' },
-      { status: 402 }
-    );
+    return NextResponse.json({ error: 'Billing inactive — renew to resume AI and campaigns' }, { status: 402 });
   }
 
   const campaign = await db.query.marketingCampaigns.findFirst({
     where: and(eq(marketingCampaigns.id, params.id), eq(marketingCampaigns.tenantId, tenant.id)),
   });
-  if (!campaign) {
-    return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
-  }
+  if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
   if (campaign.status !== 'draft') {
     return NextResponse.json({ error: `Campaign already ${campaign.status}` }, { status: 409 });
   }
 
-  // Resolve target contacts (tenant-scoped, not opted-out).
-  const where = eq(contacts.tenantId, tenant.id);
-  const targets = await db.select({ phone: contacts.phone }).from(contacts).where(where);
+  let targetContactIds: string[] | null = null;
+  if (campaign.targetSegment) {
+    const profiles = await db
+      .select({ contactId: customerProfiles.contactId })
+      .from(customerProfiles)
+      .where(and(eq(customerProfiles.tenantId, tenant.id), eq(customerProfiles.segment, campaign.targetSegment)));
+    targetContactIds = profiles.map((row) => row.contactId).filter((id): id is string => Boolean(id));
+    if (targetContactIds.length === 0) {
+      return NextResponse.json({ error: `No customers currently match the ${campaign.targetSegment} segment.` }, { status: 422 });
+    }
+  }
 
-  let enqueued = 0;
-  for (const t of targets) {
-    if (!t.phone) continue;
+  const targets = targetContactIds
+    ? await db
+        .select({ phone: contacts.phone })
+        .from(contacts)
+        .where(and(eq(contacts.tenantId, tenant.id), eq(contacts.blocklisted, false), inArray(contacts.id, targetContactIds)))
+    : await db
+        .select({ phone: contacts.phone })
+        .from(contacts)
+        .where(and(eq(contacts.tenantId, tenant.id), eq(contacts.blocklisted, false)));
+
+  if (targets.length === 0) {
+    return NextResponse.json({ error: 'No eligible customers are available for this campaign.' }, { status: 422 });
+  }
+
+  for (const target of targets) {
     await db.insert(jobs).values({
       tenantId: tenant.id,
       type: 'send_whatsapp',
-      payload: { to: t.phone, text: campaign.message, campaignId: campaign.id },
+      payload: { to: target.phone, text: campaign.message, campaignId: campaign.id },
       status: 'pending',
       nextRunAt: new Date(),
     });
-    enqueued++;
   }
 
   await db
     .update(marketingCampaigns)
-    .set({ status: 'sent', launchedAt: new Date(), sentCount: enqueued, sentAt: new Date() })
-    .where(eq(marketingCampaigns.id, campaign.id));
+    .set({ status: 'sent', launchedAt: new Date(), sentCount: targets.length, sentAt: new Date() })
+    .where(and(eq(marketingCampaigns.id, campaign.id), eq(marketingCampaigns.tenantId, tenant.id)));
 
-  return NextResponse.json({ ok: true, launched: true, enqueued });
+  return NextResponse.json({ ok: true, launched: true, enqueued: targets.length });
 }
