@@ -56,7 +56,8 @@ function appUrl(): string {
 
 function webhookUrl(): string {
   const base = appUrl();
-  if (process.env.NODE_ENV === 'production' && (!base || !/^https:\/\//i.test(base))) {
+  const qaMock = process.env.GATE_MOCK === '1';
+  if (process.env.NODE_ENV === 'production' && !qaMock && (!base || !/^https:\/\//i.test(base))) {
     throw new Error('APP_URL must be a public HTTPS URL in production so the central WhatsApp Operator can deliver inbound webhooks.');
   }
   return `${base}/api/webhooks/whatsapp`;
