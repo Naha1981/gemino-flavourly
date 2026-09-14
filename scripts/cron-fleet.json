@@ -3,7 +3,7 @@
   "version": 1,
   "description": "Canonical Flavourly cron fleet (S5). 23 jobs + hourly system watchdog. Read by lib/cron/canonical-fleet.ts (fs), scripts/setup-cronjobs.mjs, and GET /api/admin/sync-crons.",
   "baseUrl": "https://gemino-flavourly-whatsapp.vercel.app",
-  "operatorUrl": "https://gemino-flavourly-whatsapp.onrender.com",
+  "operatorUrl": "https://my-own-whatsapp-2z5h.onrender.com",
   "timezone": "Africa/Johannesburg",
   "jobs": [
     {
