@@ -1,15 +1,10 @@
-import LandingClient from './landing-client';
+import UnifiedLanding from './unified-landing';
 
 /**
- * PERF-1 — plain static page. No server component auth check.
- *
- * Previously this awaited `safeAuth()` and redirected signed-in visitors to
- * /dashboard before rendering anything, but `safeAuth()` calls Clerk's
- * `auth()`, which reads headers and forces the route dynamic — the opposite
- * of this gate's goal. The signed-in redirect now happens client-side, in
- * LandingClient (via <SignedIn><DashboardRedirect /></SignedIn>), so this
- * page itself has zero dynamic APIs and can prerender as static HTML.
+ * Static marketing shell for the unified Flavourly Restaurant Growth OS.
+ * Authentication-aware redirect remains client-side inside the landing UI
+ * so the public home page stays statically renderable on Vercel.
  */
 export default function Page() {
-  return <LandingClient />;
+  return <UnifiedLanding />;
 }
