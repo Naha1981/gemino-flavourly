@@ -23,10 +23,6 @@ export async function runBirthdayRewards(now = new Date()): Promise<BirthdayCron
   const result: BirthdayCronResult = { candidates: 0, rewarded: 0, skippedBlocked: 0, samples: [] };
 
   for (const tenant of allTenants) {
-    // POPIA: only contacts that are NOT blocklisted. `contacts.blocklisted`
-    // is boolean NOT NULL DEFAULT false, so `isNull(...)` matched zero rows
-    // and silently killed the whole birthday cron — every other store uses
-    // eq(contacts.blocklisted, false), which is the correct form.
     const rows = await db
       .select()
       .from(contacts)
@@ -49,10 +45,8 @@ export async function runBirthdayRewards(now = new Date()): Promise<BirthdayCron
       .from(waAccounts)
       .where(and(eq(waAccounts.tenantId, tenant.id), eq(waAccounts.isConnected, true)))
       .limit(1);
-    // Drizzle .limit(1) returns an ARRAY — take the first row before reading .id.
     const sender = senderRows[0];
     if (!sender?.id) {
-      // No connected WhatsApp to send from — record but don't queue.
       result.skippedBlocked += rewards.length;
       continue;
     }
@@ -73,7 +67,6 @@ export async function runBirthdayRewards(now = new Date()): Promise<BirthdayCron
         })
         .returning();
 
-      // Hand the offer to the outbox (guaranteed, retried delivery).
       await db
         .insert(jobs)
         .values({
@@ -84,6 +77,7 @@ export async function runBirthdayRewards(now = new Date()): Promise<BirthdayCron
             to: reward.customerPhone,
             text: reward.message,
             campaignId: campaign.id,
+            automated: true,
           },
           status: 'pending',
           maxAttempts: 5,

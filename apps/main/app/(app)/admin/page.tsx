@@ -33,6 +33,8 @@ import {
 } from '@/lib/demo/seed-data';
 import { cronKeyConfigured } from '@/lib/cron/key-store-server';
 import { loadCanonicalFleet } from '@/lib/cron/canonical-fleet';
+import { planToTier } from '@/lib/billing/tier-limits';
+import { TIER_CENTS } from '@/lib/billing/payfast';
 
 export const dynamic = 'force-dynamic';
 
@@ -76,6 +78,13 @@ export default async function SuperAdminDashboard() {
   const recentTenantsLive = demoMode
     ? []
     : await db.select().from(tenants).orderBy(desc(tenants.createdAt)).limit(10).catch(() => []);
+  const activeBillingTenants = demoMode
+    ? []
+    : await db
+        .select({ plan: tenants.plan, planStatus: tenants.planStatus })
+        .from(tenants)
+        .where(eq(tenants.planStatus, 'active'))
+        .catch(() => []);
   const settings = await db.query.systemSettings.findFirst().catch(() => null);
   const cronKeyState = await cronKeyConfigured().catch(() => ({ configured: false, source: 'none' as const }));
   // Canonical fleet size for the manager's copy — read from the same loader
@@ -170,6 +179,9 @@ export default async function SuperAdminDashboard() {
     : Number(missedRevenueResult[0]?.value ?? 0);
   const aggregateMissedRevenue = aggregateMissedRevenueCents / 100;
   const isMasterAiOn = settings?.masterAiSwitch ?? true;
+  const liveMrrZarCents = activeBillingTenants.reduce((sum, tenant) => {
+    return sum + (TIER_CENTS[planToTier(tenant.plan)] ?? 0);
+  }, 0);
 
   // Demo branch for the computed engines (slow days, opportunity,
   // segmentation, reputation, market intelligence): the seed dataset
@@ -223,11 +235,11 @@ export default async function SuperAdminDashboard() {
       }))
     : recentTenantsLive;
 
-  // MRR display: live uses the $49 pricing copy; demo shows the seed
-  // dataset's ZAR economics (R699/tenant, 24 tenants).
-  const estMrr = demoMode ? DEMO_PLATFORM_KPIS.mrrZar : totalTenants * 49;
-  const mrrDisplay = demoMode ? `R${estMrr.toLocaleString()}` : `$${estMrr.toLocaleString()}`;
-  const mrrTrend = demoMode ? 'R699/mo per tenant' : '$49/mo per tenant';
+  // Estimated MRR is the sum of currently active plan prices in ZAR.
+  // Trialing/cancelled tenants are deliberately excluded from this KPI.
+  const estMrr = demoMode ? DEMO_PLATFORM_KPIS.mrrZar : liveMrrZarCents / 100;
+  const mrrDisplay = `R${estMrr.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+  const mrrTrend = demoMode ? 'Demo platform economics' : `${activeBillingTenants.length} active subscriptions`;
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 p-6 md:p-10 selection:bg-zinc-800">
@@ -257,7 +269,7 @@ export default async function SuperAdminDashboard() {
               )}
             </div>
             <p className="text-xs text-zinc-400 mt-1">
-              Global system health, tenant isolation registry, and Baileys WhatsApp socket fleet.
+              Global system health, tenant isolation registry, and central WhatsApp Operator fleet.
             </p>
           </div>
 
@@ -341,19 +353,19 @@ export default async function SuperAdminDashboard() {
             title="Total Tenants"
             value={totalTenants.toString()}
             icon={Users}
-            trend="+12% this month"
+            trend="Current platform count"
           />
           <StatCard
             title="Active WhatsApp Sockets"
             value={activeConnections.toString()}
             icon={Activity}
-            trend="99.4% uptime"
+            trend="Current connected sockets"
           />
           <StatCard
             title="Total Messages Processed"
             value={totalMessages.toString()}
             icon={MessageSquare}
-            trend="+18% 24h vol"
+            trend="All-time processed"
           />
           <StatCard
             title="Estimated MRR"

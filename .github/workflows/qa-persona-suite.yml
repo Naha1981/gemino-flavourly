@@ -1,20 +1,13 @@
 name: QA Persona Suite
 
 # GATE QA-2 — the app tests itself.
-#   - every PR: full persona suite against a GATE_MOCK build (real app
-#     code + pg-mem; every persona journey, every nav item, console
+#   - every PR: native unit suite + full persona suite against a GATE_MOCK build
+#     (real app code + pg-mem; every persona journey, every nav item, console
 #     errors, screenshots) — no external dependencies, always runs.
 #   - every 6h (schedule): the same suite PLUS a production run when the
-#     owner-provided secrets QA_EMAIL / QA_PASSWORD / CRON_SECRET exist
-#     (read-only by design).
-#   - on ANY failure: post the failing check to the app's alert pipeline
-#     (POST /api/cron/qa-alert, CRON_SECRET bearer) → email to the owner
-#     + admin_notifications row + unread badge in the Super Admin portal,
-#     deduped to once per 6h per check.
+#     owner-provided secrets QA_EMAIL / QA_PASSWORD / CRON_SECRET exist.
+#   - on ANY failure: post the failing check to the app's alert pipeline.
 #   - the HTML report is uploaded as an artifact on every run.
-#
-# The 10-minute smoke sweep + Render keep-alive live on cron-job.org
-# (see docs/qa2/SETUP.md) — NEVER in vercel.json.
 
 on:
   pull_request:
@@ -31,9 +24,9 @@ concurrency:
 
 jobs:
   gate-mock:
-    name: Persona suite (GATE_MOCK build)
+    name: Unit + Persona suite (GATE_MOCK)
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 50
     env:
       GATE_BASE_URL: http://127.0.0.1:3100
       CRON_SECRET: qa-ci-cron-secret
@@ -55,6 +48,9 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Run native unit suite
+        run: npm test
 
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
@@ -99,7 +95,7 @@ jobs:
           curl -s -X POST \
             -H "Authorization: Bearer $CRON_SECRET" \
             -H "Content-Type: application/json" \
-            -d "{\"severity\":\"critical\",\"check\":\"persona-suite/github-actions\",\"message\":\"The GATE_MOCK persona run failed. See the attached HTML report artifact for the exact failing tests.\",\"reportUrl\":\"$REPORT_URL\"}" \
+            -d "{\"severity\":\"critical\",\"check\":\"persona-suite/github-actions\",\"message\":\"The GATE_MOCK unit/persona run failed. See the attached report artifact for the exact failing tests.\",\"reportUrl\":\"$REPORT_URL\"}" \
             http://127.0.0.1:3100/api/cron/qa-alert || echo "alert post failed (app down?)"
 
   production:

@@ -1,240 +1,156 @@
-# Gemino — Multi-Tenant WhatsApp AI Platform (Direct Baileys Architecture)
+# Gemino / Flavourly — Multi-Tenant Restaurant WhatsApp AI Platform
 
-Production-ready, multi-tenant WhatsApp AI SaaS built using the **Universal Direct WhatsApp Architecture (No Twilio / No Cloud API fees)**.
+Gemino is the tenant-aware business brain for Flavourly. It handles restaurant conversations, AI, customer intelligence, campaigns, loyalty, reputation, analytics, billing and operational workflows. WhatsApp transport is provided by the shared **NahaLabs Central WhatsApp Operator**.
 
----
+## Architecture
 
-## 🏛️ System Architecture
-
-```
-                                  ┌────────────────────────────────────────┐
-                                  │      WhatsApp Web Network (Meta)       │
-                                  └───────────────────▲────────────────────┘
-                                                      │ Persistent WebSockets
-                                                      ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                 THE ENGINE: WhatsApp Operator (Render/Docker)                          │
-│  - Express.js + @whiskeysockets/baileys                                                                │
-│  - Multi-tenant Socket Manager (Map<waAccountId, WASocket>)                                            │
-│  - Neon Postgres Session Credential Persistence (survives restarts)                                    │
-│  - Inbound Message Forwarder with HMAC-SHA256 Signatures                                              │
-│  - REST API: POST /start (QR generation), POST /send (instant deliver), GET /health                    │
-└───────────────────────────────────────────────┬────────────────────────────────────────────────────────┘
-                                                │ HMAC-SHA256 Webhooks (Inbound)
-                                                │ REST API /send (Outbound Worker)
-                                                ▼
-┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
-│                                 THE BRAIN: Next.js 14 App (Vercel Serverless)                          │
-│  - App Router, React 18, Tailwind CSS, Lucide Icons, Shadcn-style Zinc Theme                           │
-│  - Clerk Auth (Multi-tenant metadata & Admin role verification)                                        │
-│  - Drizzle ORM + Neon Serverless PostgreSQL                                                            │
-│  - Outbox Pattern Engine (jobs table + /api/cron/outbox for guaranteed message delivery)               │
-│  - AI Automation (Keyword matching, POPIA STOP opt-out, Gemini/Groq AI integration)                    │
-│  - Dashboards:                                                                                         │
-│    1. Super Admin Dashboard (/admin): Global metrics, MRR, all tenants, emergency master switch        │
-│    2. Operations / Tenant Dashboard (/dashboard): QR code connect, conversations, waitlist, loyalty    │
-│    3. Conversations UI (/dashboard/conversations): Live message thread viewer & manual reply mode     │
-│    4. Waitlist & Reservations (/dashboard/reservations)                                                │
-└────────────────────────────────────────────────────────────────────────────────────────────────────────┘
+```text
+WhatsApp Web / Baileys
+        │
+        ▼
+┌───────────────────────────────────────────────┐
+│ NahaLabs Central WhatsApp Operator            │
+│ Render · shared transport · multi-account     │
+│ QR/pairing · send · status · inbound webhook   │
+└──────────────────────┬────────────────────────┘
+                       │ HMAC-signed webhook / REST
+                       ▼
+┌───────────────────────────────────────────────┐
+│ Gemino / Flavourly Next.js app                │
+│ Vercel · multi-tenant business brain          │
+│ Clerk · Drizzle · Neon · AI · CRM · billing  │
+│ campaigns · AutoPost · analytics · outbox     │
+└───────────────────────────────────────────────┘
 ```
 
----
+**There is no local `operator/` application in this repository.** Do not add a second Baileys engine here. The canonical transport is the shared central Operator documented in `WHATSAPP_ARCHITECTURE.md`.
 
-## 📁 Monorepo Structure
+## Repository layout
 
-```
-gemeli-whatsapp-app/
-├── apps/
-│   └── main/                        # Next.js 14 Brain (Vercel)
-│       ├── app/
-│       │   ├── admin/page.tsx       # Super Admin Dashboard (MRR, Tenants, Kill-switch)
-│       │   ├── dashboard/           # Tenant Operations & QR pairing
-│       │   │   ├── conversations/   # Live WhatsApp thread viewer
-│       │   │   ├── waitlist/        # Waitlist queue dispatcher
-│       │   │   ├── loyalty/         # Points ledger & rewards
-│       │   │   ├── market/          # Market Intelligence (#15-#18)
-│       │   │   │   ├── competitors/ # Discovery + menu/promotion tracking
-│       │   │   │   ├── opportunities/ # Detected market gaps
-│       │   │   │   └── positioning/ # Price / rating / menu positioning
-│       │   │   └── settings/        # AI prompt, hours, address, menu
-│       │   └── api/
-│       │       ├── webhooks/whatsapp/ # HMAC-SHA256 verified inbound webhook
-│       │       ├── cron/outbox/       # Guaranteed outbox pattern worker
-│       │       ├── cron/track-competitors/ # Daily market sweep (08:00)
-│       │       ├── market/            # Competitors, opportunities, positioning
-│       │       └── whatsapp/connect/  # QR code generation trigger
-│       ├── lib/
-│       │   ├── db/schema.ts         # Drizzle PostgreSQL schema
-│       │   ├── db/index.ts          # Neon serverless client
-│       │   ├── operator-client.ts   # HTTP client to Render operator
-│       │   ├── market/              # Geolocation, scraper, detectors, analyzers
-│       │   └── ai/responder.ts      # Keyword detection & LLM fallback
-│       └── package.json
-├── operator/                        # Persistent Baileys Engine (Render/Docker)
-│   ├── src/
-│   │   ├── whatsapp/index.ts        # Baileys socket lifecycle & reconnection
-│   │   ├── webhook/forward.ts       # HMAC signed webhook forwarder
-│   │   ├── db/client.ts             # Postgres session persistence
-│   │   └── index.ts                 # Express REST API (/start, /send, /health)
-│   ├── Dockerfile                   # Multi-stage container
-│   └── package.json
-├── .github/workflows/
-│   └── synthetic-monitor.yml        # Synthetic uptime checks
-├── WHATSAPP_ARCHITECTURE.md         # Core engineering specification
-├── vercel.json                      # Vercel deployment & cron config
-├── turbo.json                       # Turborepo pipeline
-└── package.json                     # Monorepo root
+```text
+gemino-flavourly/
+├── apps/main/                         # Next.js application
+│   ├── app/(app)/dashboard/           # tenant product surfaces
+│   ├── app/(app)/admin/               # Super Admin platform controls
+│   ├── app/api/webhooks/whatsapp/     # HMAC-verified central Operator webhook
+│   ├── app/api/cron/                  # secured scheduled jobs
+│   └── lib/                           # DB, AI, WhatsApp client, billing, CRM, etc.
+├── apps/main/lib/whatsapp/             # central Operator client + contracts
+├── scripts/cron-fleet.json             # canonical external cron fleet
+├── .github/workflows/                  # CI / persona QA
+├── WHATSAPP_ARCHITECTURE.md            # transport specification
+├── CLAUDE.md                           # engineering and release gates
+├── .env.example                        # environment contract
+└── package.json
 ```
 
----
+## Local development
 
-## 🚀 Quickstart & Local Development
+### Install
 
-### 1. Install Dependencies
 ```bash
 npm install
 ```
 
-### 2. Configure Environment Variables
-Copy `.env.example` to `.env.local` in `apps/main` and `.env` in `operator`:
-```bash
-# In apps/main/.env.local:
-DATABASE_URL="postgresql://user:pass@ep-host.region.aws.neon.tech/neondb?sslmode=require"
-NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY="pk_test_..."
-CLERK_SECRET_KEY="sk_test_..."
-OPERATOR_URL="http://localhost:3001"
-OPERATOR_API_KEY="your-operator-api-key"
-WEBHOOK_SECRET="your-webhook-secret"
-ADMIN_EMAIL="you@yourdomain.com"
-GOOGLE_GEMINI_API_KEY="AIzaSy..."
-GROQ_API_KEY="gsk_..."
-CRON_SECRET="random-32-char-hex"
-SUPER_ADMIN_EMAILS="you@yourdomain.com"
-NEXT_PUBLIC_APP_URL="http://localhost:3000"
-NEXT_PUBLIC_WHATSAPP_CONTACT="27820000000"
+### Configure
 
-# PayFast (billing — South Africa)
-PAYFAST_MERCHANT_ID="10000100"
-PAYFAST_MERCHANT_KEY="your-merchant-key"
-PAYFAST_PASSPHRASE="your-passphrase"
-PAYFAST_SANDBOX="true"
+Copy the environment contract from `.env.example` into `apps/main/.env.local` and provide local/test values for the services you use.
 
-# In operator/.env:
-PORT=3001
-DATABASE_URL="postgresql://user:pass@ep-host.region.aws.neon.tech/neondb?sslmode=require"
-MAIN_APP_WEBHOOK_URL="http://localhost:3000/api/webhooks/whatsapp"
-WEBHOOK_SECRET="your-webhook-secret"
-OPERATOR_API_KEY="your-operator-api-key"
-```
+The important application variables are:
 
-### 3. Migrate Database Schema
-```bash
-npm run db:generate
-npm run db:migrate
-```
+| Variable | Purpose |
+|---|---|
+| `DATABASE_URL` | Neon/Postgres connection string |
+| `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` / `CLERK_SECRET_KEY` | Clerk authentication |
+| `CRON_SECRET` | Authenticates scheduled cron routes |
+| `ADMIN_EMAIL` / `SUPER_ADMIN_EMAILS` | Platform administration |
+| `OPERATOR_URL` | Central NahaLabs WhatsApp Operator URL |
+| `OPERATOR_API_KEY` | Server-to-server Operator authentication |
+| `WEBHOOK_SECRET` | HMAC verification for inbound Operator webhooks |
+| `APP_ID` | Application identity sent to the central Operator (`gemino`) |
+| `APP_URL` | Public Gemino callback base URL |
+| `GROQ_API_KEY` / `GOOGLE_GEMINI_API_KEY` | AI providers |
+| `GOOGLE_PLACES_API_KEY` / `GOOGLE_MAPS_API_KEY` | Market intelligence / Google Places |
+| `OPENPOST_BASE_URL` / `OPENPOST_API_TOKEN` / `OPENPOST_WORKSPACE_ID` / `OPENPOST_SOCIAL_ACCOUNT_IDS` | AutoPost integration |
+| `RESEND_API_KEY` / `QA_ALERT_TO` / `QA_ALERT_FROM` | QA alerting |
+| `CRONJOB_API_KEY` | cron-job.org fleet management |
+| `PAYFAST_MERCHANT_ID` / `PAYFAST_MERCHANT_KEY` / `PAYFAST_PASSPHRASE` / `PAYFAST_SANDBOX` | South African billing |
 
-### 4. Run Both Services Simultaneously
+### Start the app
+
 ```bash
 npm run dev
 ```
-- Main App: [http://localhost:3000](http://localhost:3000)
-- Super Admin: [http://localhost:3000/admin](http://localhost:3000/admin)
-- Tenant Dashboard: [http://localhost:3000/dashboard](http://localhost:3000/dashboard)
-- Operator Engine: [http://localhost:3001/health](http://localhost:3001/health)
 
----
+The tenant dashboard is available at `/dashboard`; the Super Admin console is at `/admin` for authorized administrators.
 
-## 🚢 Production Deployment
+## WhatsApp setup
 
-### 1. Deploy the Operator to Render
-1. Create a new **Web Service** on Render pointing to the `operator` directory.
-2. Select **Docker** environment (or Node.js 20).
-3. Set environment variables:
-   - `DATABASE_URL` = Your Neon Postgres URL
-   - `MAIN_APP_WEBHOOK_URL` = `https://your-app.vercel.app/api/webhooks/whatsapp`
-   - `WEBHOOK_SECRET` = Random 32+ character hex string
-   - `OPERATOR_API_KEY` = Random 32+ character hex string
-   - `PORT` = `3001`
-4. Deploy and verify `https://your-operator.onrender.com/health` returns `OK`.
+Gemino talks to the shared Operator through `apps/main/lib/whatsapp/central-operator.ts`. The server-side client sends the required application, tenant and Operator credentials; local tenant `wa_accounts` IDs are mapped to central Operator account IDs.
 
-### 2. Deploy the Main App to Vercel
-1. Import your Git repository into Vercel.
-2. The root directory will build using the pre-configured `vercel.json` (100% compatible with Vercel Free Hobby plan).
-3. Set environment variables in Vercel project settings:
-   - `DATABASE_URL` = Neon Postgres URL
-   - `OPERATOR_URL` = `https://your-operator.onrender.com`
-   - `OPERATOR_API_KEY` = (Same key from Operator)
-   - `WEBHOOK_SECRET` = (Same secret from Operator)
-   - `CLERK_SECRET_KEY` & `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`
-   - `ADMIN_EMAIL` = Your email address
-   - `GROQ_API_KEY` = Your Groq API key
-4. Deploy.
+For connection flows, the app supports central QR payloads and pairing codes. A Render cold start is represented explicitly as a transient **waking** state rather than a fake disconnected/unlinked success.
 
-### 3. Set Up Free External Cron Jobs (cron-job.org)
-Since Vercel Hobby limits cron frequencies, set up free external cron triggers on [cron-job.org](https://cron-job.org):
-1. **Outbox Message Worker (Every 1 minute)**:
-   - URL: `https://your-app.vercel.app/api/cron/outbox`
-   - Schedule: Every 1 minute
-2. **Daily Analytics Brief (Daily at 07:00 AM)**:
-   - URL: `https://your-app.vercel.app/api/cron/daily-brief`
-   - Schedule: Every day at 07:00
-3. **Waitlist Expiration Cleaner (Every 15 minutes)**:
-   - URL: `https://your-app.vercel.app/api/cron/waitlist`
-   - Schedule: Every 15 minutes
-4. **Keep Render Operator Awake (Every 5 minutes)**:
-   - URL: `https://your-operator.onrender.com/health`
-   - Schedule: Every 5 minutes
-5. **Competitor Market Sweep (Daily at 08:00)**:
-   - URL: `https://your-app.vercel.app/api/cron/track-competitors`
-   - Schedule: Every day at 08:00
-   - Header: `Authorization: Bearer <CRON_SECRET>` (mandatory — the guard fails closed)
-   - Scrapes every tracked competitor's menu, diffs it against the stored
-     snapshot, scans the same site for promotions, raises inbox alerts for
-     real changes, and then recomputes market opportunities from the result.
+Inbound WhatsApp events must arrive at:
 
----
+```text
+POST {APP_URL}/api/webhooks/whatsapp
+```
 
-## 🧭 Market Intelligence Engine (Gates #15-#18)
+The webhook is HMAC-verified and resolves the tenant from the central account binding; it must not trust a tenant identifier supplied in the message body.
 
-Everything a restaurant can learn about the other restaurants within 5km,
-built from data the platform already touches: Google Places for discovery
-and public websites for menus and promotions. No model calls, no scraping
-infrastructure — the analyzers are pure functions over stored rows, so the
-same input always produces the same report.
+## Outbound messaging
 
-| # | Capability | Where it lives |
-|---|---|---|
-| 15 | **Competitor discovery** — geocode the venue, list every restaurant in a 5km radius, track them (name, address, distance, place id, website, phone, Google price band) | `lib/market/geolocation.ts`, `lib/market/competitor-store.ts`, `/api/market/competitors*` |
-| 16 | **Menu / price / promotion tracking** — daily scrape, diff against the last snapshot, alert on new items, removals and price moves; detect promotions and dedupe them over a 30-day window | `lib/market/menu-scraper.ts`, `promotion-detector.ts`, `competitor-alerts.ts`, `/api/cron/track-competitors` |
-| 17 | **Opportunity detection** — meal, cuisine, price-band and day/time gaps with an additive, explainable confidence score | `lib/market/opportunity-analyzer.ts`, `opportunity-store.ts`, `/api/market/opportunities*` |
-| 18 | **Positioning** — price band, Google rating rank, menu overlap and unique dishes vs the tracked set | `lib/market/positioning-analyzer.ts`, `positioning-store.ts`, `/api/market/positioning` |
+Customer-facing sends use the `jobs` outbox and the central Operator. The outbox owns retries, stuck-job reclamation, delivery-state reconciliation and tenant billing limits.
 
-Tenant-facing pages live under `/dashboard/market/*` (nav: **Market
-Intelligence**); the Super Admin dashboard reports competitors tracked,
-market opportunities detected and competitor alerts raised this week.
+Automated customer messages marked with `automated: true` are restricted to the **07:00–20:00 Africa/Johannesburg** send window. Manual staff replies and normal inbound AI responses are not delayed by this campaign send-window rule.
 
-Two design rules worth knowing before extending this:
+## Scheduled jobs
 
-- **A first scrape is a baseline, not a change.** Otherwise every newly
-  tracked competitor announces itself as a menu rewrite and the alert stream
-  gets muted.
-- **Gaps and positions are only reported when the evidence supports them.**
-  An empty market returns no opportunities rather than invented ones, and a
-  tenant with no menu on record gets an "unknown" band instead of a
-  plausible-looking number.
+`scripts/cron-fleet.json` is the canonical external schedule. It is designed for cron-job.org / the in-app Cron Fleet Manager and includes the central Operator keep-alive plus the application jobs.
 
-Required keys are optional by design: without `GOOGLE_MAPS_API_KEY` /
-`GOOGLE_PLACES_API_KEY` discovery reports a clear error, but menu and
-promotion tracking still run — it reads public websites and needs no Google
-key at all. Competitors can also be added by hand (name + website), which is
-why `competitors.google_place_id` is nullable.
+The fleet must not be duplicated in `vercel.json`. The runtime loader prefers `scripts/cron-fleet.json` and falls back to the embedded snapshot in `apps/main/lib/cron/canonical-fleet.embedded.ts`; a test fails when the two drift.
 
----
+The current fleet includes campaign-attribution reconciliation as well as the QA smoke sweep and system watchdog.
 
-## 🔒 Security & Compliance
-- **HMAC-SHA256 Signatures**: All inbound messages from the Operator are cryptographically verified using constant-time equality checks.
-- **POPIA / GDPR**: Inbound messages with keywords `STOP`, `UNSUBSCRIBE`, or `OPT OUT` automatically flag contacts as `blocklisted = true` and cease automated responses.
-- **Master AI Kill Switch**: Instant global pause toggle in database (`system_settings`) accessible via the Super Admin Dashboard. The market sweep honours it too: it calls no model, but it does fetch third-party websites on a schedule, and an owner who paused automation expects everything to stop.
-- **Scraper SSRF guard**: competitor URLs are tenant-supplied, so `lib/market/menu-scraper.ts` refuses anything that is not a public http(s) host before it makes a request — `localhost`, `127.0.0.0/8`, `10/8`, `172.16/12`, `192.168/16`, the `169.254.169.254` metadata address, `::1` and non-HTTP schemes. The residual DNS-rebinding limitation is documented in that file rather than glossed over.
-- **Cron guards fail closed**: every `/api/cron/*` route requires `Authorization: Bearer <CRON_SECRET>` (constant-time comparison, never from a query string), and `lib/cron/routes.wiring.test.ts` fails the build's test run if a new cron route is added without it.
-- **Outbox Pattern**: Outbound messages are written to `jobs` and dispatched with exponential backoff retries.
+## AutoPost / OpenPost
+
+Flavourly remains the restaurant business and revenue brain. OpenPost is an external publishing layer for connected social accounts. Campaign publishing requires explicit owner approval before the integration is called.
+
+## AI and safety controls
+
+AI processing is tenant-scoped and guarded by billing, the per-tenant AI setting, manual takeover state, the global Super Admin AI kill-switch and POPIA opt-out handling. `STOP`, `UNSUBSCRIBE` and related opt-out requests block automated follow-up.
+
+AI answers are deterministic-first where possible and can fall back to Groq/Gemini. Keep provider credentials server-side.
+
+## Billing
+
+PayFast is the billing system of record for subscription activation. The Super Admin Estimated MRR uses the currently active plan prices in ZAR; trialing and cancelled tenants are excluded from the live MRR KPI.
+
+## Production deployment
+
+### Vercel — Gemino application
+
+Deploy this repository as the Next.js application. Configure the variables in `.env.example`, including the **central** `OPERATOR_URL` and `APP_URL`.
+
+### Central Operator — separate repository
+
+The WhatsApp transport is maintained separately in the NahaLabs central Operator repository. This Gemino repository must not deploy or recreate a local Baileys Operator.
+
+### External cron fleet
+
+Use `scripts/cron-fleet.json` as the source of truth when syncing cron-job.org or the in-app Cron Fleet Manager. Scheduled routes use `Authorization: Bearer <CRON_SECRET>` unless the job is explicitly documented as unauthenticated, such as the central Operator `/health` keep-alive.
+
+## Release gates
+
+Before onboarding restaurants, run the native unit tests plus the GATE_MOCK Playwright persona suite. The repository's automated QA also exercises authentication, tenant isolation, Super Admin access, WhatsApp connection states, mobile navigation, demo mode and alert handling.
+
+```bash
+npm test
+npm run test:e2e
+```
+
+For production-only checks that depend on real Clerk/PayFast/AI credentials, provide the corresponding QA secrets in the scheduled GitHub workflow rather than committing credentials.
+
+## Documentation
+
+`WHATSAPP_ARCHITECTURE.md` is the authoritative WhatsApp transport design. `.env.example` is the authoritative environment-variable contract. `docs/FEATURE_MATRIX.md` tracks implemented, partial and deferred product features.

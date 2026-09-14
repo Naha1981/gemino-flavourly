@@ -36,20 +36,11 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const [waAccount] = await db
     .select({ id: waAccounts.id, isConnected: waAccounts.isConnected, status: waAccounts.status })
     .from(waAccounts)
-    .where(
-      and(
-        eq(waAccounts.tenantId, tenant.id),
-        eq(waAccounts.isConnected, true),
-        eq(waAccounts.status, 'connected'),
-      ),
-    )
+    .where(and(eq(waAccounts.tenantId, tenant.id), eq(waAccounts.isConnected, true), eq(waAccounts.status, 'connected')))
     .limit(1);
 
   if (!waAccount) {
-    return NextResponse.json(
-      { error: 'Connect this restaurant WhatsApp account before launching a campaign.' },
-      { status: 422 },
-    );
+    return NextResponse.json({ error: 'Connect this restaurant WhatsApp account before launching a campaign.' }, { status: 422 });
   }
 
   let targetContactIds: string[] | null = null;
@@ -58,26 +49,19 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       return NextResponse.json({ error: 'Campaign target segment is invalid.' }, { status: 422 });
     }
 
-    const segment = campaign.targetSegment;
     const profiles = await db
       .select({ contactId: customerProfiles.contactId })
       .from(customerProfiles)
-      .where(and(eq(customerProfiles.tenantId, tenant.id), eq(customerProfiles.segment, segment)));
+      .where(and(eq(customerProfiles.tenantId, tenant.id), eq(customerProfiles.segment, campaign.targetSegment)));
     targetContactIds = profiles.map((row) => row.contactId).filter((id): id is string => Boolean(id));
     if (targetContactIds.length === 0) {
-      return NextResponse.json({ error: `No customers currently match the ${segment} segment.` }, { status: 422 });
+      return NextResponse.json({ error: `No customers currently match the ${campaign.targetSegment} segment.` }, { status: 422 });
     }
   }
 
   const targets = targetContactIds
-    ? await db
-        .select({ phone: contacts.phone })
-        .from(contacts)
-        .where(and(eq(contacts.tenantId, tenant.id), eq(contacts.blocklisted, false), inArray(contacts.id, targetContactIds)))
-    : await db
-        .select({ phone: contacts.phone })
-        .from(contacts)
-        .where(and(eq(contacts.tenantId, tenant.id), eq(contacts.blocklisted, false)));
+    ? await db.select({ phone: contacts.phone }).from(contacts).where(and(eq(contacts.tenantId, tenant.id), eq(contacts.blocklisted, false), inArray(contacts.id, targetContactIds)))
+    : await db.select({ phone: contacts.phone }).from(contacts).where(and(eq(contacts.tenantId, tenant.id), eq(contacts.blocklisted, false)));
 
   if (targets.length === 0) {
     return NextResponse.json({ error: 'No eligible customers are available for this campaign.' }, { status: 422 });
@@ -92,14 +76,14 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         to: target.phone,
         text: campaign.message,
         campaignId: campaign.id,
+        automated: true,
       },
       status: 'pending',
       nextRunAt: new Date(),
     });
   }
 
-  await db
-    .update(marketingCampaigns)
+  await db.update(marketingCampaigns)
     .set({ status: 'sent', launchedAt: new Date(), sentCount: targets.length, sentAt: new Date() })
     .where(and(eq(marketingCampaigns.id, campaign.id), eq(marketingCampaigns.tenantId, tenant.id)));
 

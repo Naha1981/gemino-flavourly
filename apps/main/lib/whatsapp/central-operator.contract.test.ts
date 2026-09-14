@@ -16,7 +16,11 @@ function allSourceFiles(dir: string): string[] {
   return entries.flatMap((entry) => {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) return allSourceFiles(path);
-    return /\.(ts|tsx)$/.test(entry.name) ? [path] : [];
+    if (!/\.(ts|tsx)$/.test(entry.name)) return [];
+    // Contract tests inspect application source; excluding contract-test files
+    // prevents this scanner from matching its own assertion/error text.
+    if (/\.contract\.test\.(ts|tsx)$/.test(entry.name)) return [];
+    return [path];
   });
 }
 
@@ -69,7 +73,7 @@ describe('central NahaLabs WhatsApp Operator contract', () => {
   });
 
   test('legacy operator client is only a facade over the central transport', () => {
-    assert.match(OPERATOR_CLIENT, /from '@\/lib\/whatsapp\/central-operator'/);
+    assert.match(OPERATOR_CLIENT, /from '\.\/whatsapp\/central-operator'/);
     assert.doesNotMatch(OPERATOR_CLIENT, /fetch\([^\n]+\/start/);
     assert.doesNotMatch(OPERATOR_CLIENT, /fetch\([^\n]+\/status/);
     assert.doesNotMatch(OPERATOR_CLIENT, /@whiskeysockets\/baileys/);
