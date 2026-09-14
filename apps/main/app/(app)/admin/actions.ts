@@ -8,6 +8,7 @@ import { eq } from 'drizzle-orm';
 import { isSuperAdmin } from '@/lib/auth/is-super-admin';
 import { markAllAdminNotificationsRead } from '@/lib/qa/alerts';
 
+// QA-2 release verification: server mutations revalidate their read surfaces.
 export async function toggleGlobalAiAction(formData: FormData) {
   if (!(await isSuperAdmin())) {
     throw new Error('Unauthorized: Super Admin access required');
