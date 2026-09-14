@@ -26,21 +26,26 @@ if (files.length === 0) {
   process.exit(1);
 }
 
-console.log(`Running ${files.length} main unit test files with the repository's existing TypeScript ESM loader`);
+// Node 20 does not execute TypeScript test files natively. Keep the repository
+// dependency graph unchanged and use a pinned, ephemeral tsx runner in CI/local
+// test execution instead. This also handles the repo's explicit .ts imports.
+const tsxVersion = '4.23.13';
+console.log(`Running ${files.length} main unit test files with tsx@${tsxVersion}`);
 
-const child = spawn(process.execPath, ['--loader', '@esbuild-kit/esm-loader', '--test', ...files], {
+const child = spawn('npx', ['--yes', `tsx@${tsxVersion}`, '--test', ...files], {
   cwd: process.cwd(),
   stdio: 'inherit',
+  shell: process.platform === 'win32',
 });
 
 child.on('error', (error) => {
-  console.error(`Failed to start Node test runner: ${error.message}`);
+  console.error(`Failed to start TypeScript test runner: ${error.message}`);
   process.exit(1);
 });
 
 child.on('exit', (code, signal) => {
   if (signal) {
-    console.error(`Node test runner terminated by ${signal}`);
+    console.error(`TypeScript test runner terminated by ${signal}`);
     process.exit(1);
   }
   process.exit(code ?? 1);
