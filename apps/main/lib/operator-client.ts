@@ -95,7 +95,7 @@ export const operatorClient = {
   },
 
   async requestPairingCode(tenantId: string, waAccountId: string, phoneNumber: string) {
-    return centralWhatsApp.requestPairingCode(tenantId, waAccountId, phoneNumber);
+    return centralWhatsApp.pairingCode(tenantId, waAccountId, phoneNumber);
   },
 
   async getPairingCode(tenantId: string, waAccountId: string) {
