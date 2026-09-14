@@ -30,9 +30,6 @@ export const operatorClient = {
   },
 
   async startSocket(tenantId: string, waAccountId: string): Promise<StartSocketResponse> {
-    // A sleeping Render service must be explicitly woken first. Do not turn a
-    // cold-start timeout into a fake successful connect that leaves the UI
-    // spinning forever without a QR code or a useful error.
     const operatorOnline = await centralWhatsApp.checkHealth(5_000);
     if (!operatorOnline) {
       return {
@@ -52,7 +49,7 @@ export const operatorClient = {
         state: 'ready',
         isConnected: status.isConnected,
         phoneNumber: status.phoneNumber ?? null,
-        qrCode: qr.qrCode ?? null,
+        qrCode: qr?.qrCode ?? null,
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
@@ -88,7 +85,7 @@ export const operatorClient = {
     return {
       isConnected: status.isConnected,
       phoneNumber: status.phoneNumber ?? null,
-      qrCode: qr.qrCode ?? null,
+      qrCode: qr?.qrCode ?? null,
       status: status.status,
     };
   },
@@ -98,18 +95,6 @@ export const operatorClient = {
   },
 
   async requestPairingCode(tenantId: string, waAccountId: string, phoneNumber: string) {
-    return centralWhatsApp.pairingCode(tenantId, waAccountId, phoneNumber);
-  },
-
-  async getPairingCode(tenantId: string, waAccountId: string) {
-    return centralWhatsApp.currentPairingCode(tenantId, waAccountId);
-  },
-
-  async reset(tenantId: string, waAccountId: string) {
-    return centralWhatsApp.reset(tenantId, waAccountId);
-  },
-
-  async disconnect(tenantId: string, waAccountId: string) {
-    return centralWhatsApp.disconnect(tenantId, waAccountId);
+    return centralWhatsApp.requestPairingCode(tenantId, waAccountId, phoneNumber);
   },
 };
