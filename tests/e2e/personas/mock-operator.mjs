@@ -9,6 +9,7 @@
  *
  * Run: node tests/e2e/personas/mock-operator.mjs [port=3001]
  */
+import { createHash } from 'node:crypto';
 import { createServer } from 'node:http';
 
 const port = Number(process.argv[2] ?? 3001);
@@ -23,6 +24,11 @@ function qrPayload() {
   for (let i = 0; i < 20; i += 1) body += mid;
   const tail = `,${counter.toString(36).padStart(4, '0')}==`;
   return (head + body + tail).slice(0, 237);
+}
+
+function accountIdForTenant(tenantId) {
+  const hex = createHash('sha256').update(`gemino-mock-wa:${tenantId}`).digest('hex').slice(0, 32);
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-8${hex.slice(17, 20)}-${hex.slice(20, 32)}`;
 }
 
 let currentQr = qrPayload();
@@ -69,7 +75,7 @@ const server = createServer(async (req, res) => {
     let accountId = [...accounts.entries()].find(([, value]) => value.tenantId === tenantId)?.[0];
     const created = !accountId;
     if (!accountId) {
-      accountId = `mock-${Buffer.from(tenantId).toString('base64url').slice(0, 18)}`;
+      accountId = accountIdForTenant(tenantId);
       accounts.set(accountId, { tenantId, connected: false, phoneNumber: null });
     }
     send(res, created ? 201 : 200, { waAccountId: accountId, status: accounts.get(accountId).connected ? 'connected' : 'connecting', appId: body.appId, tenantId, created, webhookConfigured: true });
@@ -82,7 +88,6 @@ const server = createServer(async (req, res) => {
     const operation = match[2] ?? '';
     const account = accounts.get(accountId);
     if (!account) {
-      // Allow a freshly bootstrapped-looking id to be initialized for direct contract tests.
       send(res, 404, { error: 'NOT_FOUND', message: 'Account not found' });
       return;
     }
