@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useTransition } from 'react';
-import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Loader2 } from 'lucide-react';
 
 /**
@@ -10,19 +9,10 @@ import { Eye, EyeOff, Loader2 } from 'lucide-react';
  * this component with switching rights to real data).
  *
  * State lives in a cookie the SERVER reads (lib/demo/demo-mode.ts), so the
- * toggle works across server-rendered pages without any API route:
- * flip → document.cookie → router.refresh() → server components
- * re-render from the seed dataset instead of the live database.
- *
- * QA-2 (owner spec: "fill my dashboard … I can toggle to switch away from
- * demo/seed view to live view, all inside the super admin portal"):
- * switching ON now first POSTs /api/admin/demo-view, which — super-admin
- * gated, idempotently — loads the busy-restaurant deadbeef seed if it is
- * not already loaded. The banner then guarantees the view actually shows
- * a busy restaurant instead of an amber banner over empty live data.
+ * toggle works across server-rendered pages. Flip → cookie → full reload
+ * guarantees the server tree is rebuilt from the correct source of truth.
  */
 export function DemoModeBar({ active }: { active: boolean }) {
-  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{ kind: 'info' | 'error'; text: string } | null>(null);
@@ -36,10 +26,6 @@ export function DemoModeBar({ active }: { active: boolean }) {
     setBusy(true);
     try {
       if (!active) {
-        // Enabling: ensure the busy-restaurant seed dataset is loaded
-        // BEFORE the view flips (super-admin gated, idempotent, safe by
-        // the deadbeef contract). Falls back to the plain cookie flip if
-        // the route is unreachable so the toggle can never brick itself.
         try {
           const res = await fetch('/api/admin/demo-view', {
             method: 'POST',
@@ -62,13 +48,13 @@ export function DemoModeBar({ active }: { active: boolean }) {
         }
         document.cookie = 'gemino_demo_mode=on; path=/; max-age=31536000; samesite=lax';
       } else {
-        document.cookie = 'gemino_demo_mode=; path=/; max-age=0';
+        document.cookie = 'gemino_demo_mode=; path=/; max-age=0; samesite=lax';
       }
-      // Re-run the server components so every widget re-renders from the
-      // new source (live Neon vs the deterministic seed dataset).
+
+      // A full navigation is deliberate here: it cannot leave a stale
+      // server-component tree mounted behind a still-pending transition.
       startTransition(() => {
-        router.refresh();
-        setBusy(false);
+        window.location.reload();
       });
     } catch {
       setBusy(false);
@@ -92,14 +78,7 @@ export function DemoModeBar({ active }: { active: boolean }) {
             </p>
           </div>
           <div className="flex items-center gap-3">
-            {toast && (
-              <span
-                role="status"
-                className={`text-xs ${toast.kind === 'error' ? 'text-amber-200/80' : 'text-amber-200/80'}`}
-              >
-                {toast.text}
-              </span>
-            )}
+            {toast && <span role="status" className="text-xs text-amber-200/80">{toast.text}</span>}
             <button
               type="button"
               onClick={flip}
@@ -116,16 +95,9 @@ export function DemoModeBar({ active }: { active: boolean }) {
     );
   }
 
-  // Inactive: a compact, low-key control — visible ONLY where the server
-  // rendered it for the Super Admin (admin overview + tenant dashboard
-  // chrome). It never appears for standard tenants.
   return (
     <span className="inline-flex items-center gap-2">
-      {toast && (
-        <span role="status" className="text-xs text-amber-500/90">
-          {toast.text}
-        </span>
-      )}
+      {toast && <span role="status" className="text-xs text-amber-500/90">{toast.text}</span>}
       <button
         type="button"
         onClick={flip}
