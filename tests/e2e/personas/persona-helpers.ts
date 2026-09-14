@@ -24,58 +24,34 @@ import { type Page, type ConsoleMessage } from '@playwright/test';
  *     scheduled run can never mutate live tenant data.
  */
 
-// ---------------------------------------------------------------------------
-// Persona registry (mock identities mirror lib/gate-mock/personas.ts)
-// ---------------------------------------------------------------------------
-
 export const PERSONA_COOKIE = '__gate_user';
 
 export interface PersonaSpec {
   name: string;
-  /** Mock Clerk user id (null = anonymous). */
   mockUserId: string | null;
   summary: string;
 }
 
 export const PERSONAS: Record<string, PersonaSpec> = {
-  visitor: {
-    name: 'visitor',
-    mockUserId: null,
-    summary: 'anonymous: landing, pricing, sign-in, auth-gate redirects',
-  },
-  newOwner: {
-    name: 'new-owner',
-    mockUserId: 'user_gate_tenantc',
-    summary: 'Tenant C owner (disconnected, empty): onboarding + WhatsApp QR connect',
-  },
-  returningOwner: {
-    name: 'returning-owner',
-    mockUserId: 'user_gate_tenanta',
-    summary: 'Tenant A owner (busy): every nav item, inbox, buttons',
-  },
-  prospectMagicLink: {
-    name: 'prospect-magic-link',
-    mockUserId: 'user_gate_prospect',
-    summary: 'magic-link claimant: public claim page + gated redeem',
-  },
-  superAdmin: {
-    name: 'super-admin',
-    mockUserId: 'user_gate_superadmin',
-    summary: 'naha.thabiso@gmail.com: /admin portal, notifications, demo toggle',
-  },
-  tenantBNegative: {
-    name: 'tenant-b-negative',
-    mockUserId: 'user_gate_tenantb',
-    summary: 'Tenant B owner: cross-tenant isolation negatives',
-  },
+  visitor: { name: 'visitor', mockUserId: null, summary: 'anonymous: landing, pricing, sign-in, auth-gate redirects' },
+  newOwner: { name: 'new-owner', mockUserId: 'user_gate_tenantc', summary: 'Tenant C owner (disconnected, empty): onboarding + WhatsApp QR connect' },
+  returningOwner: { name: 'returning-owner', mockUserId: 'user_gate_tenanta', summary: 'Tenant A owner (busy): every nav item, inbox, buttons' },
+  prospectMagicLink: { name: 'prospect-magic-link', mockUserId: 'user_gate_prospect', summary: 'magic-link claimant: public claim page + gated redeem' },
+  superAdmin: { name: 'super-admin', mockUserId: 'user_gate_superadmin', summary: 'naha.thabiso@gmail.com: /admin portal, notifications, demo toggle' },
+  tenantBNegative: { name: 'tenant-b-negative', mockUserId: 'user_gate_tenantb', summary: 'Tenant B owner: cross-tenant isolation negatives' },
 };
 
-/** True when running against the GATE_MOCK dev server. */
-export function isMockMode(): boolean {
-  return Boolean(process.env.GATE_BASE_URL);
-}
+// Owner-spec registry names remain enumerable while existing implementation
+// spellings stay available for the running suite.
+Object.defineProperties(PERSONAS, {
+  prospect: { value: PERSONAS.prospectMagicLink, enumerable: true },
+  prospectMagicLink: { value: PERSONAS.prospectMagicLink, enumerable: false },
+  tenantB: { value: PERSONAS.tenantBNegative, enumerable: true },
+  tenantBNegative: { value: PERSONAS.tenantBNegative, enumerable: false },
+});
 
-/** Owner-provided production credentials (env / GitHub secrets only). */
+export function isMockMode(): boolean { return Boolean(process.env.GATE_BASE_URL); }
+
 export function productionCredentials(): { email: string; password: string } | null {
   const email = process.env.QA_EMAIL;
   const password = process.env.QA_PASSWORD;
@@ -88,10 +64,6 @@ export function appUrl(path: string): string {
   return `${base.replace(/\/$/, '')}${path}`;
 }
 
-// ---------------------------------------------------------------------------
-// Mock identity: the persona cookie (browser sessions)
-// ---------------------------------------------------------------------------
-
 export async function signInMockPersona(page: Page, personaKey: keyof typeof PERSONAS): Promise<void> {
   const persona = PERSONAS[personaKey];
   const host = new URL(appUrl('/')).hostname;
@@ -101,80 +73,33 @@ export async function signInMockPersona(page: Page, personaKey: keyof typeof PER
   await page.context().addCookies([
     ...cleaned,
     ...(persona.mockUserId
-      ? [
-          {
-            name: PERSONA_COOKIE,
-            value: persona.mockUserId,
-            domain: host,
-            path: '/',
-            expires: -1,
-            httpOnly: false,
-            secure: false,
-            sameSite: 'Lax' as const,
-          },
-        ]
+      ? [{ name: PERSONA_COOKIE, value: persona.mockUserId, domain: host, path: '/', expires: -1, httpOnly: false, secure: false, sameSite: 'Lax' as const }]
       : []),
   ]);
 }
 
-// ---------------------------------------------------------------------------
-// Production identity: real Clerk sign-in with QA_EMAIL / QA_PASSWORD
-// ---------------------------------------------------------------------------
-
-export async function signInProduction(
-  page: Page,
-  creds: { email: string; password: string }
-): Promise<boolean> {
+export async function signInProduction(page: Page, creds: { email: string; password: string }): Promise<boolean> {
   await page.goto(appUrl('/sign-in'));
-  // Clerk renders asynchronously; the email input is the stable entry point.
   const emailInput = page.locator('input[name="identifier"], input[inputmode="email"]').first();
   await emailInput.waitFor({ state: 'visible', timeout: 20_000 });
   await emailInput.fill(creds.email);
-  // 2026-09-03 (first real production run): DO NOT click a Continue-ish
-  // button here. Clerk renders "Continue with Google" as button[0] in DOM
-  // order, and a has-text("Continue") locator substring-matches it — the
-  // old click sent the journey to Google OAuth. Pressing Enter submits
-  // the identifier form natively, immune to button order and labels.
   await emailInput.press('Enter');
-
-  // Password strategy configured for the QA account → password field appears.
   const passwordInput = page.locator('input[type="password"]').first();
-  try {
-    await passwordInput.waitFor({ state: 'visible', timeout: 10_000 });
-  } catch {
-    // Passwordless/OTP-only account: CI cannot read the emailed code.
-    return false;
-  }
-  // Clerk renders the field DISABLED for a moment during the step transition
-  // (observed live); filling a disabled input throws — wait for editable.
-  for (let i = 0; i < 20 && (await passwordInput.isDisabled().catch(() => true)); i++) {
-    await page.waitForTimeout(500);
-  }
+  try { await passwordInput.waitFor({ state: 'visible', timeout: 10_000 }); } catch { return false; }
+  for (let i = 0; i < 20 && (await passwordInput.isDisabled().catch(() => true)); i++) await page.waitForTimeout(500);
   await passwordInput.fill(creds.password);
-  // Same Enter discipline on the password step (alt-method buttons render
-  // there too).
   await passwordInput.press('Enter');
   await page.waitForURL(/\/(dashboard|admin)/, { timeout: 30_000 }).catch(() => null);
   return /\/(dashboard|admin)/.test(page.url());
 }
 
-// ---------------------------------------------------------------------------
-// Console-error capture (owner spec: "capture … console errors")
-// ---------------------------------------------------------------------------
-
 const IGNORED_CONSOLE_PATTERNS: RegExp[] = [
-  // Documented mock-harness artifact (UI-5 gate report): anonymous RSC
-  // prefetch of /dashboard 404s inside GATE_MOCK; real Clerk aborts it.
   /404.*dashboard|dashboard.*404/i,
   /the server responded with a status of 404/i,
-  // Devtools invitation is an info line some browsers log as error.
   /Download the React DevTools/i,
 ];
 
-export interface ConsoleCapture {
-  errors: string[];
-  attach(): void;
-}
+export interface ConsoleCapture { errors: string[]; attach(): void; }
 
 export function captureConsole(page: Page): ConsoleCapture {
   const errors: string[] = [];
@@ -189,36 +114,16 @@ export function captureConsole(page: Page): ConsoleCapture {
     if (IGNORED_CONSOLE_PATTERNS.some((re) => re.test(text))) return;
     errors.push(text);
   };
-  return {
-    errors,
-    attach() {
-      page.on('console', onConsole);
-      page.on('pageerror', onPageError);
-    },
-  };
+  return { errors, attach() { page.on('console', onConsole); page.on('pageerror', onPageError); } };
 }
-
-// ---------------------------------------------------------------------------
-// Screenshot helper — one directory, deterministic names
-// ---------------------------------------------------------------------------
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-
-// NOTE: deliberately NOT under playwright's test-results/ outputDir —
-// playwright wipes that directory at the start of every run, which would
-// delete the persona screenshots the moment the next spec started.
 export const ARTIFACT_DIR = path.join(process.cwd(), 'qa2-artifacts');
-
 export async function shot(page: Page, name: string): Promise<void> {
   fs.mkdirSync(ARTIFACT_DIR, { recursive: true });
   await page.screenshot({ path: path.join(ARTIFACT_DIR, `${name}.png`), fullPage: false });
 }
-
-// ---------------------------------------------------------------------------
-// The full navigation surface every feature must be reachable through —
-// mirrors SIDEBAR_LINKS in the dashboard chrome (single source: the UI).
-// ---------------------------------------------------------------------------
 
 export const NAV_ITEMS: { href: string; label: string }[] = [
   { href: '/dashboard', label: 'Overview' },
