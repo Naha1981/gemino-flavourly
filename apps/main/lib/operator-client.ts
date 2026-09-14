@@ -1,4 +1,4 @@
-import { centralWhatsApp } from '@/lib/whatsapp/central-operator';
+import { centralWhatsApp } from './whatsapp/central-operator';
 
 export interface SendMessageResponse {
   success: boolean;
