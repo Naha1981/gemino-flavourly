@@ -76,7 +76,7 @@ test.describe('persona: visitor (anonymous)', () => {
     const capture = captureConsole(page);
     capture.attach();
     await page.goto(appUrl('/'));
-    await expect(page.locator('h1')).toContainText('Full tables. Even on Tuesdays.');
+    await expect(page.locator('h1')).toContainText('Turn your restaurant into a growth engine.');
     await shot(page, 'visitor-landing');
     expect(capture.errors).toEqual([]);
   });
