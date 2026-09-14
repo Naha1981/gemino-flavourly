@@ -7,6 +7,9 @@ import { canSendAutomatedMessages } from '@/lib/billing/gate-evaluate';
 
 export const dynamic = 'force-dynamic';
 
+type CustomerSegment = 'vip' | 'new' | 'regular' | 'at_risk' | 'dormant';
+const CUSTOMER_SEGMENTS = new Set<CustomerSegment>(['vip', 'new', 'regular', 'at_risk', 'dormant']);
+
 /**
  * POST /api/marketing/campaigns/[id]/launch — launch a WhatsApp campaign.
  *
@@ -33,10 +36,14 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
 
   let targetContactIds: string[] | null = null;
   if (campaign.targetSegment) {
+    if (!CUSTOMER_SEGMENTS.has(campaign.targetSegment as CustomerSegment)) {
+      return NextResponse.json({ error: 'Invalid customer segment.' }, { status: 422 });
+    }
+    const segment = campaign.targetSegment as CustomerSegment;
     const profiles = await db
       .select({ contactId: customerProfiles.contactId })
       .from(customerProfiles)
-      .where(and(eq(customerProfiles.tenantId, tenant.id), eq(customerProfiles.segment, campaign.targetSegment)));
+      .where(and(eq(customerProfiles.tenantId, tenant.id), eq(customerProfiles.segment, segment)));
     targetContactIds = profiles.map((row) => row.contactId).filter((id): id is string => Boolean(id));
     if (targetContactIds.length === 0) {
       return NextResponse.json({ error: `No customers currently match the ${campaign.targetSegment} segment.` }, { status: 422 });
