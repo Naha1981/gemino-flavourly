@@ -39,8 +39,15 @@ export const PERSONAS: Record<string, PersonaSpec> = {
   returningOwner: { name: 'returning-owner', mockUserId: 'user_gate_tenanta', summary: 'Tenant A owner (busy): every nav item, inbox, buttons' },
   prospectMagicLink: { name: 'prospect-magic-link', mockUserId: 'user_gate_prospect', summary: 'magic-link claimant: public claim page + gated redeem' },
   superAdmin: { name: 'super-admin', mockUserId: 'user_gate_superadmin', summary: 'naha.thabiso@gmail.com: /admin portal, notifications, demo toggle' },
-  tenantBNegative: { name: 'tenant-b-negative', mockUserId: 'user_gate_tenantb', summary: 'Tenant B owner: cross-tenant isolation negatives' },
+  tenantBNegative: { name: 'tenant-B-negative', mockUserId: 'user_gate_tenantb', summary: 'Tenant B owner: cross-tenant isolation negatives' },
 };
+
+// Keep legacy implementation spellings available without changing the
+// owner-specified six-key registry used by the QA contract.
+Object.defineProperties(PERSONAS, {
+  prospect: { value: PERSONAS.prospectMagicLink, enumerable: false },
+  tenantB: { value: PERSONAS.tenantBNegative, enumerable: false },
+});
 
 export function isMockMode(): boolean { return Boolean(process.env.GATE_BASE_URL); }
 
