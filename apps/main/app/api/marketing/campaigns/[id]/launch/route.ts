@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { getOrCreateTenant } from '@/lib/tenant';
 import { marketingCampaigns, contacts, customerProfiles, jobs, waAccounts } from '@/lib/db/schema';
 import { canSendAutomatedMessages } from '@/lib/billing/gate-evaluate';
+import { isCustomerSegment } from '@/lib/customer/segmentation';
 
 export const dynamic = 'force-dynamic';
 
@@ -53,13 +54,18 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
   let targetContactIds: string[] | null = null;
   if (campaign.targetSegment) {
+    if (!isCustomerSegment(campaign.targetSegment)) {
+      return NextResponse.json({ error: 'Campaign target segment is invalid.' }, { status: 422 });
+    }
+
+    const segment = campaign.targetSegment;
     const profiles = await db
       .select({ contactId: customerProfiles.contactId })
       .from(customerProfiles)
-      .where(and(eq(customerProfiles.tenantId, tenant.id), eq(customerProfiles.segment, campaign.targetSegment)));
+      .where(and(eq(customerProfiles.tenantId, tenant.id), eq(customerProfiles.segment, segment)));
     targetContactIds = profiles.map((row) => row.contactId).filter((id): id is string => Boolean(id));
     if (targetContactIds.length === 0) {
-      return NextResponse.json({ error: `No customers currently match the ${campaign.targetSegment} segment.` }, { status: 422 });
+      return NextResponse.json({ error: `No customers currently match the ${segment} segment.` }, { status: 422 });
     }
   }
 
