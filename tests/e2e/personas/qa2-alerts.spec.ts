@@ -78,7 +78,7 @@ test.describe('QA-2 alert pipeline (inject fake failure)', () => {
     expect(res.status()).toBe(401);
   });
 
-  test('mark-all-read clears the unread badge (server action)', async ({ page, request }) => {
+  test('mark-all-read clears the unread badge through the protected endpoint', async ({ page, request }) => {
     const uniqueCheck = `qa2-e2e/mark-read-${Date.now()}`;
     const alert = await request.post(appUrl('/api/cron/qa-alert'), {
       headers: { Authorization: `Bearer ${CRON_SECRET}` },
@@ -92,8 +92,14 @@ test.describe('QA-2 alert pipeline (inject fake failure)', () => {
     ]);
     await page.goto(appUrl('/admin'));
     await expect(page.locator('[data-testid="qa-unread-badge"]')).toBeVisible();
+
+    const responsePromise = page.waitForResponse((response) =>
+      response.url().endsWith('/api/admin/notifications/mark-read') && response.request().method() === 'POST'
+    );
     await page.locator('[data-testid="qa-notifications-mark-read"]').click();
-    await page.waitForURL(/\/admin\?qa-read=1(?:&|$)/, { timeout: 15_000 });
+    const response = await responsePromise;
+    expect(response.status()).toBe(200);
+    await page.waitForLoadState('domcontentloaded');
     await page.reload({ waitUntil: 'domcontentloaded' });
     await expect(page.locator('[data-testid="qa-unread-badge"]')).toHaveCount(0);
   });
@@ -110,7 +116,7 @@ test.describe('QA-2 smoke sweep (read-only self-test)', () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
     for (const name of ['landing', 'pricing', 'sign-in', 'api-health', 'dashboard-auth-gate', 'admin-auth-gate', 'database', 'webhook-hmac']) {
-      expect(body.checks[name], `check \"${name}\" must be green`).toMatchObject({ ok: true });
+      expect(body.checks[name], `check "${name}" must be green`).toMatchObject({ ok: true });
     }
     for (const [name, check] of Object.entries<{ ok: boolean; detail: string }>(body.checks)) {
       expect(typeof check.detail).toBe('string');
