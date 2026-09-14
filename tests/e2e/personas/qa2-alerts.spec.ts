@@ -32,26 +32,14 @@ test.describe('QA-2 alert pipeline (inject fake failure)', () => {
     });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    // Either this run created the alert, or a previous run within the 6h
-    // window deduped it — both prove the pipeline works. The dedupe test
-    // below then pins the second case explicitly.
     expect(body.dispatched === true || body.reason === 'deduped').toBe(true);
-    if (body.dispatched) {
-      expect(body.emailStatus).toBe('mock-sent');
-    }
+    if (body.dispatched) expect(body.emailStatus).toBe('mock-sent');
   });
 
   test('the alert renders in the Super Admin portal with the unread badge', async ({ page }) => {
-    // Mock identity: the super admin persona cookie (browser session).
     const host = new URL(appUrl('/')).hostname;
     await page.context().addCookies([
-      {
-        name: '__gate_user',
-        value: 'user_gate_superadmin',
-        domain: host,
-        path: '/',
-        sameSite: 'Lax',
-      },
+      { name: '__gate_user', value: 'user_gate_superadmin', domain: host, path: '/', sameSite: 'Lax' },
     ]);
     await page.goto(appUrl('/admin'));
     await expect(page.locator('[data-testid="qa-notifications-panel"]')).toBeVisible();
@@ -90,21 +78,24 @@ test.describe('QA-2 alert pipeline (inject fake failure)', () => {
     expect(res.status()).toBe(401);
   });
 
-  test('mark-all-read clears the unread badge (server action)', async ({ page }) => {
+  test('mark-all-read clears the unread badge (server action)', async ({ page, request }) => {
+    const uniqueCheck = `qa2-e2e/mark-read-${Date.now()}`;
+    const alert = await request.post(appUrl('/api/cron/qa-alert'), {
+      headers: { Authorization: `Bearer ${CRON_SECRET}` },
+      data: { severity: 'critical', check: uniqueCheck, message: 'Injected mark-read test alert.' },
+    });
+    expect(alert.status()).toBe(200);
+
     const host = new URL(appUrl('/')).hostname;
     await page.context().addCookies([
-      {
-        name: '__gate_user',
-        value: 'user_gate_superadmin',
-        domain: host,
-        path: '/',
-        sameSite: 'Lax',
-      },
+      { name: '__gate_user', value: 'user_gate_superadmin', domain: host, path: '/', sameSite: 'Lax' },
     ]);
     await page.goto(appUrl('/admin'));
     await expect(page.locator('[data-testid="qa-unread-badge"]')).toBeVisible();
     await page.locator('[data-testid="qa-notifications-mark-read"]').click();
-    await expect(page.locator('[data-testid="qa-unread-badge"]')).toBeHidden({ timeout: 30_000 });
+    await page.waitForURL(/\/admin\?qa-read=1(?:&|$)/, { timeout: 15_000 });
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await expect(page.locator('[data-testid="qa-unread-badge"]')).toHaveCount(0);
   });
 });
 
@@ -119,19 +110,13 @@ test.describe('QA-2 smoke sweep (read-only self-test)', () => {
     const body = await res.json();
     expect(body.ok).toBe(true);
     for (const name of ['landing', 'pricing', 'sign-in', 'api-health', 'dashboard-auth-gate', 'admin-auth-gate', 'database', 'webhook-hmac']) {
-      expect(body.checks[name], `check "${name}" must be green`).toMatchObject({ ok: true });
+      expect(body.checks[name], `check \"${name}\" must be green`).toMatchObject({ ok: true });
     }
-    // Warnings are allowed (operator may be a mock, fleet key unconfigured)
-    // but must be honest — present with a detail string.
     for (const [name, check] of Object.entries<{ ok: boolean; detail: string }>(body.checks)) {
       expect(typeof check.detail).toBe('string');
       expect(check.detail.length).toBeGreaterThan(0);
       void name;
     }
-    // Warning checks (operator mock, unconfigured cron-job.org key) may
-    // legitimately alert — but a healthy sweep NEVER dispatches a critical.
-    // (The alerts array carries the raw check names; the dispatched rows
-    // use the qa-sweep/<name> key.)
     const warningChecks = ['operator', 'cron-fleet', 'qa-sweep/operator', 'qa-sweep/cron-fleet'];
     expect(body.alerts.filter((a: { check: string }) => !warningChecks.includes(a.check))).toEqual([]);
   });
