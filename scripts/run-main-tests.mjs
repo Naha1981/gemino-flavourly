@@ -26,9 +26,9 @@ if (files.length === 0) {
   process.exit(1);
 }
 
-console.log(`Running ${files.length} main unit test files`);
+console.log(`Running ${files.length} main unit test files with the repository's existing TypeScript ESM loader`);
 
-const child = spawn(process.execPath, ['--test', ...files], {
+const child = spawn(process.execPath, ['--loader', '@esbuild-kit/esm-loader', '--test', ...files], {
   cwd: process.cwd(),
   stdio: 'inherit',
 });
