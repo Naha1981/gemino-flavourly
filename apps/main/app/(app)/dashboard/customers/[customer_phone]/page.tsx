@@ -17,11 +17,12 @@ function formatDate(value: Date | string | null): string {
   return d.toISOString().slice(0, 16).replace('T', ' ');
 }
 
-export default async function CustomerProfilePage({
-  params,
-}: {
-  params: { customer_phone: string };
-}) {
+export default async function CustomerProfilePage(
+  props: {
+    params: Promise<{ customer_phone: string }>;
+  }
+) {
+  const params = await props.params;
   const tenant = await getOrCreateTenant();
   if (!tenant) redirect('/sign-in');
 

@@ -30,7 +30,7 @@ export const dynamic = 'force-dynamic';
  */
 
 interface Props {
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
 // Two layers of caching, doing different jobs:
@@ -60,7 +60,8 @@ const getTenant = cache((slug: string) =>
   })()
 );
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata(props: Props): Promise<Metadata> {
+  const params = await props.params;
   const tenant = await getTenant(params.slug);
   if (!tenant) return { title: 'Menu not found' };
 
@@ -70,7 +71,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-export default async function MenuPage({ params }: Props) {
+export default async function MenuPage(props: Props) {
+  const params = await props.params;
   const tenant = await getTenant(params.slug);
 
   if (!tenant) {

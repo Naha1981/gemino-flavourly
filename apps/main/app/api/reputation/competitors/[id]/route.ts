@@ -5,7 +5,8 @@ import { deleteCompetitor } from '@/lib/reputation/competitor-store';
 export const dynamic = 'force-dynamic';
 
 /** Gate #14 — remove a competitor. Tenant-scoped: another tenant's id deletes nothing. */
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const tenant = await getOrCreateTenant();
   if (!tenant) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

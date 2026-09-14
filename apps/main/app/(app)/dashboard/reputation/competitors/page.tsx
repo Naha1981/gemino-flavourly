@@ -13,7 +13,7 @@ import { AddCompetitorForm, DeleteCompetitorButton } from './competitor-forms';
 export const dynamic = 'force-dynamic';
 
 type CompetitorsPageProps = {
-  searchParams?: { selected?: string | string[] };
+  searchParams?: Promise<{ selected?: string | string[] }>;
 };
 
 const TREND_META: Record<string, { label: string; classes: string; icon: typeof TrendingUp }> = {
@@ -34,7 +34,8 @@ function formatDate(value: Date | string | null): string {
  * had rating drops this week"), the tracked list with trend badges, an Add
  * Competitor form, and the selected competitor's rating history table.
  */
-export default async function CompetitorsPage({ searchParams }: CompetitorsPageProps) {
+export default async function CompetitorsPage(props: CompetitorsPageProps) {
+  const searchParams = await props.searchParams;
   const tenant = await getOrCreateTenant();
   if (!tenant) redirect('/sign-in');
 

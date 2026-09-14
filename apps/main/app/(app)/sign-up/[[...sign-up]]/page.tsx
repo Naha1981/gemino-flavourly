@@ -8,10 +8,10 @@ import { ClaimSignUpGate } from './claim-sign-up';
 import { storeClaimToken } from '../actions';
 
 type SignUpPageProps = {
-  searchParams: {
+  searchParams: Promise<{
     redirect_url?: string;
     claim?: string;
-  };
+  }>;
 };
 
 /**
@@ -22,7 +22,8 @@ type SignUpPageProps = {
  * claim is redeemed after Clerk completes sign-up, then redirect to
  * /onboarding. Without a claim param, it behaves exactly as before.
  */
-export default async function Page({ searchParams }: SignUpPageProps) {
+export default async function Page(props: SignUpPageProps) {
+  const searchParams = await props.searchParams;
   const claim = typeof searchParams.claim === 'string' ? searchParams.claim : null;
   const fallback = getSafeRedirectUrl(searchParams.redirect_url, '/dashboard');
 

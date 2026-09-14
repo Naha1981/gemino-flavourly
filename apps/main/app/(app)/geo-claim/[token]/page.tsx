@@ -10,10 +10,11 @@ import { GeoClaimClient } from './geo-claim-client';
 export const dynamic = 'force-dynamic';
 
 interface Props {
-  params: { token: string };
+  params: Promise<{ token: string }>;
 }
 
-export async function generateMetadata({ params }: Props): Promise<Metadata> {
+export async function generateMetadata(props: Props): Promise<Metadata> {
+  const params = await props.params;
   const event = await findRewardEventByToken(params.token).catch(() => null);
   if (!event) return { title: 'Claim your reward | Flavourly' };
   return { title: `${event.rewardName} | Flavourly` };
@@ -34,7 +35,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * event explains what happened and tells the guest to text REDEEM again for
  * a fresh link.
  */
-export default async function GeoClaimPage({ params }: Props) {
+export default async function GeoClaimPage(props: Props) {
+  const params = await props.params;
   const token = params.token;
   if (!token || !/^[a-f0-9]{16,128}$/i.test(token)) notFound();
 

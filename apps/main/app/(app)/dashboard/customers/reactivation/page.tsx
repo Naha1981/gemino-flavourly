@@ -8,7 +8,7 @@ import ReactivationClient from './reactivation-client';
 export const dynamic = 'force-dynamic';
 
 type ReactivationPageProps = {
-  searchParams?: { segment?: string | string[] };
+  searchParams?: Promise<{ segment?: string | string[] }>;
 };
 
 function formatDate(value: Date | string | null): string {

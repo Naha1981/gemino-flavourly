@@ -10,7 +10,8 @@ import ChatDetailClient from './chat-detail-client';
 
 export const dynamic = 'force-dynamic';
 
-export default async function ConversationDetailPage({ params }: { params: { id: string } }) {
+export default async function ConversationDetailPage(props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { userId } = await auth();
   if (!userId) redirect('/sign-in');
 

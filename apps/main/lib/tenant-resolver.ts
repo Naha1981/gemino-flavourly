@@ -132,7 +132,7 @@ export async function resolveActiveTenant(opts: ResolveOptions = {}): Promise<Re
   let tenantParam = opts.tenantParam ?? null;
   if (!tenantParam) {
     try {
-      tenantParam = headers().get(TENANT_PARAM_HEADER);
+      tenantParam = (await headers()).get(TENANT_PARAM_HEADER);
     } catch {
       // headers() unavailable outside a request scope (unit contexts).
       tenantParam = null;
@@ -141,7 +141,7 @@ export async function resolveActiveTenant(opts: ResolveOptions = {}): Promise<Re
 
   let cookieTenantId: string | null = null;
   try {
-    cookieTenantId = cookies().get(ACTIVE_TENANT_COOKIE)?.value ?? null;
+    cookieTenantId = (await cookies()).get(ACTIVE_TENANT_COOKIE)?.value ?? null;
   } catch {
     cookieTenantId = null;
   }

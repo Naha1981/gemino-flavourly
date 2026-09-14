@@ -8,7 +8,8 @@ export const dynamic = 'force-dynamic';
  * Gate #12 — owner edits the AI-drafted response before posting it to
  * Google. PATCH only ever touches response_text on the tenant's own review.
  */
-export async function PATCH(req: NextRequest, { params }: { params: { review_id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ review_id: string }> }) {
+  const params = await props.params;
   const tenant = await getOrCreateTenant();
   if (!tenant) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -14,7 +14,8 @@ export const maxDuration = 60;
  * marked 'ready' on success, or 'failed' (retries++) on a hard failure. A
  * caller may re-trigger a failed prospect (manual "Retry").
  */
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!(await isSuperAdmin())) {
     return NextResponse.json({ error: 'Unauthorized: Super Admin access required' }, { status: 403 });
   }

@@ -30,7 +30,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL('/sign-in', req.url));
   }
 
-  const token = cookies().get(CLAIM_COOKIE)?.value ?? null;
+  const token = (await cookies()).get(CLAIM_COOKIE)?.value ?? null;
   if (!token) {
     return NextResponse.redirect(new URL('/dashboard', req.url));
   }
@@ -38,7 +38,7 @@ export async function GET(req: NextRequest) {
   const result = await redeemClaimToken(token, userId);
 
   // Always clear the cookie so a later visit doesn't re-attempt.
-  cookies().set(CLAIM_COOKIE, '', { maxAge: 0, path: '/' });
+  (await cookies()).set(CLAIM_COOKIE, '', { maxAge: 0, path: '/' });
 
   // S2 — deep-link into the CLAIMED tenant's dashboard; on failure fall back
   // to the plain dashboard.

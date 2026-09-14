@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  let token = cookies().get(CLAIM_COOKIE)?.value ?? null;
+  let token = (await cookies()).get(CLAIM_COOKIE)?.value ?? null;
   if (!token) {
     // Allow an explicit body fallback for callers without the cookie.
     try {
@@ -53,11 +53,11 @@ export async function POST(req: NextRequest) {
   });
 
   if (result.ok) {
-    cookies().set(CLAIM_COOKIE, '', { maxAge: 0, path: '/' });
+    (await cookies()).set(CLAIM_COOKIE, '', { maxAge: 0, path: '/' });
     // S2 — pin the browser to the CLAIMED tenant so the very next dashboard
     // load resolves to it even before the ?tenant= deep-link is followed.
     if (result.tenantId) {
-      cookies().set(ACTIVE_TENANT_COOKIE, result.tenantId, {
+      (await cookies()).set(ACTIVE_TENANT_COOKIE, result.tenantId, {
         path: '/',
         sameSite: 'lax',
         httpOnly: true,

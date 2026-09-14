@@ -13,7 +13,7 @@ import { CLAIM_COOKIE } from '@/lib/brand-intelligence/magic-link';
 export async function storeClaimToken(token: string) {
   const safe = token.trim();
   if (!safe || safe.length > 200) return;
-  cookies().set(CLAIM_COOKIE, safe, {
+  (await cookies()).set(CLAIM_COOKIE, safe, {
     httpOnly: true,
     sameSite: 'lax',
     secure: process.env.NODE_ENV === 'production',

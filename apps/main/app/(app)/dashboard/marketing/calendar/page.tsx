@@ -28,11 +28,12 @@ type CalendarItem = {
   message?: string | null;
 };
 
-export default async function MarketingCalendarPage({
-  searchParams,
-}: {
-  searchParams?: { month?: string };
-}) {
+export default async function MarketingCalendarPage(
+  props: {
+    searchParams?: Promise<{ month?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const tenant = await getOrCreateTenant();
   if (!tenant) redirect('/sign-in');
 

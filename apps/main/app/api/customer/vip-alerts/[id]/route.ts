@@ -14,7 +14,8 @@ export const dynamic = 'force-dynamic';
  * tenant-scoped in the store (tenant.id AND alert id), so one restaurant can
  * never mutate another restaurant's alert even if a uuid leaks.
  */
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const tenant = await getOrCreateTenant();
   if (!tenant) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -12,7 +12,8 @@ export const dynamic = 'force-dynamic';
  * Accepts an optional final { response_text } so the UI can save last-second
  * edits and mark sent in one atomic-feeling call.
  */
-export async function POST(req: NextRequest, { params }: { params: { review_id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ review_id: string }> }) {
+  const params = await props.params;
   const tenant = await getOrCreateTenant();
   if (!tenant) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

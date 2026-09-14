@@ -16,10 +16,8 @@ export const dynamic = 'force-dynamic';
  * Responses are deliberately flat and copy-free: the guest page renders its
  * own friendly copy per outcome, so this JSON is a contract, not prose.
  */
-export async function POST(
-  req: NextRequest,
-  { params }: { params: { token: string } }
-): Promise<NextResponse> {
+export async function POST(req: NextRequest, props: { params: Promise<{ token: string }> }): Promise<NextResponse> {
+  const params = await props.params;
   const token = params.token;
   if (!token || !/^[a-f0-9]{16,128}$/i.test(token)) {
     return NextResponse.json({ outcome: 'not_found' }, { status: 404 });

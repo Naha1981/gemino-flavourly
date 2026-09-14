@@ -8,7 +8,8 @@ export const dynamic = 'force-dynamic';
  * Gate #14 — rating history for one competitor (the trend chart's data).
  * Tenant-scoped through getRatingHistory, which joins the competitor row.
  */
-export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const tenant = await getOrCreateTenant();
   if (!tenant) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
