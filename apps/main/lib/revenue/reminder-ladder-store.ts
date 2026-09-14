@@ -15,19 +15,6 @@ import type {
 } from './reminder-ladder';
 import { rungSentField, type ReminderRung } from './reminder-ladder';
 
-/**
- * Drizzle adapter for the 48/24/6h reminder ladder — the only module that
- * reads or writes these rows. Imported by the cron route; test files may
- * not import it (`@/lib/db` throws without DATABASE_URL), same contract as
- * every other store adapter in this repo.
- *
- * Every audience that must never see an automated reminder is excluded in
- * SQL, not in the app: opted-out contacts (POPIA), AI-off / manual-mode
- * tenants, conversations under manual takeover, and anything that is not a
- * confirmed future booking. A LEFT JOIN keeps reservations whose contact or
- * conversation row is gone (both `ON DELETE SET NULL`); those fall back to
- * the phone number stored on the reservation itself.
- */
 export const drizzleReminderStore: ReminderStore = {
   async findReminderCandidates({ from, to, limit }): Promise<ReminderCandidate[]> {
     const rows = await db
@@ -66,11 +53,6 @@ export const drizzleReminderStore: ReminderStore = {
     return rows;
   },
 
-  /**
-   * Atomic rung claim: only the call that flips NULL→timestamp wins.
-   * Overlapping cron runs (15-minute schedule, serverless overlap) see
-   * zero rows updated and skip — no guest is ever double-reminded.
-   */
   async claimReminderRung(reservationId, rung: ReminderRung, sentAt): Promise<boolean> {
     const field = rungSentField(rung);
     const claimed = await db
@@ -81,14 +63,6 @@ export const drizzleReminderStore: ReminderStore = {
     return claimed.length > 0;
   },
 
-  /**
-   * Where to send: same resolution order as the no-show store — the
-   * conversation's WhatsApp account, else the tenant's connected account;
-   * the contact's phone, else the phone captured on the reservation.
-   * Always THIS reservation's tenant, so one restaurant's reminder can
-   * never be routed through another's number. Manual-takeover threads and
-   * opted-out contacts return null (the rung stays claimable).
-   */
   async findRecipient(candidate): Promise<ReminderRecipient | null> {
     const conversation = candidate.conversationId
       ? await db.query.conversations.findFirst({
@@ -122,12 +96,11 @@ export const drizzleReminderStore: ReminderStore = {
     return { to, waAccountId, name: contact?.name || candidate.customerName };
   },
 
-  /** Outbox delivery: retries, backoff and delivery state are its job. */
   async queueReminder({ tenantId, waAccountId, to, text }): Promise<void> {
     await db.insert(jobs).values({
       tenantId,
       type: 'send_whatsapp',
-      payload: { waAccountId, to, text },
+      payload: { waAccountId, to, text, automated: true },
       status: 'pending',
       nextRunAt: sql`NOW()`,
     });
