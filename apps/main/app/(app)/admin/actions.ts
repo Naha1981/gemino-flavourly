@@ -37,6 +37,8 @@ export async function markNotificationsReadAction() {
     .set({ readAt: new Date() })
     .where(isNull(adminNotifications.readAt));
 
-  revalidatePath('/admin');
-  redirect('/admin');
+  // Force a fresh navigation so the server-rendered unread count is not
+  // replaced by a cached RSC tree after the mutation.
+  revalidatePath('/admin', 'page');
+  redirect('/admin?qa-read=1');
 }
