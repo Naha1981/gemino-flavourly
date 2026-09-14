@@ -14,8 +14,9 @@ export const dynamic = 'force-dynamic';
  * blocklists, the selected customer segment, and a live tenant WhatsApp
  * account before anything enters the outbox.
  */
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   void _req;
+  const { id } = await params;
   const tenant = await getOrCreateTenant();
   if (!tenant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -24,7 +25,7 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   }
 
   const campaign = await db.query.marketingCampaigns.findFirst({
-    where: and(eq(marketingCampaigns.id, params.id), eq(marketingCampaigns.tenantId, tenant.id)),
+    where: and(eq(marketingCampaigns.id, id), eq(marketingCampaigns.tenantId, tenant.id)),
   });
   if (!campaign) return NextResponse.json({ error: 'Campaign not found' }, { status: 404 });
   if (campaign.status !== 'draft') {
