@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { BellRing, CheckCheck, ExternalLink } from 'lucide-react';
-import { markNotificationsReadAction } from '@/app/(app)/admin/actions';
+import { BellRing, ExternalLink } from 'lucide-react';
+import { AdminNotificationsMarkReadButton } from '@/components/admin-notifications-mark-read';
 import type { AdminNotificationRow } from '@/lib/qa/alerts';
 
 /**
@@ -10,10 +10,6 @@ import type { AdminNotificationRow } from '@/lib/qa/alerts';
  * (10-minute QA sweep + 6-hourly/PR Playwright persona runs): severity
  * colour, check name, message, evidence link and age. The unread badge
  * (read_at IS NULL) rides in the portal header via the `unread` count.
- *
- * Server component by design: the rows are read by the page (which is
- * already super-admin-gated and fail-closed), and "Mark all read" is a
- * server action that re-checks isSuperAdmin() before writing.
  */
 
 const SEVERITY_STYLES: Record<AdminNotificationRow['severity'], { dot: string; label: string; chip: string }> = {
@@ -69,18 +65,7 @@ export function AdminNotifications({
             </p>
           </div>
         </div>
-        {unreadCount > 0 && (
-          <form action={markNotificationsReadAction}>
-            <button
-              type="submit"
-              data-testid="qa-notifications-mark-read"
-              className="inline-flex items-center gap-1.5 rounded-md border border-zinc-800 bg-zinc-950 px-3 py-1.5 text-xs font-medium text-zinc-200 transition-colors hover:bg-zinc-800"
-            >
-              <CheckCheck className="h-3.5 w-3.5" />
-              Mark all read ({unreadCount})
-            </button>
-          </form>
-        )}
+        {unreadCount > 0 && <AdminNotificationsMarkReadButton unreadCount={unreadCount} />}
       </div>
 
       <div className="mt-4 space-y-2.5">
