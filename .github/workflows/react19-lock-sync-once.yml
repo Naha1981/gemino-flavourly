@@ -20,20 +20,17 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - name: Regenerate lockfile
-        run: npm install --no-audit --no-fund
-      - name: Inspect React type tree
+      - name: Rebuild lockfile from clean dependency graph
+        run: |
+          rm -f package-lock.json
+          npm install --no-audit --no-fund
+      - name: Verify React type tree
         run: |
           npm ls @types/react @types/react-dom --all
-          node -e "console.log(require.resolve('@types/react/package.json')); console.log(require.resolve('@types/react-dom/package.json'))"
       - name: Commit generated lockfile
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add package-lock.json package.json apps/main/package.json
-          if git diff --cached --quiet; then
-            echo 'No lockfile changes.'
-          else
-            git commit -m 'chore(deps): regenerate lockfile for React 19 types'
-            git push origin HEAD:${{ github.head_ref || github.ref_name }}
-          fi
+          git commit -m 'fix(deps): rebuild lockfile for React 19 dependency tree'
+          git push origin HEAD:${{ github.head_ref || github.ref_name }}
