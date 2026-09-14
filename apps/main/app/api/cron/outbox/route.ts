@@ -5,6 +5,7 @@ import { and, eq, lte, lt } from 'drizzle-orm';
 import { operatorClient } from '@/lib/operator-client';
 import { assertCronAuthorized } from '@/lib/cron/auth';
 import { evaluateTierLimit } from '@/lib/billing/tier-limits-store';
+import { isWithinAutomatedSendWindow, nextAutomatedSendWindow } from '@/lib/whatsapp/quiet-hours';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -118,6 +119,26 @@ export async function GET(req: NextRequest) {
 
     try {
       if (job.type === 'send_whatsapp') {
+        const payload = job.payload as {
+          waAccountId: string;
+          to: string;
+          text: string;
+          messageId?: string;
+          automated?: boolean;
+        };
+
+        // Customer-facing scheduled automation is allowed only from 07:00
+        // through 20:00 SAST. Manual staff replies and inbound AI replies do
+        // not set automated=true and therefore remain immediate 24/7.
+        if (payload.automated === true && !isWithinAutomatedSendWindow(new Date())) {
+          const resumeAt = nextAutomatedSendWindow(new Date());
+          await db
+            .update(jobs)
+            .set({ status: 'pending', nextRunAt: resumeAt, updatedAt: new Date() })
+            .where(eq(jobs.id, job.id));
+          continue;
+        }
+
         // Tier gate (per-tenant message quota + hourly rate). If the tenant
         // has hit its hourly rate, defer the job so it retries on a later run
         // rather than failing — the message is still pending, not lost. If the
@@ -138,12 +159,6 @@ export async function GET(req: NextRequest) {
           throw new Error(tierLimitMessage(limit.reason));
         }
 
-        const payload = job.payload as {
-          waAccountId: string;
-          to: string;
-          text: string;
-          messageId?: string;
-        };
         const result = await operatorClient.sendMessage(job.tenantId, payload.waAccountId, payload.to, payload.text);
 
         if (result.success) {
