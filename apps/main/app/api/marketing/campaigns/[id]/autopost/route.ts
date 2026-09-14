@@ -6,6 +6,7 @@ import { getOrCreateTenant } from '@/lib/tenant';
 import { canSendAutomatedMessages } from '@/lib/billing/gate-evaluate';
 import { isDemoModeActive } from '@/lib/demo/demo-mode';
 import { getOpenPostClient } from '@/lib/autopost/openpost';
+import { getTenantAutoPostConfig } from '@/lib/autopost/tenant-config';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,7 +15,8 @@ export const dynamic = 'force-dynamic';
  *
  * Explicit owner approval gate for social publishing.
  * - Drafts cannot publish without this action.
- * - Real mode requires OpenPost + a workspace + connected account ids.
+ * - Live mode requires the shared OpenPost service plus a tenant-scoped
+ *   workspace and connected social-account ids.
  * - Demo mode may walk the approval flow without contacting a social network.
  */
 export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
@@ -36,16 +38,12 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   const demoMode = await isDemoModeActive();
   const client = getOpenPostClient();
-  const workspaceId = process.env.OPENPOST_WORKSPACE_ID?.trim();
-  const socialAccountIds = (process.env.OPENPOST_SOCIAL_ACCOUNT_IDS ?? '')
-    .split(',')
-    .map((value) => value.trim())
-    .filter(Boolean);
+  const tenantConfig = await getTenantAutoPostConfig(tenant.id);
 
-  if (!client || !workspaceId || socialAccountIds.length === 0) {
+  if (!client || !tenantConfig) {
     if (!demoMode) {
       return NextResponse.json(
-        { error: 'AutoPost is not configured. Connect OpenPost and at least one social account before approving this campaign.' },
+        { error: 'AutoPost is not configured for this restaurant. Connect OpenPost and its social accounts before approving this campaign.' },
         { status: 503 },
       );
     }
@@ -60,11 +58,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
 
   try {
     const publication = await client.createPublication({
-      workspaceId,
+      workspaceId: tenantConfig.workspaceId,
       title: campaign.name,
       sourceText: campaign.message,
       contentProfile: 'short_text',
-      socialAccountIds,
+      socialAccountIds: tenantConfig.socialAccountIds,
     });
 
     const publicationId = typeof publication.id === 'string' ? publication.id : null;
