@@ -62,7 +62,7 @@ export async function GET(req: NextRequest) {
       .values({
         tenantId: tenant.id,
         type: 'send_whatsapp',
-        payload: { waAccountId: sender.id, to: sender.phoneNumber ?? '', text: brief.line },
+        payload: { waAccountId: sender.id, to: sender.phoneNumber ?? '', text: brief.line, automated: true },
         status: 'pending',
         maxAttempts: 5,
         nextRunAt: new Date(),

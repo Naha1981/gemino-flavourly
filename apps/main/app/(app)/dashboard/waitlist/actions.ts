@@ -19,9 +19,6 @@ export async function notifyWaitlistEntryAction(formData: FormData) {
   const entryId = String(formData.get('entryId') ?? '');
   if (!entryId) throw new Error('Missing waitlist entry id');
 
-  // Scope the lookup to this tenant — without this, a malicious or buggy
-  // client could pass another tenant's entryId and trigger a WhatsApp
-  // send / status change on someone else's guest.
   const entry = await db.query.waitlistEntries.findFirst({
     where: and(eq(waitlistEntries.id, entryId), eq(waitlistEntries.tenantId, tenant.id)),
   });
@@ -43,7 +40,7 @@ export async function notifyWaitlistEntryAction(formData: FormData) {
   await db.insert(jobs).values({
     tenantId: tenant.id,
     type: 'send_whatsapp',
-    payload: { waAccountId: waAccount.id, to: entry.customerPhone, text },
+    payload: { waAccountId: waAccount.id, to: entry.customerPhone, text, automated: true },
     status: 'pending',
     nextRunAt: new Date(),
   });
