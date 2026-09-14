@@ -12,11 +12,11 @@ export const dynamic = 'force-dynamic';
  * It never sends WhatsApp or publishes socially; the existing campaign
  * approval/launch flow remains the only dispatch path.
  */
-export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(_req: Request, { params }: { params: { id: string } }) {
   const tenant = await getOrCreateTenant();
   if (!tenant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const { id } = await params;
+  const { id } = params;
   const [opportunity] = await db
     .select()
     .from(marketOpportunities)
