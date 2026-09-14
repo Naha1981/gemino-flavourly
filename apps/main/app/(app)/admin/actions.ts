@@ -1,12 +1,10 @@
 'use server';
 
-import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
+import { revalidatePath, redirect } from 'next/navigation';
 import { db } from '@/lib/db';
-import { systemSettings } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
+import { systemSettings, adminNotifications } from '@/lib/db/schema';
+import { eq, isNull } from 'drizzle-orm';
 import { isSuperAdmin } from '@/lib/auth/is-super-admin';
-import { markAllAdminNotificationsRead } from '@/lib/qa/alerts';
 
 // QA-2 release verification: server mutations revalidate their read surfaces.
 export async function toggleGlobalAiAction(formData: FormData) {
@@ -31,16 +29,19 @@ export async function toggleGlobalAiAction(formData: FormData) {
 
 /**
  * QA-2 — Mark all Super Admin notification alerts as read.
- * Revalidate and redirect so the server-component notification count is
- * guaranteed to be recomputed after the mutation rather than relying on a
- * stale client-rendered tree.
+ * Keep the UPDATE free of RETURNING so the same mutation works in the
+ * pg-mem gate harness and production Postgres.
  */
 export async function markNotificationsReadAction() {
   if (!(await isSuperAdmin())) {
     throw new Error('Unauthorized: Super Admin access required');
   }
 
-  await markAllAdminNotificationsRead();
+  await db
+    .update(adminNotifications)
+    .set({ readAt: new Date() })
+    .where(isNull(adminNotifications.readAt));
+
   revalidatePath('/admin');
   redirect('/admin');
 }
