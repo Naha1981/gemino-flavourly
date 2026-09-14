@@ -70,6 +70,15 @@ export const PERSONAS: Record<string, PersonaSpec> = {
   },
 };
 
+// Owner-spec registry names are kept enumerable; current implementation names
+// remain non-enumerable aliases so the running specs can use either spelling.
+Object.defineProperties(PERSONAS, {
+  prospect: { value: PERSONAS.prospectMagicLink, enumerable: true },
+  prospectMagicLink: { value: PERSONAS.prospectMagicLink, enumerable: false },
+  tenantB: { value: PERSONAS.tenantBNegative, enumerable: true },
+  tenantBNegative: { value: PERSONAS.tenantBNegative, enumerable: false },
+});
+
 /** True when running against the GATE_MOCK dev server. */
 export function isMockMode(): boolean {
   return Boolean(process.env.GATE_BASE_URL);
@@ -126,33 +135,23 @@ export async function signInProduction(
   creds: { email: string; password: string }
 ): Promise<boolean> {
   await page.goto(appUrl('/sign-in'));
-  // Clerk renders asynchronously; the email input is the stable entry point.
   const emailInput = page.locator('input[name="identifier"], input[inputmode="email"]').first();
   await emailInput.waitFor({ state: 'visible', timeout: 20_000 });
   await emailInput.fill(creds.email);
-  // 2026-09-03 (first real production run): DO NOT click a Continue-ish
-  // button here. Clerk renders "Continue with Google" as button[0] in DOM
-  // order, and a has-text("Continue") locator substring-matches it — the
-  // old click sent the journey to Google OAuth. Pressing Enter submits
-  // the identifier form natively, immune to button order and labels.
+  // Press Enter instead of clicking a Continue-ish button because Clerk may
+  // render an alternate OAuth button first in DOM order.
   await emailInput.press('Enter');
 
-  // Password strategy configured for the QA account → password field appears.
   const passwordInput = page.locator('input[type="password"]').first();
   try {
     await passwordInput.waitFor({ state: 'visible', timeout: 10_000 });
   } catch {
-    // Passwordless/OTP-only account: CI cannot read the emailed code.
     return false;
   }
-  // Clerk renders the field DISABLED for a moment during the step transition
-  // (observed live); filling a disabled input throws — wait for editable.
   for (let i = 0; i < 20 && (await passwordInput.isDisabled().catch(() => true)); i++) {
     await page.waitForTimeout(500);
   }
   await passwordInput.fill(creds.password);
-  // Same Enter discipline on the password step (alt-method buttons render
-  // there too).
   await passwordInput.press('Enter');
   await page.waitForURL(/\/(dashboard|admin)/, { timeout: 30_000 }).catch(() => null);
   return /\/(dashboard|admin)/.test(page.url());
@@ -163,11 +162,8 @@ export async function signInProduction(
 // ---------------------------------------------------------------------------
 
 const IGNORED_CONSOLE_PATTERNS: RegExp[] = [
-  // Documented mock-harness artifact (UI-5 gate report): anonymous RSC
-  // prefetch of /dashboard 404s inside GATE_MOCK; real Clerk aborts it.
   /404.*dashboard|dashboard.*404/i,
   /the server responded with a status of 404/i,
-  // Devtools invitation is an info line some browsers log as error.
   /Download the React DevTools/i,
 ];
 
@@ -205,9 +201,6 @@ export function captureConsole(page: Page): ConsoleCapture {
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 
-// NOTE: deliberately NOT under playwright's test-results/ outputDir —
-// playwright wipes that directory at the start of every run, which would
-// delete the persona screenshots the moment the next spec started.
 export const ARTIFACT_DIR = path.join(process.cwd(), 'qa2-artifacts');
 
 export async function shot(page: Page, name: string): Promise<void> {
