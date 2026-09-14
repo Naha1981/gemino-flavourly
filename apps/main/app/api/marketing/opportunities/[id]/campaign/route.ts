@@ -12,7 +12,8 @@ export const dynamic = 'force-dynamic';
  * It never sends WhatsApp or publishes socially; the existing campaign
  * approval/launch flow remains the only dispatch path.
  */
-export async function POST(_req: Request, { params }: { params: { id: string } }) {
+export async function POST(_req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const tenant = await getOrCreateTenant();
   if (!tenant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 

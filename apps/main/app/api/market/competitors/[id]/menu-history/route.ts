@@ -16,7 +16,8 @@ export const dynamic = 'force-dynamic';
  * Tenant-scoped through the competitor row, so another tenant's competitor id
  * returns 404 rather than an empty list someone could probe.
  */
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const tenant = await getOrCreateTenant();
   if (!tenant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 

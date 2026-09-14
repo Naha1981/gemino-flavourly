@@ -5,7 +5,8 @@ import { listPromotions } from '@/lib/market/competitor-store';
 export const dynamic = 'force-dynamic';
 
 /** Gate #16 — one competitor's promotion timeline, newest first, tenant-scoped. */
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const tenant = await getOrCreateTenant();
   if (!tenant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 

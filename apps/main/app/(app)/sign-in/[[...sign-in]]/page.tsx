@@ -6,12 +6,13 @@ import { safeAuth } from '@/lib/auth/safe-auth';
 import { AuthUnavailable } from '@/components/auth-unavailable';
 
 type SignInPageProps = {
-  searchParams: {
+  searchParams: Promise<{
     redirect_url?: string;
-  };
+  }>;
 };
 
-export default async function Page({ searchParams }: SignInPageProps) {
+export default async function Page(props: SignInPageProps) {
+  const searchParams = await props.searchParams;
   // RC1: `<SignIn />` throws "Missing publishableKey" during render when
   // Clerk is unconfigured, which 500'd this page. Degrade to a static panel.
   if (!clerkIsConfigured(process.env)) {

@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { and, eq, isNull, lte } from 'drizzle-orm';
 import { db } from '@/lib/db';
-import { conversations, revenueEvents } from '@/lib/db/schema';
+import { conversations, revenueEvents, tenants } from '@/lib/db/schema';
 import { assertCronAuthorized } from '@/lib/cron/auth';
+import { reconcileCampaignAttribution } from '@/lib/marketing/attribution-store';
 import { averageCheckFromEnv, runRevenueClassificationCron, type RevenueClassificationStore } from '@/lib/revenue/cron';
 import type { ClassificationResult, ConversationSnapshot, RevenueEventType } from '@/lib/revenue/classify';
 
@@ -85,5 +86,12 @@ export async function GET(req: NextRequest) {
     avgCheckCents: averageCheckFromEnv(),
   });
 
-  return NextResponse.json({ ok: true, ...summary });
+  const tenantRows = await db.select({ id: tenants.id }).from(tenants);
+  let attributedCampaigns = 0;
+  for (const tenant of tenantRows) {
+    const rows = await reconcileCampaignAttribution(tenant.id);
+    attributedCampaigns += rows.length;
+  }
+
+  return NextResponse.json({ ok: true, ...summary, attributedCampaigns });
 }

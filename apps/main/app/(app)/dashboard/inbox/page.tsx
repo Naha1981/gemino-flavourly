@@ -78,11 +78,12 @@ function ConvoBadge({ outcome }: { outcome: string | null }) {
   );
 }
 
-export default async function InboxPage({
-  searchParams,
-}: {
-  searchParams?: { channel?: string };
-}) {
+export default async function InboxPage(
+  props: {
+    searchParams?: Promise<{ channel?: string }>;
+  }
+) {
+  const searchParams = await props.searchParams;
   const { userId } = await auth();
   if (!userId) redirect('/sign-in');
 

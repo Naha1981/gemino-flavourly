@@ -8,10 +8,8 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { customer_phone: string } }
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ customer_phone: string }> }) {
+  const params = await props.params;
   const tenant = await getOrCreateTenant();
   if (!tenant) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

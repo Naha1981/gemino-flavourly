@@ -16,7 +16,8 @@ export const dynamic = 'force-dynamic';
  * campaign id is a 404, and only drafts are editable — a sent campaign is
  * immutable history.
  */
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const resolved = await resolveActiveTenant();
   if (!resolved) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -15,7 +15,8 @@ export const runtime = 'nodejs';
  * prospect's tenant. Reuses an existing unexpired, unclaimed token so
  * repeated clicks don't burn tokens or break a link already shared.
  */
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   if (!(await isSuperAdmin())) {
     return NextResponse.json({ error: 'Unauthorized: Super Admin access required' }, { status: 403 });
   }

@@ -14,7 +14,7 @@
  * An absent/unknown identity is "signed out": the mock grants nothing and
  * the app's own fail-closed authorization logic decides the rest.
  */
-import { headers } from 'next/headers';
+import { headers, type UnsafeUnwrappedHeaders } from 'next/headers';
 import { NextResponse } from 'next/server';
 import { GATE_PERSONAS, GATE_USER_COOKIE, GATE_USER_HEADER } from './personas';
 
@@ -86,7 +86,7 @@ function currentHeaders(): Headers | null {
   try {
     // Next 14: headers() is synchronous; awaiting keeps the mock compatible
     // with both sync and async request scopes.
-    return headers();
+    return (headers() as unknown as UnsafeUnwrappedHeaders);
   } catch {
     return null;
   }

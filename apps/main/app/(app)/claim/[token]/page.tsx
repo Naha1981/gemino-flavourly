@@ -18,12 +18,13 @@ import { ClaimInvalid, ClaimAlreadyClaimed } from './claim-states';
 
 export const dynamic = 'force-dynamic';
 
-interface Props {
-  params: { token: string };
-}
+type Props = {
+  params: Promise<{ token: string }>;
+};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const tok = await findClaimToken(params.token);
+  const { token } = await params;
+  const tok = await findClaimToken(token);
   if (!tok) return { title: 'Claim your app | Flavourly' };
   const [tenant] = await db
     .select({ name: tenants.name })
@@ -46,7 +47,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
  * state instead of re-claiming.
  */
 export default async function ClaimPage({ params }: Props) {
-  const tokenRow = await findClaimToken(params.token);
+  const { token } = await params;
+  const tokenRow = await findClaimToken(token);
   if (!tokenRow) {
     return (
       <ClaimShell>
@@ -87,7 +89,6 @@ export default async function ClaimPage({ params }: Props) {
     );
   }
 
-  // Load the sample data the demo tenant was seeded with.
   const [reviews, bookings, campaigns] = await Promise.all([
     db
       .select()
@@ -135,7 +136,7 @@ export default async function ClaimPage({ params }: Props) {
       >
         <header className="flex items-center justify-between border-b border-white/10 px-6 py-4">
           <BrandMark logoUrl={brand?.logoUrl} brandName={brand?.brandName ?? tenant.name} />
-          <ClaimButton token={params.token} />
+          <ClaimButton token={token} />
         </header>
 
         <main className="mx-auto max-w-5xl px-6 py-10">
@@ -144,7 +145,7 @@ export default async function ClaimPage({ params }: Props) {
             <h1 className="mt-2 text-3xl font-semibold">{tenant.name}</h1>
             {brand?.tagline && <p className="mt-2 text-white/70">{brand.tagline}</p>}
             <div className="mt-6 flex flex-wrap items-center gap-3">
-              <ClaimButton token={params.token} large />
+              <ClaimButton token={token} large />
             </div>
             <p className="mt-4 text-xs text-white/50">
               This is a pre-configured demo. Claim it to keep the dashboard and connect your WhatsApp in about 5 minutes.
@@ -155,8 +156,6 @@ export default async function ClaimPage({ params }: Props) {
             <section className="rounded-xl border border-white/10 bg-white/5 p-5">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-medium text-white/70">Bookings</h2>
-                {/* S1 — bookings on the demo are seeded sample data; badge them
-                    honestly instead of passing them off as real reservations. */}
                 <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-300">
                   Sample
                 </span>
@@ -202,9 +201,6 @@ export default async function ClaimPage({ params }: Props) {
             </section>
           </div>
 
-          {/* S1 — menu & hours always render. When the brand profile has no
-              real data we say "Not confirmed yet" — empty state, never
-              invented data. */}
           <section className="mt-8 rounded-xl border border-white/10 bg-white/5 p-5" data-testid="claim-menu">
             <h2 className="text-sm font-medium text-white/70">Menu</h2>
             {menu.length > 0 ? (

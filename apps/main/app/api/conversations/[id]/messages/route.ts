@@ -12,7 +12,8 @@ import {
 
 export const dynamic = 'force-dynamic';
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const tenant = await getOrCreateTenant();
   if (!tenant) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

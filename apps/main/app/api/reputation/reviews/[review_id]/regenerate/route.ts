@@ -11,7 +11,8 @@ export const dynamic = 'force-dynamic';
  * REPLACES the current draft — that is what the owner asked for. A review
  * whose response was already SENT cannot be silently re-drafted (409).
  */
-export async function POST(req: NextRequest, { params }: { params: { review_id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ review_id: string }> }) {
+  const params = await props.params;
   const tenant = await getOrCreateTenant();
   if (!tenant) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

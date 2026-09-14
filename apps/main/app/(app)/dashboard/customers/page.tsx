@@ -11,7 +11,7 @@ import { isDemoModeActive } from '@/lib/demo/demo-mode';
 export const dynamic = 'force-dynamic';
 
 type CustomersPageProps = {
-  searchParams?: { segment?: string | string[] };
+  searchParams?: Promise<{ segment?: string | string[] }>;
 };
 
 const FILTER_OPTIONS: Array<{ value: CustomerSegment | ''; label: string }> = [
@@ -73,7 +73,8 @@ function SegmentBadge({ segment }: { segment: string | null | undefined }) {
   );
 }
 
-export default async function CustomersPage({ searchParams }: CustomersPageProps) {
+export default async function CustomersPage(props: CustomersPageProps) {
+  const searchParams = await props.searchParams;
   const tenant = await getOrCreateTenant();
   if (!tenant) redirect('/sign-in');
 

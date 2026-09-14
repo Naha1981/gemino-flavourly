@@ -10,7 +10,8 @@ export const dynamic = 'force-dynamic';
  * Tenant-scoped: another tenant's opportunity id updates nothing and reads as
  * a 404, which is the same answer a non-existent id gets.
  */
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const tenant = await getOrCreateTenant();
   if (!tenant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 

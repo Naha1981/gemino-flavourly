@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Forbidden: tenant is not managed by this user' }, { status: 403 });
   }
 
-  cookies().set(ACTIVE_TENANT_COOKIE, tenantId as string, {
+  (await cookies()).set(ACTIVE_TENANT_COOKIE, tenantId as string, {
     path: '/',
     sameSite: 'lax',
     httpOnly: true,

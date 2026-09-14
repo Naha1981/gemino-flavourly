@@ -16,7 +16,7 @@ import { AddCompetitorManuallyForm, DiscoverCompetitorsButton, RemoveCompetitorB
 export const dynamic = 'force-dynamic';
 
 type MarketCompetitorsPageProps = {
-  searchParams?: { selected?: string | string[] };
+  searchParams?: Promise<{ selected?: string | string[] }>;
 };
 
 function formatDate(value: Date | string | null | undefined): string {
@@ -40,7 +40,8 @@ function formatDistance(km: string | null): string {
  * change between snapshots highlighted, plus its promotion timeline. Alerts
  * from the daily sweep sit at the top.
  */
-export default async function MarketCompetitorsPage({ searchParams }: MarketCompetitorsPageProps) {
+export default async function MarketCompetitorsPage(props: MarketCompetitorsPageProps) {
+  const searchParams = await props.searchParams;
   const tenant = await getOrCreateTenant();
   if (!tenant) redirect('/sign-in');
 

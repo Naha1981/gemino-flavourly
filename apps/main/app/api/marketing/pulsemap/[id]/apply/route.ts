@@ -23,7 +23,8 @@ export const dynamic = 'force-dynamic';
  * foreign simulation id resolves to 404 and can never rewrite another
  * restaurant's campaign.
  */
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const resolved = await resolveActiveTenant();
   if (!resolved) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });

@@ -19,7 +19,7 @@ import { ensureReviewDrafts } from '@/lib/reputation/ensure-drafts';
 export const dynamic = 'force-dynamic';
 
 type ReputationPageProps = {
-  searchParams?: { rating?: string | string[]; sentiment?: string | string[] };
+  searchParams?: Promise<{ rating?: string | string[]; sentiment?: string | string[] }>;
 };
 
 const SENTIMENT_FILTERS: Array<{ value: '' | ReviewSentiment; label: string }> = [
@@ -46,7 +46,8 @@ function formatDate(value: Date | string | null): string {
   return d.toISOString().slice(0, 10);
 }
 
-export default async function ReputationPage({ searchParams }: ReputationPageProps) {
+export default async function ReputationPage(props: ReputationPageProps) {
+  const searchParams = await props.searchParams;
   const tenant = await getOrCreateTenant();
   if (!tenant) redirect('/sign-in');
 
