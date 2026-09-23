@@ -18,17 +18,6 @@ export async function GET(req: NextRequest) {
   const authError = assertCronAuthorized(req);
   if (authError) return authError;
 
-  // Morning brief for restaurant owners (runs at 07:00 — see vercel cron
-  // schedule / cron-job.org config).
-  //
-  // Previously counted ALL-TIME messages and reservations with no date
-  // filter at all, despite the comment saying "yesterday's counts" — an
-  // owner with 3 total conversations ever would see "142 messages today"
-  // on day one. Also never actually sent anything anywhere; it only
-  // console.log'd server-side, which no one — least of all a restaurant
-  // owner — ever sees. Now scoped to the last 24h and delivered as an
-  // actual WhatsApp message via the same outbox pattern as everything
-  // else, sent to the tenant's own connected number.
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
 
   const allTenants = await db.query.tenants.findMany({
@@ -50,26 +39,14 @@ export async function GET(req: NextRequest) {
       .from(reservations)
       .where(and(eq(reservations.tenantId, tenant.id), gte(reservations.date, since)));
 
-    // Gate #2 — escalate only the days below 50% of their weekday average.
-    // Days between 50% and 60% are on the dashboard but are not worth
-    // interrupting an owner's morning over; see lib/revenue/slow-days.ts.
     const slowDays = await detectSlowDaysForTenant(drizzleSlowDayStore, tenant.id);
     const slowDayAlerts = slowDayAlertLines(slowDays.criticalSlowDays);
     if (slowDayAlerts.length > 0) alerted++;
 
-    // Gate #5 — the single most worthwhile action today, ranked across
-    // missed enquiries, critical slow days, pending cancellations and
-    // pending no-shows. Reuses the slow-day report from the Gate #2 call
-    // above (one reservation scan, two uses) so the brief's top action and
-    // its slow-day alert can never disagree about the week.
     const topPriorities = await buildTenantPriorities(drizzlePriorityStore, tenant.id, slowDays);
     const topPriority = topPriorities[0];
     if (topPriority) prioritized++;
 
-    // Gate #6 — the bottom line: everything the owner can still recover
-    // this month, in one line. Reuses the same Gate #2 report as the
-    // slow-day alert and the top action, so one reservation scan feeds
-    // all three surfaces without disagreement.
     const opportunity = await buildTenantOpportunity(drizzleOpportunityStore, tenant.id, slowDays);
 
     console.log(
@@ -93,7 +70,7 @@ export async function GET(req: NextRequest) {
     await db.insert(jobs).values({
       tenantId: tenant.id,
       type: 'send_whatsapp',
-      payload: { waAccountId: waAccount.id, to: waAccount.phoneNumber, text },
+      payload: { waAccountId: waAccount.id, to: waAccount.phoneNumber, text, automated: true },
       status: 'pending',
       nextRunAt: new Date(),
     });

@@ -1,0 +1,31 @@
+name: WhatsApp 50-account application-layer capacity gate
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'scripts/whatsapp-50-account-capacity.mjs'
+      - 'tests/e2e/personas/mock-operator.mjs'
+      - '.github/workflows/whatsapp-50-account-capacity.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  capacity:
+    name: 50 logical accounts / central contract
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      CAPACITY_OPERATOR_PORT: '3301'
+      CAPACITY_OPERATOR_API_KEY: capacity-ci-key
+      CAPACITY_STARTED_AT: '0'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Run 50-account concurrent contract test
+        run: |
+          export CAPACITY_STARTED_AT=$(date +%s%3N)
+          node scripts/whatsapp-50-account-capacity.mjs
