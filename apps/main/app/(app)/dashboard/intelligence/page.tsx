@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { ArrowRight, CheckCircle2, CircleAlert, Radar, Sparkles, TrendingUp } from 'lucide-react';
+import type { ReactNode } from 'react';
 import { and, count, eq, gte, sql } from 'drizzle-orm';
 import { getOrCreateTenant } from '@/lib/tenant';
 import { db } from '@/lib/db';
@@ -106,6 +107,6 @@ function Kpi({ title, value, detail }: { title: string; value: string; detail: s
   return <div className="glass-card p-5"><p className="label-sm uppercase tracking-[0.12em] text-app-faint dark:text-zinc-500">{title}</p><p className="mt-2 display-lg !text-[32px] !leading-[38px] text-app-fg dark:text-zinc-50">{value}</p><p className="mt-2 label-sm text-app-muted dark:text-zinc-400">{detail}</p></div>;
 }
 
-function SignalCard({ icon, title, text, href }: { icon: React.ReactNode; title: string; text: string; href: string }) {
+function SignalCard({ icon, title, text, href }: { icon: ReactNode; title: string; text: string; href: string }) {
   return <Link href={href} className="glass-card group p-5 transition-transform hover:-translate-y-0.5"><div className="flex items-center gap-2 text-app-secondary dark:text-emerald-400">{icon}<span className="label-md">{title}</span></div><p className="mt-3 text-sm leading-6 text-app-muted dark:text-zinc-400">{text}</p><span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold text-app-fg dark:text-zinc-200">Open <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" /></span></Link>;
 }
