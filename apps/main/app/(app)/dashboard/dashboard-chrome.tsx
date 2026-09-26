@@ -23,6 +23,7 @@ const SIDEBAR_LINKS: NavItem[] = [
   { href: '/dashboard/customers/vip-today', label: 'VIP Today', symbol: 'star' },
   { href: '/dashboard/reputation', label: 'Reputation', symbol: 'trending_up' },
   { href: '/dashboard/market/competitors', label: 'Market Intelligence', symbol: 'storefront' },
+  { href: '/dashboard/intelligence', label: 'Revenue Intelligence', symbol: 'insights' },
   { href: '/dashboard/autopost', label: 'AutoPost', symbol: 'auto_awesome' },
   { href: '/dashboard/marketing', label: 'Marketing', symbol: 'campaign' },
   { href: '/dashboard/marketing/campaigns', label: 'Campaigns', symbol: 'campaign' },
@@ -38,6 +39,7 @@ const SIDEBAR_LINKS: NavItem[] = [
 
 const BOTTOM_LINKS: NavItem[] = [
   { href: '/dashboard', label: 'Home', symbol: 'home' },
+  { href: '/dashboard/intelligence', label: 'Revenue', symbol: 'insights' },
   { href: '/dashboard/inbox', label: 'Inbox', symbol: 'forum' },
   { href: '/dashboard/customers', label: 'Customers', symbol: 'group' },
   { href: '/dashboard/marketing', label: 'Marketing', symbol: 'campaign' },
