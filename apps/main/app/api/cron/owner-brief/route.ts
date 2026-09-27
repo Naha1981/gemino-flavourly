@@ -20,8 +20,8 @@ export async function GET(req:NextRequest){
   const s=((stats as any).rows?.[0]??(stats as any)[0]);
   const email=await sendResendEmail({
    to:tenant.owner_email,
-   subject:`${tenant.name} — Orderly daily brief`,
-   html:`<h2>${tenant.name}</h2><p><strong>${s?.bookings_today??0}</strong> bookings today.</p><p><strong>${s?.open_conversations??0}</strong> conversations need attention.</p><p>Open Orderly to see revenue intelligence, VIPs, campaigns and today's actions.</p>`,
+   subject:`${tenant.name} — Flavourly daily brief`,
+   html:`<h2>${tenant.name}</h2><p><strong>${s?.bookings_today??0}</strong> bookings today.</p><p><strong>${s?.open_conversations??0}</strong> conversations need attention.</p><p>Open Flavourly to see revenue intelligence, VIPs, campaigns and today's actions.</p>`,
   });
   if(email.ok)sent++;else skipped++;
  }
