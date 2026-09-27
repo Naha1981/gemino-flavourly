@@ -6,6 +6,7 @@ import { requireTenantRole } from '@/lib/auth/tenant-role';
 import { marketingCampaigns, contacts, customerProfiles, jobs, waAccounts } from '@/lib/db/schema';
 import { canSendAutomatedMessages } from '@/lib/billing/gate-evaluate';
 import { isCustomerSegment } from '@/lib/customer/segmentation';
+import { emitWebhookEvent } from '@/lib/webhooks/outbound';
 
 export const dynamic = 'force-dynamic';
 
@@ -89,5 +90,6 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     .set({ status: 'sent', launchedAt: new Date(), sentCount: targets.length, sentAt: new Date() })
     .where(and(eq(marketingCampaigns.id, campaign.id), eq(marketingCampaigns.tenantId, tenant.id)));
 
+  await emitWebhookEvent(tenant.id, 'campaign.completed', { campaignId: campaign.id, sent: targets.length }).catch(() => undefined);
   return NextResponse.json({ ok: true, launched: true, enqueued: targets.length, waAccountId: waAccount.id });
 }
