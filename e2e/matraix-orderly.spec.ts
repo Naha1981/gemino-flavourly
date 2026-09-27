@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
 
-test.describe('Orderly synthetic persona smoke — report mode', () => {
-  test('anonymous visitor reaches the Orderly audit funnel', async ({ page }) => {
+test.describe('Flavourly synthetic persona smoke — report mode', () => {
+  test('anonymous visitor reaches the Flavourly audit funnel', async ({ page }) => {
     await page.goto('/audit');
     await expect(page).toHaveURL(/\/audit/);
-    await expect(page.locator('body')).toContainText(/Orderly Revenue Diagnostic/i);
+    await expect(page.locator('body')).toContainText(/Flavourly Revenue Diagnostic/i);
   });
 
   test('dashboard surfaces are auth gated', async ({ page }) => {
