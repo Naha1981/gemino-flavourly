@@ -10,7 +10,6 @@ export default async function AttributionPage(){
  const tenant=resolved.tenant;
  const [campaigns,summaries]=await Promise.all([listMarketingCampaigns(tenant.id),reconcileCampaignAttribution(tenant.id).catch(()=>[])]);
  const byId=new Map(summaries.map(s=>[s.campaignId,s]));
- const totals=summaries.reduce((a,s)=>({sent:a.sent,responded:a.responded,booked:a.booked,estimated:a.estimated,realized:a.realized}),{sent:0,responded:0,booked:0,estimated:0,realized:0});
  const sent=summaries.reduce((n,s)=>n+s.sent,0),responded=summaries.reduce((n,s)=>n+s.responded,0),booked=summaries.reduce((n,s)=>n+s.booked,0);
  const estimated=summaries.reduce((n,s)=>n+s.estimatedRevenueCents,0),realized=summaries.reduce((n,s)=>n+s.realizedRevenueCents,0);
  return <div className="space-y-6">
