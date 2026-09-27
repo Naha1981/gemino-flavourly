@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { ArrowLeft, Sparkles, Gift, Award, TrendingUp, MapPin } from 'lucide-react';
 import { getOrCreateTenant } from '@/lib/tenant';
 import { listRecentRewardEvents } from '@/lib/customer/reward-claim-store';
+import { RewardCatalogManager } from './reward-catalog-manager';
 
 export const dynamic = 'force-dynamic';
 
@@ -131,6 +132,8 @@ export default async function LoyaltyPage() {
             </p>
           )}
         </div>
+
+        <RewardCatalogManager />
 
         {/* 2 Column Layout: Rewards & Top Members */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
