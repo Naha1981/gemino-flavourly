@@ -1,6 +1,27 @@
-# Gemino / Flavourly — Multi-Tenant Restaurant WhatsApp AI Platform
+# Orderly / Flavourly — Restaurant Revenue Intelligence OS
 
-Gemino is the tenant-aware business brain for Flavourly. It handles restaurant conversations, AI, customer intelligence, campaigns, loyalty, reputation, analytics, billing and operational workflows. WhatsApp transport is provided by the shared **NahaLabs Central WhatsApp Operator**.
+Orderly is the tenant-aware Restaurant Revenue Intelligence OS. Flavourly is the menu discovery and basket-growth engine inside Orderly. It handles restaurant conversations, AI, customer intelligence, campaigns, loyalty, reputation, analytics, billing and operational workflows. WhatsApp transport is provided by the shared **NahaLabs Central WhatsApp Operator**.
+
+
+## Product architecture
+
+Orderly is implemented inside this existing repository; there is intentionally no second `orderly` application or database.
+
+```text
+Orderly — Restaurant Revenue Intelligence OS
+│
+├── Revenue Intelligence
+├── Profit Leak / Contribution Analysis
+├── Customer + WhatsApp Intelligence
+├── Menu Intelligence
+│   └── Flavourly — Menu Discovery + Basket Growth
+├── Reviews + Market Intelligence
+├── Demand + Campaign Measurement
+├── Local Website / Direct-order Conversion
+└── Evidence → Action → Outcome → Learning
+```
+
+The implementation reuses the repository's existing authentication, tenancy, database, WhatsApp integration, campaigns, reputation, market intelligence and analytics instead of creating duplicate infrastructure.
 
 ## Architecture
 
@@ -16,8 +37,8 @@ WhatsApp Web / Baileys
                        │ HMAC-signed webhook / REST
                        ▼
 ┌───────────────────────────────────────────────┐
-│ Gemino / Flavourly Next.js app                │
-│ Vercel · multi-tenant business brain          │
+│ Orderly / Flavourly Next.js app              │
+│ Vercel · multi-tenant revenue intelligence    │
 │ Clerk · Drizzle · Neon · AI · CRM · billing  │
 │ campaigns · AutoPost · analytics · outbox     │
 └───────────────────────────────────────────────┘
@@ -82,7 +103,7 @@ The important application variables are:
 npm run dev
 ```
 
-The tenant dashboard is available at `/dashboard`; the Super Admin console is at `/admin` for authorized administrators.
+The tenant dashboard is available at `/dashboard` and the Orderly command centre at `/dashboard/intelligence`; the Super Admin console is at `/admin` for authorized administrators.
 
 ## WhatsApp setup
 
@@ -114,7 +135,7 @@ The current fleet includes campaign-attribution reconciliation as well as the QA
 
 ## AutoPost / OpenPost
 
-Flavourly remains the restaurant business and revenue brain. OpenPost is an external publishing layer for connected social accounts. Campaign publishing requires explicit owner approval before the integration is called.
+Orderly is the restaurant revenue and margin intelligence layer. OpenPost is an external publishing layer for connected social accounts. Campaign publishing requires explicit owner approval before the integration is called.
 
 ## AI and safety controls
 
