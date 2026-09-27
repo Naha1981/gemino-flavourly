@@ -9,8 +9,8 @@ import 'material-symbols/outlined.css';
 import { ThemeModeProvider } from '@/components/theme-mode';
 
 export const metadata: Metadata = {
-  title: 'Flavourly — The AI WhatsApp Employee for South African Restaurants',
-  description: 'Flavourly answers WhatsApp, books tables and brings back customers for South African restaurants.',
+  title: 'Orderly — Restaurant Revenue Intelligence OS',
+  description: 'Orderly finds restaurant revenue and margin leakage, explains the evidence, enables approved action and measures what changed. Flavourly powers menu discovery and basket intelligence inside Orderly.',
   icons: [
     { rel: 'icon', url: '/icon.svg', type: 'image/svg+xml' },
     { rel: 'apple-touch-icon', url: '/logo-mark.png' },
@@ -20,13 +20,13 @@ export const metadata: Metadata = {
   alternates: { canonical: '/' },
   openGraph: {
     title: 'Flavourly — The AI WhatsApp Employee for South African Restaurants',
-    description: 'Full tables. Even on Tuesdays.',
+    description: 'Find revenue leakage. Prove the action. Measure the money recovered.'
     type: 'website',
     images: ['/logo.png'],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Flavourly — The AI WhatsApp Employee',
+    title: 'Orderly — Restaurant Revenue Intelligence OS',
     description: 'Full tables. Even on Tuesdays.',
     images: ['/logo.png'],
   },
