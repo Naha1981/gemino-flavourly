@@ -5,6 +5,7 @@ import { db } from '@/lib/db';
 import { tenants } from '@/lib/db/schema';
 import { eq } from 'drizzle-orm';
 import type { Metadata } from 'next';
+import { ensureMenuItems } from '@/lib/menu/menu-store';
 
 // This route stays dynamically rendered: ClerkProvider in the root layout
 // reads request headers, which opts the whole app out of static rendering, so
@@ -46,6 +47,7 @@ const getTenantUncached = (slug: string) =>
   db.query.tenants.findFirst({
     where: eq(tenants.slug, slug),
     columns: {
+      id: true,
       name: true,
       description: true,
       openingHours: true,
@@ -80,6 +82,7 @@ export default async function MenuPage(props: Props) {
   }
 
   const hours = tenant.openingHours || 'Mon – Sun: 11:30 AM – 10:00 PM';
+  const menuItems = await ensureMenuItems(tenant.id, tenant.menuText);
 
   return (
     <main className="min-h-screen bg-zinc-950 px-5 py-10 text-zinc-100">
@@ -96,13 +99,24 @@ export default async function MenuPage(props: Props) {
             Menu
           </h2>
           <div className="rounded-lg border border-zinc-800 bg-zinc-900/60 p-5 text-sm leading-relaxed text-zinc-400">
-            {tenant.menuText ? (
+            {menuItems.length > 0 ? (
+              <div className="space-y-4">
+                {menuItems.filter((item) => item.available).map((item) => (
+                  <article key={item.id} className="flex items-start justify-between gap-4 border-b border-zinc-800 pb-3 last:border-0 last:pb-0">
+                    <div>
+                      <h3 className="font-medium text-zinc-100">{item.name}</h3>
+                      {item.description && <p className="mt-1 text-xs text-zinc-500">{item.description}</p>}
+                      {item.category && <p className="mt-1 text-[10px] uppercase tracking-wider text-emerald-500">{item.category}</p>}
+                    </div>
+                    {item.priceCents != null && <span className="shrink-0 font-medium text-zinc-200">R{(item.priceCents / 100).toFixed(0)}</span>}
+                  </article>
+                ))}
+                {menuItems.every((item) => !item.available) && <p className="text-zinc-500">The menu is temporarily unavailable. Message us on WhatsApp for today's options.</p>}
+              </div>
+            ) : tenant.menuText ? (
               <p className="whitespace-pre-wrap text-zinc-300">{tenant.menuText}</p>
             ) : (
-              <>
-                Message us on WhatsApp and we’ll gladly talk you through today’s dishes and chef
-                specials.
-              </>
+              <>Message us on WhatsApp and we’ll gladly talk you through today’s dishes and chef specials.</>
             )}
           </div>
         </section>
