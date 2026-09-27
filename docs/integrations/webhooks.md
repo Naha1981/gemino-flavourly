@@ -1,8 +1,13 @@
-# Integration: outbound webhooks
+# Outbound Webhooks
 
-**Status: PLANNED** — gate API-1/OPS-1.
+## Status
+Implemented.
 
-Scope when built:
-- Events: booking.created, booking.confirmed, booking.no_show, review.received, campaign.completed, subscription.activated.
-- HMAC-SHA256 signed (same scheme as the operator webhook), retries with exponential backoff, dead-letter viewer in super admin.
-- Note: inbound PayFast ITN + operator webhook already shipped (see docs/API_REGISTRY.md).
+Restaurants can register HTTPS endpoints from Dashboard → Settings → Webhooks.
+
+Events use HMAC-SHA256 in:
+\`X-NahaLabs-Webhook-Signature\`
+
+Delivery is retried with exponential backoff and moves to \`dead\` after eight failed attempts.
+
+The shared event model is designed for booking, campaign, review, subscription and future revenue events.
