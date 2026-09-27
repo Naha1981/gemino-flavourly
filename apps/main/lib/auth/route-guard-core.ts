@@ -37,6 +37,7 @@ const PUBLIC_EXACT = new Set<string>([
 const PUBLIC_PREFIXES: string[] = [
   '/sign-in',
   '/sign-up',
+  '/staff/invite/',
   '/claim/',
   '/m/',
   '/s/',

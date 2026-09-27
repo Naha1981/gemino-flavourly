@@ -29,6 +29,16 @@ import {
   listRewardCatalog,
 } from '@/lib/customer/reward-claim-store';
 import { buildConfirmationReply } from '@/lib/revenue/reminder-ladder';
+import { consumeAiRequest } from '@/lib/billing/ai-budget';
+import { acceptWaitlistOffer } from '@/lib/revenue/waitlist-auto-offer';
+import { retrieveKnowledge } from '@/lib/knowledge/store';
+import { emitWebhookEvent } from '@/lib/webhooks/outbound';
+import {
+  getActiveBookingDraft,
+  upsertBookingDraft,
+  confirmReadyDraft,
+  draftMissingFields,
+} from '@/lib/revenue/booking-drafts';
 
 const SUPER_ADMIN_EMAILS = `${process.env.SUPER_ADMIN_EMAILS ?? ''},${process.env.ADMIN_EMAIL ?? ''}`
   .split(',')
@@ -258,16 +268,35 @@ export async function processInboundAIResponse(ctx: InboundContext): Promise<str
     );
   }
 
-  // 4b. Booking CONFIRM / YES — self-service confirmation. The reminder
-  // ladder asks the guest to reply CONFIRM; this stamps the customer-
-  // confirmed flag on their next upcoming booking (informational for staff
-  // dashboards; the ladder itself keeps running). Runs BEFORE the booking
-  // intent because "confirm my booking" contains the word "book", and
-  // AFTER the cancellation intent because that owns any cancel phrasing.
+  // 4b. Booking CONFIRM / YES — first confirm a ready multi-message draft,
+  // otherwise confirm the next existing reservation.
   if (
     ['confirm', 'confirmed', 'yes', 'y', 'c'].includes(lower) ||
     lower.startsWith('confirm ')
   ) {
+    const waitlistClaim = await acceptWaitlistOffer(tenantId, contactId);
+    if (waitlistClaim) {
+      await emitWebhookEvent(tenantId, 'booking.confirmed', { reservationId: waitlistClaim.reservationId, contactId }).catch(() => undefined);
+      return `✅ Your waitlist table is claimed. We’ve reserved it for you — please arrive as soon as you can.`;
+    }
+
+    const draft = await getActiveBookingDraft(conversationId);
+    if (draft?.status === 'ready') {
+      try {
+        const created = await confirmReadyDraft(draft);
+        return `✅ Your table is confirmed for ${created.reservationDate.toLocaleString('en-ZA', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          hour: '2-digit',
+          minute: '2-digit',
+        })} for ${draft.partySize} guest${draft.partySize === 1 ? '' : 's'}.
+We look forward to seeing you at ${tenant.name}!`;
+      } catch (err) {
+        console.error('[Booking Draft] failed to confirm ready draft', err);
+        return `I have all the details, but I couldn't finalise the booking just yet. Please try CONFIRM again or ask for a staff member.`;
+      }
+    }
     const upcoming = await db
       .select({
         id: reservations.id,
@@ -304,9 +333,28 @@ export async function processInboundAIResponse(ctx: InboundContext): Promise<str
     });
   }
 
-  // 5. Booking / Reservation Intent
-  if (lower.includes('book') || lower.includes('table') || lower.includes('reservation')) {
-    return `🍽️ We'd love to host you at ${tenant.name}!\n\nTo reserve a table, please tell us:\n1. Date & Preferred Time\n2. Number of guests\n3. Any special dietary requirements`;
+  // 5. Booking / Reservation Intent. Multi-message booking drafts retain the
+  // details already supplied for 30 minutes, then ask only for what is missing.
+  if (lower.includes('book') || lower.includes('table') || lower.includes('reservation') || await getActiveBookingDraft(conversationId)) {
+    const draft = await upsertBookingDraft({
+      tenantId,
+      contactId,
+      conversationId,
+      text,
+    });
+    const missing = draftMissingFields(draft);
+    if (missing.length > 0) {
+      const prompts: Record<string, string> = {
+        date: 'the date',
+        time: 'your preferred time',
+        'number of guests': 'the number of guests',
+      };
+      const ask = missing.map((field) => prompts[field] ?? field);
+      return `🍽️ I can help with that. I still need ${ask.join(' and ')}. You can send them together, for example: “Saturday at 19:00 for 4”.`;
+    }
+    return `Great — I have a table request for ${draft.partySize} guest${draft.partySize === 1 ? '' : 's'} on ${draft.dateText} at ${draft.timeText}.${draft.notes ? ` Note: ${draft.notes}.` : ''}
+
+Reply CONFIRM to book it, or send a change such as “tomorrow at 20:00 for 2”.`;
   }
 
   // 6. Menu & Trading Hours
@@ -319,20 +367,37 @@ export async function processInboundAIResponse(ctx: InboundContext): Promise<str
     return `📍 *${tenant.name}*\n🕒 Trading Hours:\n${hours}\n\nWe look forward to welcoming you!`;
   }
 
-  // 7. Intelligent Contextual AI Fallback (Groq / Gemini / OpenAI)
+  // 7. Intelligent Contextual AI Fallback. Every external model turn
+  // consumes one tenant-scoped daily AI budget unit. Deterministic flows above
+  // (menu, booking, loyalty, waitlist, hours) remain available after the budget
+  // is exhausted.
+  const budget = await consumeAiRequest(tenantId, tenant.plan);
+  if (!budget.allowed) {
+    console.warn(`[AI Budget] tenant=${tenantId} exhausted daily AI budget of ${budget.limit}`);
+    return `Hi ${senderName}, our automated assistant has reached today's message limit. Your request is safely queued for the restaurant team, who can take over this conversation.`;
+  }
+
+  // 7a. Intelligent Contextual AI Fallback (Groq / Gemini)
   try {
     const groqKey = process.env.GROQ_API_KEY;
     const geminiKey = process.env.GOOGLE_GEMINI_API_KEY;
 
-    const basePrompt = tenant.systemPrompt || `You are the ${tenant.aiPersonality || 'warm, friendly, and hospitable'} WhatsApp Concierge for ${tenant.name}.
+    const knowledge = await retrieveKnowledge(tenantId, text, 5).catch(() => []);
+  const knowledgeContext = knowledge.length
+    ? "\nVerified restaurant knowledge:\n" + knowledge.map((item) => `[Source: ${item.name}] ${item.content}`).join("\n---\n")
+    : "";
+
+  const basePrompt = tenant.systemPrompt || `You are the ${tenant.aiPersonality || 'warm, friendly, and hospitable'} WhatsApp Concierge for ${tenant.name}.
 Business details: ${tenant.description || 'A premier restaurant and hospitality venue.'}
 Trading hours: ${tenant.openingHours || 'Monday - Sunday: 11:30 AM - 10:00 PM'}
 Customer Name: ${senderName}
 Customer Message: "${text}"
+${knowledgeContext}
 
 Guidelines:
 - Keep response concise (1-3 sentences) suited for mobile messaging.
 - Match the brand tone: ${tenant.aiPersonality || 'hospitable and professional'}.
+- Use verified restaurant knowledge when relevant. Never invent menu items, policies, prices or rules.
 - If asking about bookings, invite them to share date, time, and party size.
 - If asking for a human manager, inform them our floor manager has been alerted.`;
 

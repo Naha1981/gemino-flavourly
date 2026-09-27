@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { db } from '@/lib/db';
-import { waitlistEntries } from '@/lib/db/schema';
-import { and, eq, lt } from 'drizzle-orm';
 import { assertCronAuthorized } from '@/lib/cron/auth';
+import { runWaitlistAutoOffer } from '@/lib/revenue/waitlist-auto-offer';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,19 +10,11 @@ export async function GET(req: NextRequest) {
   const authError = assertCronAuthorized(req);
   if (authError) return authError;
 
-  // Expire offered waitlist entries that were not accepted within 15 minutes
-  const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
-
-  const expired = await db
-    .update(waitlistEntries)
-    .set({ status: 'expired' })
-    .where(
-      and(
-        eq(waitlistEntries.status, 'offered'),
-        lt(waitlistEntries.notifiedAt, fifteenMinutesAgo)
-      )
-    )
-    .returning();
-
-  return NextResponse.json({ ok: true, expiredCount: expired.length });
+  try {
+    const result = await runWaitlistAutoOffer();
+    return NextResponse.json({ ok: true, ...result });
+  } catch (error) {
+    console.error('[Waitlist] auto-offer sweep failed', error);
+    return NextResponse.json({ ok: false, error: 'Waitlist sweep failed' }, { status: 500 });
+  }
 }

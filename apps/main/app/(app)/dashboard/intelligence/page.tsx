@@ -32,12 +32,19 @@ export default async function RevenueIntelligencePage() {
   const now = new Date();
   const start = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
 
-  const [[revenue], [bookingCount], [reviewSummary], competitors, opportunities] = await Promise.all([
+  const [[revenue], [bookingCount], [reviewSummary], competitors, opportunities, nextActions] = await Promise.all([
     db.select({ total: sql<number>`COALESCE(SUM(${revenueEvents.realizedCents}), 0)` }).from(revenueEvents).where(and(eq(revenueEvents.tenantId, tenant.id), gte(revenueEvents.occurredAt, start), liveRowsOnly(revenueEvents.id, liveScope))).catch(() => [{ total: 0 }]),
     db.select({ total: count() }).from(reservations).where(and(eq(reservations.tenantId, tenant.id), gte(reservations.date, start), liveRowsOnly(reservations.id, liveScope))).catch(() => [{ total: 0 }]),
     db.select({ average: sql<number | null>`AVG(${googleReviews.rating})`, total: count() }).from(googleReviews).where(and(eq(googleReviews.tenantId, tenant.id), liveRowsOnly(googleReviews.id, liveScope))).catch(() => [{ average: null, total: 0 }]),
     listCompetitors(tenant.id).catch(() => []),
     getOpportunities(tenant.id).catch(() => []),
+    db.execute(sql`
+      SELECT intent, score, next_action, evidence, created_at
+      FROM intent_scores
+      WHERE tenant_id = ${tenant.id}
+      ORDER BY created_at DESC
+      LIMIT 5
+    `).then((result) => (result as any).rows ?? result as any[]).catch(() => []),
   ]);
 
   const open = opportunities.filter((item) => !item.addressed);
@@ -93,6 +100,26 @@ export default async function RevenueIntelligencePage() {
           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 dark:border-amber-900/60 dark:bg-amber-950/20"><div className="flex items-start gap-3"><CircleAlert className="mt-0.5 h-4 w-4 shrink-0 text-amber-700 dark:text-amber-300" /><div><p className="text-sm font-semibold text-amber-900 dark:text-amber-200">Evidence boundary</p><p className="mt-1 text-xs leading-5 text-amber-900/75 dark:text-amber-200/75">A market opportunity or AI recommendation is not revenue. Flavourly records verified revenue separately and only attributes commercial impact when a traceable basis exists.</p></div></div></div>
         </section>
       </div>
+
+      <section className="glass-card p-6">
+        <div className="flex items-center justify-between gap-4">
+          <div><h2 className="label-md text-app-fg dark:text-zinc-50">Next-best actions</h2><p className="label-sm mt-1 text-app-muted dark:text-zinc-400">Intent signals from real customer conversations, with the evidence that triggered them.</p></div>
+          <Link href="/dashboard/inbox" className="label-sm text-app-secondary hover:underline dark:text-emerald-400">Open inbox <ArrowRight className="ml-1 inline h-3 w-3" /></Link>
+        </div>
+        {nextActions.length === 0 ? (
+          <p className="mt-5 rounded-2xl border border-dashed border-app-border p-5 text-sm text-app-muted dark:border-zinc-800">No intent signals yet. They appear after customer messages arrive.</p>
+        ) : (
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            {nextActions.map((item: any, index: number) => (
+              <article key={`${item.created_at}-${index}`} className="rounded-2xl border border-app-border bg-app-surface-1 p-4 dark:border-zinc-800 dark:bg-zinc-950/60">
+                <div className="flex items-center justify-between gap-3"><span className="text-xs font-semibold uppercase tracking-[0.12em] text-app-muted">{String(item.intent).replace(/_/g, ' ')}</span><span className="text-xs font-semibold text-app-secondary">{item.score}/100</span></div>
+                <p className="mt-2 text-sm font-semibold text-app-fg dark:text-zinc-100">{item.next_action}</p>
+                <p className="mt-1 text-xs leading-5 text-app-muted dark:text-zinc-400">{item.evidence}</p>
+              </article>
+            ))}
+          </div>
+        )}
+      </section>
 
       <div className="grid gap-4 md:grid-cols-3">
         <SignalCard icon={<Sparkles className="h-4 w-4" />} title="Menu conversion" text="Move from market gaps into menu structure, copy, imagery and offers." href="/dashboard/market/competitors" />

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrCreateTenant } from '@/lib/tenant';
+import { requireTenantRole } from '@/lib/auth/tenant-role';
 import {
   countMarketingCampaigns,
   createMarketingCampaign,
@@ -21,6 +22,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   const tenant = await getOrCreateTenant();
   if (!tenant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try { await requireTenantRole(tenant.id, 'manager'); } catch { return NextResponse.json({ error: 'Manager or owner role required' }, { status: 403 }); }
 
   let body: Record<string, unknown>;
   try {

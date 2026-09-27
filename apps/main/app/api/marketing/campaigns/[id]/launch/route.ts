@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { getOrCreateTenant } from '@/lib/tenant';
+import { requireTenantRole } from '@/lib/auth/tenant-role';
 import { marketingCampaigns, contacts, customerProfiles, jobs, waAccounts } from '@/lib/db/schema';
 import { canSendAutomatedMessages } from '@/lib/billing/gate-evaluate';
 import { isCustomerSegment } from '@/lib/customer/segmentation';
+import { emitWebhookEvent } from '@/lib/webhooks/outbound';
 
 export const dynamic = 'force-dynamic';
 
@@ -20,6 +22,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const tenant = await getOrCreateTenant();
   if (!tenant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try { await requireTenantRole(tenant.id, 'manager'); } catch { return NextResponse.json({ error: 'Manager or owner role required' }, { status: 403 }); }
 
   if (!(await canSendAutomatedMessages(tenant.id))) {
     return NextResponse.json({ error: 'Billing inactive — renew to resume AI and campaigns' }, { status: 402 });
@@ -87,5 +90,6 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     .set({ status: 'sent', launchedAt: new Date(), sentCount: targets.length, sentAt: new Date() })
     .where(and(eq(marketingCampaigns.id, campaign.id), eq(marketingCampaigns.tenantId, tenant.id)));
 
+  await emitWebhookEvent(tenant.id, 'campaign.completed', { campaignId: campaign.id, sent: targets.length }).catch(() => undefined);
   return NextResponse.json({ ok: true, launched: true, enqueued: targets.length, waAccountId: waAccount.id });
 }
