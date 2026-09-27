@@ -22,6 +22,7 @@ import { drizzleVipRecognitionStore } from '@/lib/customer/vip-store';
 import { classifyMessageRisk, decideApprovalAction } from '@/lib/operations/approval-classifier';
 import { createApprovalRequest } from '@/lib/operations/approval-request-store';
 import { recordIntentScore } from '@/lib/intelligence/intent-engine';
+import { recordWebhookEvent } from '@/lib/ops/webhook-audit';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -54,7 +55,13 @@ export async function POST(req: NextRequest) {
   const rawBody = await req.text();
   const signature = req.headers.get('x-webhook-signature');
 
-  if (!verifyWebhookSignature(rawBody, signature)) {
+  const signatureValid = verifyWebhookSignature(rawBody, signature);
+  if (!signatureValid) {
+    await recordWebhookEvent({
+      source: 'central-whatsapp-operator',
+      eventType: 'invalid_signature',
+      signatureValid: false,
+    });
     return NextResponse.json({ error: 'Invalid HMAC signature' }, { status: 401 });
   }
 
@@ -66,6 +73,12 @@ export async function POST(req: NextRequest) {
   }
 
   const { waAccountId, event, data } = payload;
+  await recordWebhookEvent({
+    source: 'central-whatsapp-operator',
+    eventType: typeof event === 'string' ? event : 'unknown',
+    signatureValid: true,
+    payload,
+  });
   if (!waAccountId || !event) {
     return NextResponse.json({ error: 'Missing waAccountId or event' }, { status: 400 });
   }
