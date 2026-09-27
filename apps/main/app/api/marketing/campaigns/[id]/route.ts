@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { resolveActiveTenant } from '@/lib/tenant-resolver';
+import { requireTenantRole } from '@/lib/auth/tenant-role';
 import { db } from '@/lib/db';
 import { and, eq } from 'drizzle-orm';
 import { marketingCampaigns } from '@/lib/db/schema';
@@ -23,6 +24,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
   const tenantId = resolved.tenant.id;
+  try { await requireTenantRole(tenantId, 'manager'); } catch { return NextResponse.json({ error: 'Manager or owner role required' }, { status: 403 }); }
 
   const campaign = await db.query.marketingCampaigns.findFirst({
     where: and(eq(marketingCampaigns.id, params.id), eq(marketingCampaigns.tenantId, tenantId)),
