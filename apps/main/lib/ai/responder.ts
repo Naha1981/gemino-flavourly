@@ -30,6 +30,7 @@ import {
 } from '@/lib/customer/reward-claim-store';
 import { buildConfirmationReply } from '@/lib/revenue/reminder-ladder';
 import { consumeAiRequest } from '@/lib/billing/ai-budget';
+import { acceptWaitlistOffer } from '@/lib/revenue/waitlist-auto-offer';
 import {
   getActiveBookingDraft,
   upsertBookingDraft,
@@ -271,6 +272,11 @@ export async function processInboundAIResponse(ctx: InboundContext): Promise<str
     ['confirm', 'confirmed', 'yes', 'y', 'c'].includes(lower) ||
     lower.startsWith('confirm ')
   ) {
+    const waitlistClaim = await acceptWaitlistOffer(tenantId, contactId);
+    if (waitlistClaim) {
+      return `✅ Your waitlist table is claimed. We’ve reserved it for you — please arrive as soon as you can.`;
+    }
+
     const draft = await getActiveBookingDraft(conversationId);
     if (draft?.status === 'ready') {
       try {
