@@ -29,6 +29,12 @@ import {
   listRewardCatalog,
 } from '@/lib/customer/reward-claim-store';
 import { buildConfirmationReply } from '@/lib/revenue/reminder-ladder';
+import {
+  getActiveBookingDraft,
+  upsertBookingDraft,
+  confirmReadyDraft,
+  draftMissingFields,
+} from '@/lib/revenue/booking-drafts';
 
 const SUPER_ADMIN_EMAILS = `${process.env.SUPER_ADMIN_EMAILS ?? ''},${process.env.ADMIN_EMAIL ?? ''}`
   .split(',')
@@ -258,16 +264,29 @@ export async function processInboundAIResponse(ctx: InboundContext): Promise<str
     );
   }
 
-  // 4b. Booking CONFIRM / YES — self-service confirmation. The reminder
-  // ladder asks the guest to reply CONFIRM; this stamps the customer-
-  // confirmed flag on their next upcoming booking (informational for staff
-  // dashboards; the ladder itself keeps running). Runs BEFORE the booking
-  // intent because "confirm my booking" contains the word "book", and
-  // AFTER the cancellation intent because that owns any cancel phrasing.
+  // 4b. Booking CONFIRM / YES — first confirm a ready multi-message draft,
+  // otherwise confirm the next existing reservation.
   if (
     ['confirm', 'confirmed', 'yes', 'y', 'c'].includes(lower) ||
     lower.startsWith('confirm ')
   ) {
+    const draft = await getActiveBookingDraft(conversationId);
+    if (draft?.status === 'ready') {
+      try {
+        const created = await confirmReadyDraft(draft);
+        return `✅ Your table is confirmed for ${created.reservationDate.toLocaleString('en-ZA', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+          hour: '2-digit',
+          minute: '2-digit',
+        })} for ${draft.partySize} guest${draft.partySize === 1 ? '' : 's'}.
+We look forward to seeing you at ${tenant.name}!`;
+      } catch (err) {
+        console.error('[Booking Draft] failed to confirm ready draft', err);
+        return `I have all the details, but I couldn't finalise the booking just yet. Please try CONFIRM again or ask for a staff member.`;
+      }
+    }
     const upcoming = await db
       .select({
         id: reservations.id,
@@ -304,9 +323,28 @@ export async function processInboundAIResponse(ctx: InboundContext): Promise<str
     });
   }
 
-  // 5. Booking / Reservation Intent
-  if (lower.includes('book') || lower.includes('table') || lower.includes('reservation')) {
-    return `🍽️ We'd love to host you at ${tenant.name}!\n\nTo reserve a table, please tell us:\n1. Date & Preferred Time\n2. Number of guests\n3. Any special dietary requirements`;
+  // 5. Booking / Reservation Intent. Multi-message booking drafts retain the
+  // details already supplied for 30 minutes, then ask only for what is missing.
+  if (lower.includes('book') || lower.includes('table') || lower.includes('reservation') || await getActiveBookingDraft(conversationId)) {
+    const draft = await upsertBookingDraft({
+      tenantId,
+      contactId,
+      conversationId,
+      text,
+    });
+    const missing = draftMissingFields(draft);
+    if (missing.length > 0) {
+      const prompts: Record<string, string> = {
+        date: 'the date',
+        time: 'your preferred time',
+        'number of guests': 'the number of guests',
+      };
+      const ask = missing.map((field) => prompts[field] ?? field);
+      return `🍽️ I can help with that. I still need ${ask.join(' and ')}. You can send them together, for example: “Saturday at 19:00 for 4”.`;
+    }
+    return `Great — I have a table request for ${draft.partySize} guest${draft.partySize === 1 ? '' : 's'} on ${draft.dateText} at ${draft.timeText}.${draft.notes ? ` Note: ${draft.notes}.` : ''}
+
+Reply CONFIRM to book it, or send a change such as “tomorrow at 20:00 for 2”.`;
   }
 
   // 6. Menu & Trading Hours
