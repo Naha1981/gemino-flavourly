@@ -99,8 +99,10 @@ export async function runWaitlistAutoOffer(now = new Date()): Promise<WaitlistOf
 
 export async function acceptWaitlistOffer(tenantId: string, contactId: string): Promise<{ reservationId: string } | null> {
   const result = await db.execute(sql`
-    SELECT w.offer_reservation_id AS reservation_id, w.id
+    SELECT w.id, w.offer_reservation_id AS reservation_id,
+           c.name, c.phone
     FROM waitlist_entries w
+    JOIN contacts c ON c.id = w.contact_id
     WHERE w.tenant_id = ${tenantId}
       AND w.contact_id = ${contactId}
       AND w.status = 'offered'
@@ -111,10 +113,26 @@ export async function acceptWaitlistOffer(tenantId: string, contactId: string): 
   const row = ((result as any).rows ?? result as any[])[0];
   if (!row?.reservation_id) return null;
 
+  const reopened = await db.execute(sql`
+    UPDATE reservations
+    SET status = 'confirmed',
+        contact_id = ${contactId},
+        customer_name = COALESCE(${row.name}, customer_name),
+        customer_phone = ${row.phone},
+        customer_confirmed_at = NOW()
+    WHERE id = ${row.reservation_id}
+      AND tenant_id = ${tenantId}
+      AND status = 'cancelled'
+    RETURNING id
+  `);
+  const reservation = ((reopened as any).rows ?? reopened as any[])[0];
+  if (!reservation?.id) return null;
+
   await db.execute(sql`
     UPDATE waitlist_entries
     SET status = 'accepted'
     WHERE id = ${row.id}
+      AND status = 'offered'
   `);
-  return { reservationId: String(row.reservation_id) };
+  return { reservationId: String(reservation.id) };
 }
