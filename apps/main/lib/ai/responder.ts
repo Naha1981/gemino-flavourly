@@ -29,6 +29,7 @@ import {
   listRewardCatalog,
 } from '@/lib/customer/reward-claim-store';
 import { buildConfirmationReply } from '@/lib/revenue/reminder-ladder';
+import { consumeAiRequest } from '@/lib/billing/ai-budget';
 import {
   getActiveBookingDraft,
   upsertBookingDraft,
@@ -357,7 +358,17 @@ Reply CONFIRM to book it, or send a change such as “tomorrow at 20:00 for 2”
     return `📍 *${tenant.name}*\n🕒 Trading Hours:\n${hours}\n\nWe look forward to welcoming you!`;
   }
 
-  // 7. Intelligent Contextual AI Fallback (Groq / Gemini / OpenAI)
+  // 7. Intelligent Contextual AI Fallback. Every external model turn
+  // consumes one tenant-scoped daily AI budget unit. Deterministic flows above
+  // (menu, booking, loyalty, waitlist, hours) remain available after the budget
+  // is exhausted.
+  const budget = await consumeAiRequest(tenantId, tenant.plan);
+  if (!budget.allowed) {
+    console.warn(`[AI Budget] tenant=${tenantId} exhausted daily AI budget of ${budget.limit}`);
+    return `Hi ${senderName}, our automated assistant has reached today's message limit. Your request is safely queued for the restaurant team, who can take over this conversation.`;
+  }
+
+  // 7a. Intelligent Contextual AI Fallback (Groq / Gemini)
   try {
     const groqKey = process.env.GROQ_API_KEY;
     const geminiKey = process.env.GOOGLE_GEMINI_API_KEY;
