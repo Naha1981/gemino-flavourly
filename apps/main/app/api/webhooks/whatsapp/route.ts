@@ -21,6 +21,7 @@ import { processFirstMessageVip } from '@/lib/customer/vip-recognition';
 import { drizzleVipRecognitionStore } from '@/lib/customer/vip-store';
 import { classifyMessageRisk, decideApprovalAction } from '@/lib/operations/approval-classifier';
 import { createApprovalRequest } from '@/lib/operations/approval-request-store';
+import { recordIntentScore } from '@/lib/intelligence/intent-engine';
 
 export const runtime = 'nodejs';
 export const maxDuration = 30;
@@ -196,6 +197,15 @@ export async function POST(req: NextRequest) {
 
   if (!insertedMessage && waMessageId) {
     return NextResponse.json({ ok: true, note: 'Duplicate message (race on concurrent delivery)' });
+  }
+
+  if (insertedMessage?.id) {
+    await recordIntentScore({
+      tenantId,
+      conversationId: conversation.id,
+      messageId: insertedMessage.id,
+      text: textContent,
+    });
   }
 
   if (isNewConversation) {
