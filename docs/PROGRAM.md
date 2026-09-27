@@ -14,7 +14,7 @@ Every skill from the NahaLabs governance pack lands in ONE named home — a buil
 | 6 | Enterprise/Strategy playbook | `docs/ENTERPRISE_PLAYBOOK.md` | DOC-1 | doc | ✅ DONE |
 | 7 | OSS-first + Integration-SDK policy | ADR-020 (exclude n8n/Zapier/Make/Trigger.dev), ADR-021 (Activepieces deferred, review trigger: 3+ client integrations) | DOC-1 | ADR | ✅ DONE |
 | 8 | **Loyalty + GPS redemption** (Orderly) | Build: `reward_events`, `/geo-claim/[token]`, Haversine ≤500m, JOIN/REDEEM, complete-visit | **O1** | build | ✅ DONE (2026-08-31, migration 0021) |
-| 9 | Booking drafts + 48/24/6h reminders + waitlist offers | Reminders ladder + CONFIRM flow: migration 0022 + `/api/cron/booking-reminders`. Booking drafts (30-min TTL) + waitlist auto-offer: deferred (see Non-Goals) | O2 | build | 🟡 PARTIAL |
+| 9 | Booking drafts + 48/24/6h reminders + waitlist offers | Reminders ladder + CONFIRM flow + 30-minute booking drafts + cancellation-to-waitlist auto-offer | O2 | build | ✅ DONE (2026-09-27) |
 | 10 | Win-back ladder + review split-routing + quiet hours + AI budget guard | Win-back, review split-routing, quiet hours and per-tenant AI budget guard | O3 | build | ✅ DONE (2026-09-27) |
 | 11 | Staff roles + Menu Manager (86) + public hub `/r/[slug]` | Public hub, staff floor UI, server-enforced roles, invites and Menu Manager | O4 | build | ✅ DONE (2026-09-27) |
 | 12 | UX Intelligence + Anti-AI-Slop audit + finish light theme | Stitch redesign shipped (light-default tokens, dark opt-in). Formal UX-1 audit pass: pending | UX-1 | build/audit | ⏳ PENDING |
@@ -31,14 +31,8 @@ No feature-gate build items remain from the original sweep. Remaining work is va
 
 | Item | Home | Trigger |
 |---|---|---|
-| Booking drafts (30-min TTL) | this table, row 9 | O2 follow-up gate |
-| Waitlist auto-offer on cancellation | this table, row 9 | O2 follow-up gate (currently: expiry sweep only) |
-| Quiet hours (07:00–20:00 SAST send window) | row 10 | O3 follow-up gate |
-| Per-tenant AI budget guard | row 10 | O3 follow-up gate |
-| Staff floor UI (roles: manager/staff) | row 11 | O4 gate |
-| Menu Manager (86 items) | row 11 | O4 gate |
 | Activepieces self-host review | ADR-021 | 3+ client integration requests |
-| MCP gateway | ADR-022 | API-1 gate |
+| MCP gateway | ADR-022 | shipped as thin adapter after REST foundation |
 | MatrAIx enforcement mode | ADR-023 | after 2 clean report-mode cycles |
 | TAKT install | ADR-024 | if/when nrslib/takt installs cleanly in CI |
 
