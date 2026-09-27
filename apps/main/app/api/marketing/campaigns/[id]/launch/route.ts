@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { and, eq, inArray } from 'drizzle-orm';
 import { db } from '@/lib/db';
 import { getOrCreateTenant } from '@/lib/tenant';
+import { requireTenantRole } from '@/lib/auth/tenant-role';
 import { marketingCampaigns, contacts, customerProfiles, jobs, waAccounts } from '@/lib/db/schema';
 import { canSendAutomatedMessages } from '@/lib/billing/gate-evaluate';
 import { isCustomerSegment } from '@/lib/customer/segmentation';
@@ -20,6 +21,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   const { id } = await params;
   const tenant = await getOrCreateTenant();
   if (!tenant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  try { await requireTenantRole(tenant.id, 'manager'); } catch { return NextResponse.json({ error: 'Manager or owner role required' }, { status: 403 }); }
 
   if (!(await canSendAutomatedMessages(tenant.id))) {
     return NextResponse.json({ error: 'Billing inactive — renew to resume AI and campaigns' }, { status: 402 });
