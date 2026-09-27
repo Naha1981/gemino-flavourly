@@ -10,8 +10,8 @@ export async function GET(req: Request) {
     if (!ctx) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     const url = new URL(req.url); const limit = Math.min(100, Math.max(1, Number(url.searchParams.get('limit') ?? 50)));
     const rows = await db.select({
-      id: googleReviews.id, rating: googleReviews.rating, reviewText: googleReviews.reviewText,
-      authorName: googleReviews.authorName, publishedAt: googleReviews.publishedAt,
+      id: googleReviews.id, rating: googleReviews.rating, reviewText: googleReviews.text,
+      authorName: googleReviews.authorName, publishedAt: googleReviews.time,
     }).from(googleReviews).where(eq(googleReviews.tenantId, ctx.tenantId)).orderBy(desc(googleReviews.publishedAt)).limit(limit);
     return NextResponse.json({ data: rows });
   } catch (error) {
