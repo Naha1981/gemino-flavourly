@@ -21,7 +21,7 @@ export async function POST(req: Request) {
   const id = body?.id ?? null;
   try {
     if (body?.method === 'initialize') {
-      return NextResponse.json({ jsonrpc: '2.0', id, result: { protocolVersion: '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'NahaLabs Orderly MCP', version: '1.0.0' } } });
+      return NextResponse.json({ jsonrpc: '2.0', id, result: { protocolVersion: '2025-06-18', capabilities: { tools: {} }, serverInfo: { name: 'NahaLabs Flavourly MCP', version: '1.0.0' } } });
     }
     if (body?.method === 'notifications/initialized') return NextResponse.json({ jsonrpc: '2.0', id, result: {} });
     if (body?.method === 'tools/list') return NextResponse.json({ jsonrpc: '2.0', id, result: { tools: TOOLS } });
