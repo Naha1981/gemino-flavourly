@@ -1,4 +1,4 @@
--- Completion sweep: remaining Orderly / Flavourly platform features.
+-- Completion sweep: remaining Flavourly platform features.
 -- Additive only. Runtime /api/migrate carries the same DDL.
 CREATE TABLE IF NOT EXISTS booking_drafts (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
