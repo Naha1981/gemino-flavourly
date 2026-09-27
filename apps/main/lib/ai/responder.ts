@@ -32,6 +32,7 @@ import { buildConfirmationReply } from '@/lib/revenue/reminder-ladder';
 import { consumeAiRequest } from '@/lib/billing/ai-budget';
 import { acceptWaitlistOffer } from '@/lib/revenue/waitlist-auto-offer';
 import { retrieveKnowledge } from '@/lib/knowledge/store';
+import { emitWebhookEvent } from '@/lib/webhooks/outbound';
 import {
   getActiveBookingDraft,
   upsertBookingDraft,
@@ -275,6 +276,7 @@ export async function processInboundAIResponse(ctx: InboundContext): Promise<str
   ) {
     const waitlistClaim = await acceptWaitlistOffer(tenantId, contactId);
     if (waitlistClaim) {
+      await emitWebhookEvent(tenantId, 'booking.confirmed', { reservationId: waitlistClaim.reservationId, contactId }).catch(() => undefined);
       return `✅ Your waitlist table is claimed. We’ve reserved it for you — please arrive as soon as you can.`;
     }
 
