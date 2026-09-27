@@ -9,8 +9,8 @@ import 'material-symbols/outlined.css';
 import { ThemeModeProvider } from '@/components/theme-mode';
 
 export const metadata: Metadata = {
-  title: 'Orderly — Restaurant Revenue Intelligence OS',
-  description: 'Orderly finds restaurant revenue and margin leakage, explains the evidence, enables approved action and measures what changed. Flavourly powers menu discovery and basket intelligence inside Orderly.',
+  title: 'Flavourly — Restaurant Revenue Intelligence OS',
+  description: 'Flavourly finds restaurant revenue and margin leakage, explains the evidence, enables approved action and measures what changed. Flavourly combines revenue intelligence, menu discovery and basket intelligence in one restaurant system.',
   icons: [
     { rel: 'icon', url: '/icon.svg', type: 'image/svg+xml' },
     { rel: 'apple-touch-icon', url: '/logo-mark.png' },
@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'Orderly — Restaurant Revenue Intelligence OS',
+    title: 'Flavourly — Restaurant Revenue Intelligence OS',
     description: 'Full tables. Even on Tuesdays.',
     images: ['/logo.png'],
   },
