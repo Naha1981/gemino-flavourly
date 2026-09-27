@@ -31,6 +31,7 @@ import {
 import { buildConfirmationReply } from '@/lib/revenue/reminder-ladder';
 import { consumeAiRequest } from '@/lib/billing/ai-budget';
 import { acceptWaitlistOffer } from '@/lib/revenue/waitlist-auto-offer';
+import { retrieveKnowledge } from '@/lib/knowledge/store';
 import {
   getActiveBookingDraft,
   upsertBookingDraft,
@@ -379,15 +380,22 @@ Reply CONFIRM to book it, or send a change such as “tomorrow at 20:00 for 2”
     const groqKey = process.env.GROQ_API_KEY;
     const geminiKey = process.env.GOOGLE_GEMINI_API_KEY;
 
-    const basePrompt = tenant.systemPrompt || `You are the ${tenant.aiPersonality || 'warm, friendly, and hospitable'} WhatsApp Concierge for ${tenant.name}.
+    const knowledge = await retrieveKnowledge(tenantId, text, 5).catch(() => []);
+  const knowledgeContext = knowledge.length
+    ? "\nVerified restaurant knowledge:\n" + knowledge.map((item) => `[Source: ${item.name}] ${item.content}`).join("\n---\n")
+    : "";
+
+  const basePrompt = tenant.systemPrompt || `You are the ${tenant.aiPersonality || 'warm, friendly, and hospitable'} WhatsApp Concierge for ${tenant.name}.
 Business details: ${tenant.description || 'A premier restaurant and hospitality venue.'}
 Trading hours: ${tenant.openingHours || 'Monday - Sunday: 11:30 AM - 10:00 PM'}
 Customer Name: ${senderName}
 Customer Message: "${text}"
+${knowledgeContext}
 
 Guidelines:
 - Keep response concise (1-3 sentences) suited for mobile messaging.
 - Match the brand tone: ${tenant.aiPersonality || 'hospitable and professional'}.
+- Use verified restaurant knowledge when relevant. Never invent menu items, policies, prices or rules.
 - If asking about bookings, invite them to share date, time, and party size.
 - If asking for a human manager, inform them our floor manager has been alerted.`;
 
