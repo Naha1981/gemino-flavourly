@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   alternates: { canonical: '/' },
   openGraph: {
     title: 'Flavourly — The AI WhatsApp Employee for South African Restaurants',
-    description: 'Find revenue leakage. Prove the action. Measure the money recovered.'
+    description: 'Find revenue leakage. Prove the action. Measure the money recovered.',
     type: 'website',
     images: ['/logo.png'],
   },
