@@ -1,6 +1,6 @@
-# Orderly / Flavourly — Restaurant Revenue Intelligence OS
+# Flavourly — Restaurant Revenue Intelligence OS
 
-Orderly is the tenant-aware Restaurant Revenue Intelligence OS. Flavourly is the menu discovery and basket-growth engine inside Orderly. It handles restaurant conversations, AI, customer intelligence, campaigns, loyalty, reputation, analytics, billing and operational workflows. WhatsApp transport is provided by the shared **NahaLabs Central WhatsApp Operator**.
+Flavourly is the tenant-aware Restaurant Revenue Intelligence OS. It handles restaurant conversations, AI, customer intelligence, campaigns, loyalty, reputation, analytics, billing and operational workflows. WhatsApp transport is provided by the shared **NahaLabs Central WhatsApp Operator**.
 
 
 ## Product architecture
