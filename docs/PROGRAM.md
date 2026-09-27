@@ -13,7 +13,7 @@ Every skill from the NahaLabs governance pack lands in ONE named home — a buil
 | 5 | Discovery skills (Figranium, Awesome-Selfhosted, OpenAlternative, Free-AI-APIs, API Arsenal) | `docs/skills/*.md` reference prompts + `docs/API_REGISTRY.md` | DOC-1 | doc | ✅ DONE |
 | 6 | Enterprise/Strategy playbook | `docs/ENTERPRISE_PLAYBOOK.md` | DOC-1 | doc | ✅ DONE |
 | 7 | OSS-first + Integration-SDK policy | ADR-020 (exclude n8n/Zapier/Make/Trigger.dev), ADR-021 (Activepieces deferred, review trigger: 3+ client integrations) | DOC-1 | ADR | ✅ DONE |
-| 8 | **Loyalty + GPS redemption** (Orderly) | Build: `reward_events`, `/geo-claim/[token]`, Haversine ≤500m, JOIN/REDEEM, complete-visit | **O1** | build | ✅ DONE (2026-08-31, migration 0021) |
+| 8 | **Loyalty + GPS redemption** (Flavourly) | Build: `reward_events`, `/geo-claim/[token]`, Haversine ≤500m, JOIN/REDEEM, complete-visit | **O1** | build | ✅ DONE (2026-08-31, migration 0021) |
 | 9 | Booking drafts + 48/24/6h reminders + waitlist offers | Reminders ladder + CONFIRM flow + 30-minute booking drafts + cancellation-to-waitlist auto-offer | O2 | build | ✅ DONE (2026-09-27) |
 | 10 | Win-back ladder + review split-routing + quiet hours + AI budget guard | Win-back, review split-routing, quiet hours and per-tenant AI budget guard | O3 | build | ✅ DONE (2026-09-27) |
 | 11 | Staff roles + Menu Manager (86) + public hub `/r/[slug]` | Public hub, staff floor UI, server-enforced roles, invites and Menu Manager | O4 | build | ✅ DONE (2026-09-27) |

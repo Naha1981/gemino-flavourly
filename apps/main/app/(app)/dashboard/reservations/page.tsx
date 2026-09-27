@@ -36,6 +36,6 @@ export default async function ReservationsPage(){
    {rows.length===0&&<div className="p-8 text-center text-sm text-app-muted">No reservations yet. Customers will appear here as WhatsApp bookings are created.</div>}
   </div>
   <p className="text-xs text-app-muted">Staff quick actions are available from the API-backed reservation view; the next debug pass can add inline buttons without changing the underlying control model.</p>
-  <Link href="/dashboard/intelligence" className="text-sm text-app-secondary">Back to Orderly Intelligence →</Link>
+  <Link href="/dashboard/intelligence" className="text-sm text-app-secondary">Back to Flavourly Intelligence →</Link>
  </div>;
 }

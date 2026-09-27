@@ -78,7 +78,7 @@ export default function RestaurantAuditPage() {
     <div className="min-h-screen bg-[#f7f5f0] text-[#1b1914]">
       <header className="border-b border-black/5 bg-white/75 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-5 py-4 sm:px-8">
-          <Link href="/" className="text-sm font-semibold tracking-tight">Orderly</Link>
+          <Link href="/" className="text-sm font-semibold tracking-tight">Flavourly</Link>
           <div className="flex items-center gap-2">
             <Link href="/sign-in" className="rounded-full px-4 py-2 text-sm font-medium text-black/55 hover:text-black">Sign in</Link>
             <Link href="/sign-up" className="rounded-full bg-[#151515] px-4 py-2.5 text-sm font-semibold text-white">Create workspace</Link>
@@ -91,9 +91,9 @@ export default function RestaurantAuditPage() {
           <section className="mx-auto max-w-6xl px-5 pb-20 pt-16 sm:px-8 sm:pt-24">
             <div className="grid items-center gap-12 lg:grid-cols-[0.95fr_1.05fr]">
               <div>
-                <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs font-semibold text-black/55 shadow-sm"><Radar className="h-3.5 w-3.5" />Orderly Revenue Diagnostic</div>
+                <div className="inline-flex items-center gap-2 rounded-full border border-black/10 bg-white px-3 py-1.5 text-xs font-semibold text-black/55 shadow-sm"><Radar className="h-3.5 w-3.5" />Flavourly Revenue Diagnostic</div>
                 <h1 className="mt-6 max-w-2xl text-5xl font-semibold tracking-[-0.06em] sm:text-6xl">Find the leaks your restaurant can actually see.</h1>
-                <p className="mt-6 max-w-xl text-lg leading-8 text-black/55">Give Orderly your restaurant website. We&apos;ll inspect the visible menu, brand signals and customer-facing information and show you the highest-priority issues worth investigating.</p>
+                <p className="mt-6 max-w-xl text-lg leading-8 text-black/55">Give Flavourly your restaurant website. We&apos;ll inspect the visible menu, brand signals and customer-facing information and show you the highest-priority issues worth investigating.</p>
                 <form onSubmit={runAudit} className="mt-8">
                   <div className="rounded-2xl border border-black/10 bg-white p-2 shadow-xl shadow-black/5">
                     <div className="flex flex-col gap-2 sm:flex-row">
@@ -157,8 +157,8 @@ export default function RestaurantAuditPage() {
                 </ul></div>
               </aside>
             </div>
-            <div className="mt-10 rounded-[28px] bg-[#151515] p-7 text-white sm:p-9"><div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">Next layer</p><h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">Turn this snapshot into a revenue workspace.</h2><p className="mt-3 max-w-2xl text-sm leading-6 text-white/55">Connect reviews, competitors, enquiries and verified revenue so Orderly can move from visible leakage candidates to tracked opportunities and measurable interventions.</p></div><Link href="/sign-up" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black">Create workspace <ArrowRight className="h-4 w-4" /></Link></div></div>
-            <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><div className="flex items-start gap-3"><TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" /><p>Orderly is intentionally evidence-first. A website scan cannot prove revenue loss, customer intent or causation by itself.</p></div></div>
+            <div className="mt-10 rounded-[28px] bg-[#151515] p-7 text-white sm:p-9"><div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between"><div><p className="text-xs font-bold uppercase tracking-[0.2em] text-white/35">Next layer</p><h2 className="mt-2 text-3xl font-semibold tracking-[-0.04em]">Turn this snapshot into a revenue workspace.</h2><p className="mt-3 max-w-2xl text-sm leading-6 text-white/55">Connect reviews, competitors, enquiries and verified revenue so Flavourly can move from visible leakage candidates to tracked opportunities and measurable interventions.</p></div><Link href="/sign-up" className="inline-flex shrink-0 items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-black">Create workspace <ArrowRight className="h-4 w-4" /></Link></div></div>
+            <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"><div className="flex items-start gap-3"><TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" /><p>Flavourly is intentionally evidence-first. A website scan cannot prove revenue loss, customer intent or causation by itself.</p></div></div>
           </section>
         )}
       </main>

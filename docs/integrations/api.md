@@ -1,4 +1,4 @@
-# Orderly REST API
+# Flavourly REST API
 
 ## Status
 Implemented in \`/api/v1\`.

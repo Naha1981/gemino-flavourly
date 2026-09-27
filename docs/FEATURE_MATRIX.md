@@ -1,6 +1,6 @@
 # Flavourly Feature Matrix — status + evidence
 
-Legend: ✓ built · ◐ partial · ✗ not built. Evidence pointers are file paths (tests are the strongest evidence). Status updated 27 September 2026 during Orderly completion sweep. Update this file at every gate.
+Legend: ✓ built · ◐ partial · ✗ not built. Evidence pointers are file paths (tests are the strongest evidence). Status updated 27 September 2026 during Flavourly completion sweep. Update this file at every gate.
 
 | # | Feature | Status | Evidence |
 |---|---|---|---|

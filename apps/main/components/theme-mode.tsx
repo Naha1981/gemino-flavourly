@@ -103,7 +103,7 @@ export function LogoChip({ src = '/logo.png', alt = 'Flavourly', className = 'h-
     <span className="inline-flex items-center rounded-xl bg-white/95 px-2.5 py-1.5 shadow-sm ring-1 ring-black/[0.04] dark:bg-zinc-800/90 dark:ring-white/10">
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={src} alt={alt} className={`${className} w-auto scale-[1.12]`} />
-      <span className="border-l border-black/10 pl-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45 dark:border-white/10 dark:text-zinc-400">Orderly</span>
+      <span className="border-l border-black/10 pl-2 text-[10px] font-semibold uppercase tracking-[0.14em] text-black/45 dark:border-white/10 dark:text-zinc-400" >Flavourly</span>
     </span>
   );
 }
