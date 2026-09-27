@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { authenticatePublicApi } from '@/lib/api/public-api';
 import { db } from '@/lib/db';
-import { contacts, reservations } from '@/lib/db/schema';
+import { contacts, reservations, tenants } from '@/lib/db/schema';
 import { and, eq, desc } from 'drizzle-orm';
 
 export const dynamic = 'force-dynamic';
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
     const name = body?.params?.name;
     const args = body?.params?.arguments ?? {};
     if (name === 'restaurant.get') {
-      const [tenant] = await db.select({ id: (await import('@/lib/db/schema')).tenants.id, name: (await import('@/lib/db/schema')).tenants.name, slug: (await import('@/lib/db/schema')).tenants.slug }).from((await import('@/lib/db/schema')).tenants).where(eq((await import('@/lib/db/schema')).tenants.id, ctx.tenantId)).limit(1);
+      const [tenant] = await db.select({ id: tenants.id, name: tenants.name, slug: tenants.slug }).from(tenants).where(eq(tenants.id, ctx.tenantId)).limit(1);
       return NextResponse.json({ jsonrpc: '2.0', id, result: { content: [{ type: 'text', text: JSON.stringify(tenant) }] } });
     }
     if (name === 'contacts.list') {
