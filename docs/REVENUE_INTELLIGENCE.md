@@ -1,6 +1,6 @@
-# Flavourly Restaurant Revenue Intelligence
+# Orderly Restaurant Revenue Intelligence OS
 
-This slice starts the unified Restaurant Revenue Intelligence OS on top of the existing Flavourly platform.
+This slice establishes Orderly as the Restaurant Revenue Intelligence OS on top of the existing Flavourly platform. Flavourly remains a product module focused on menu discovery and basket growth.
 
 ## Implemented
 
@@ -20,6 +20,12 @@ A website scan does not prove revenue loss, customer intent, conversion rate or 
 ## Next layers
 
 Menu optimisation → verified food assets → approvals → activation → Lead Machine attribution → measured experiments → revenue learning.
+
+## Product boundary
+
+`Orderly` is the parent product and commercial promise. `Flavourly` is a bounded capability inside it; it must reuse the same restaurant, menu, customer, order, evidence and attribution primitives.
+
+No second Orderly application or duplicated infrastructure should be introduced.
 
 ## Architecture
 
