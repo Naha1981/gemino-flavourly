@@ -117,7 +117,7 @@ export const waAuthKeys = pgTable(
 export const waAccountBindings = pgTable('wa_account_bindings', {
   id: uuid('id').primaryKey().defaultRandom(),
   waAccountId: uuid('wa_account_id').notNull(),
-  appId: text('app_id').notNull(), // 'gemino' | 'flavourly' | 'orderly' | 'custom'
+  appId: text('app_id').notNull(), // 'gemino' | 'flavourly' | 'custom'
   tenantId: uuid('tenant_id').notNull(),
   webhookUrl: text('webhook_url').notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
