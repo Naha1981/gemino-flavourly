@@ -1,4 +1,4 @@
-# UX-1 Completion — Orderly / Flavourly
+# UX-1 Completion — Flavourly
 
 Status: engineering completion sweep.
 
