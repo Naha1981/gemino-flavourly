@@ -1,6 +1,6 @@
-# Orderly Restaurant Revenue Intelligence OS
+# Flavourly Restaurant Revenue Intelligence OS
 
-This slice establishes Orderly as the Restaurant Revenue Intelligence OS on top of the existing Flavourly platform. Flavourly remains a product module focused on menu discovery and basket growth.
+This slice establishes Flavourly as the Restaurant Revenue Intelligence OS, combining revenue intelligence, menu intelligence and basket growth on one platform.
 
 ## Implemented
 
