@@ -40,7 +40,7 @@ const sundayAt18 = schedule([0], [18], [0]);
 const fleet = {
   $schema: './cron-fleet.schema.md',
   version: 1,
-  description: 'Canonical Flavourly cron fleet (S5). 24 jobs + hourly system watchdog. Read by lib/cron/canonical-fleet.ts (fs), scripts/setup-cronjobs.mjs, and GET /api/admin/sync-crons.',
+  description: 'Canonical Flavourly cron fleet (S5). 27 jobs + hourly system watchdog. Read by lib/cron/canonical-fleet.ts (fs), scripts/setup-cronjobs.mjs, and GET /api/admin/sync-crons.',
   baseUrl: 'https://gemino-flavourly-whatsapp.vercel.app',
   operatorUrl: 'https://my-own-whatsapp-2z5h.onrender.com',
   timezone,
@@ -69,6 +69,9 @@ const fleet = {
     cron('booking-reminders', 'Booking Reminder Ladder (48/24/6h)', '{baseUrl}/api/cron/booking-reminders', every15),
     cron('campaign-attribution', 'Campaign Attribution Reconciliation', '{baseUrl}/api/cron/campaign-attribution', fourTimesDaily),
     cron('qa-sweep', 'QA Smoke Sweep (self-test + Render keep-alive)', '{baseUrl}/api/cron/qa-sweep', every10),
+    cron('booking-drafts', 'Booking Draft Expiry', '{baseUrl}/api/cron/booking-drafts', every15),
+    cron('webhooks', 'Outbound Webhook Delivery', '{baseUrl}/api/cron/webhooks', every5),
+    cron('owner-brief', 'Owner Email Brief', '{baseUrl}/api/cron/owner-brief', at7),
   ],
   watchdog: cron('system-watchdog', 'System Watchdog', '{baseUrl}/api/cron/system-watchdog', hourly),
 };
