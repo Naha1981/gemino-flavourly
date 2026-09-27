@@ -20,6 +20,8 @@ const SIDEBAR_LINKS: NavItem[] = [
   { href: '/dashboard', label: 'Overview', symbol: 'home' },
   { href: '/dashboard/inbox', label: 'Inbox', symbol: 'forum' },
   { href: '/dashboard/customers', label: 'Customers', symbol: 'group' },
+  { href: '/dashboard/menu', label: 'Menu', symbol: 'restaurant_menu' },
+  { href: '/dashboard/staff', label: 'Staff', symbol: 'badge' },
   { href: '/dashboard/customers/vip-today', label: 'VIP Today', symbol: 'star' },
   { href: '/dashboard/reputation', label: 'Reputation', symbol: 'trending_up' },
   { href: '/dashboard/market/competitors', label: 'Market Intelligence', symbol: 'storefront' },
